@@ -1,0 +1,66 @@
+# Trading Intelligence
+
+FastAPI backend (`services/api`) and a Chrome extension (`apps/extension`) in a pnpm workspace.
+
+Dependency versions are locked in `services/api/uv.lock` and `pnpm-lock.yaml`. Those two files
+are the source of truth — do not change versions to match a different machine. See
+`trading_intelligence_environment_version_lock.pdf` for the full handoff rules.
+
+## Prerequisites
+
+- Python 3.12 (the project rejects 3.13+ via `requires-python`)
+- [uv](https://docs.astral.sh/uv/) — the backend package manager, not pip
+- Node.js and pnpm 11.22.0 (via corepack)
+- Docker with the `compose` plugin, for PostgreSQL 17
+
+## Database
+
+```sh
+docker compose up -d
+docker ps          # expect container trading-postgres on port 5432
+```
+
+## Backend
+
+```sh
+cd services/api
+cp .env.example .env
+uv sync
+uv run alembic upgrade head
+uv run uvicorn app.main:app --reload --port 8000
+```
+
+`.env` is required — `DATABASE_URL` has no default, so the app and Alembic both fail fast
+without it. Check it worked:
+
+```sh
+curl localhost:8000/health              # {"status":"ok",...}
+curl localhost:8000/api/v1/health/db    # {"status":"ok","database":"ok"} — proves Postgres is reachable
+```
+
+Routers are mounted under `/api/v1`; the bare `/health` above is a separate
+liveness check declared directly on the app.
+
+## Extension
+
+```sh
+cd apps/extension
+pnpm install
+pnpm build
+```
+
+Then load `apps/extension/dist` in `chrome://extensions` with Developer mode on
+("Load unpacked"). `pnpm dev` runs the popup as a plain web page for faster iteration.
+
+## Contributing
+
+Work on a feature branch and open a PR — never push directly to `main`.
+
+```sh
+git checkout -b feat/your-change
+git commit -m "feat: your change"
+git push -u origin feat/your-change
+```
+
+Dependency changes are their own PR, with the lockfile diff reviewed. Never commit `.env`,
+credentials, or API keys.
