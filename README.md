@@ -49,8 +49,14 @@ pnpm install
 pnpm build
 ```
 
-Then load `apps/extension/dist` in `chrome://extensions` with Developer mode on
-("Load unpacked"). `pnpm dev` runs the popup as a plain web page for faster iteration.
+The same `dist` loads in both browsers:
+
+- **Chrome** — `chrome://extensions`, Developer mode on, "Load unpacked", pick `dist`.
+- **Firefox** — `about:debugging#/runtime/this-firefox`, "Load Temporary Add-on…", pick
+  `dist/manifest.json`. Firefox MV3 treats `host_permissions` as opt-in, so if Analyze fails
+  with a network error, grant the localhost permission from the add-on's permissions panel.
+
+`pnpm dev` runs the popup as a plain web page for faster iteration.
 
 To use it: highlight text on any page, then open the popup and click **Analyze**. The popup
 reads the selection via `activeTab` at the moment you open it — there is no content script and

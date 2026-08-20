@@ -9,12 +9,13 @@ app = FastAPI(
     version="0.1.0",
 )
 
-# The extension's popup sends Origin: chrome-extension://<32-char id>, which
-# changes every time the unpacked build is reloaded, so it has to be a pattern.
+# The popup's Origin changes every time the unpacked build is reloaded — a
+# 32-char id on Chrome, a UUID on Firefox — so it has to be a pattern.
 app.add_middleware(
     CORSMiddleware,
     allow_origin_regex=(
         r"^(chrome-extension://[a-p]{32}"
+        r"|moz-extension://[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}"
         r"|http://localhost:\d+"
         r"|http://127\.0\.0\.1:\d+)$"
     ),

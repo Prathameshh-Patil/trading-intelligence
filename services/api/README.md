@@ -74,10 +74,18 @@ keep returning the same four keys.
 
 ## CORS
 
-`app/main.py` allows `chrome-extension://<32-char id>`, `http://localhost:<port>` and
-`http://127.0.0.1:<port>` via regex — the unpacked extension's id changes on every reload,
-so a fixed origin list would break. Methods `GET`/`POST`, header `Content-Type`. Credentials
-are not allowed; the API has no cookie auth.
+`app/main.py` allows these origins via regex — the unpacked extension's id changes on every
+reload, so a fixed origin list would break:
+
+| Origin | Who sends it |
+| :--- | :--- |
+| `chrome-extension://<32 lowercase a–p chars>` | the popup on Chrome |
+| `moz-extension://<uuid>` | the popup on Firefox |
+| `http://localhost:<port>`, `http://127.0.0.1:<port>` | `apps/web`, and `vite preview` of the popup |
+
+Methods `GET`/`POST`, header `Content-Type`. Credentials are not allowed; the API has no
+cookie auth. Anything else is refused at preflight with a `400`, including a malformed
+`moz-extension://` UUID.
 
 ## Tests
 
@@ -89,4 +97,5 @@ uv run mypy app
 ```
 
 `tests/test_api.py` covers the contract at the HTTP boundary: both health checks, the three
-sentiment outcomes, negation, response shape, the validation rejections and CORS.
+sentiment outcomes, negation, response shape, the validation rejections, and CORS for the
+Chrome, Firefox and localhost origins plus a foreign one that must be refused. 15 tests.

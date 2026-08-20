@@ -1,5 +1,6 @@
 """HTTP-boundary tests. Requires services/api/.env; the DB test needs Postgres up."""
 
+import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
@@ -67,11 +68,29 @@ def test_missing_text_rejected():
     assert client.post("/api/v1/analyze", json={"url": "https://example.com"}).status_code == 422
 
 
-def test_cors_allows_extension_origin():
-    origin = "chrome-extension://" + "a" * 32
+@pytest.mark.parametrize(
+    "origin",
+    [
+        "chrome-extension://" + "a" * 32,
+        "moz-extension://a1b2c3d4-1234-5678-9abc-def012345678",
+        "http://localhost:4173",
+    ],
+)
+def test_cors_allows_extension_origins(origin):
     r = client.post(
         "/api/v1/analyze",
         json={"text": "Shares surged."},
         headers={"Origin": origin},
     )
     assert r.headers["access-control-allow-origin"] == origin
+
+
+def test_cors_rejects_foreign_origin():
+    r = client.options(
+        "/api/v1/analyze",
+        headers={
+            "Origin": "https://evil.example.com",
+            "Access-Control-Request-Method": "POST",
+        },
+    )
+    assert "access-control-allow-origin" not in r.headers

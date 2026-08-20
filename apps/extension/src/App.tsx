@@ -16,6 +16,12 @@ type Selection = {
   title?: string
 }
 
+// Firefox exposes the promise-based API as `browser`; its `chrome` shim is
+// callback-based and would make every `await` below resolve to undefined.
+// Chrome only has `chrome`, and the two are shape-compatible for what we use.
+const g = globalThis as { browser?: typeof chrome; chrome?: typeof chrome }
+const ext = g.browser ?? g.chrome
+
 // Runs in the page, not here — it must not close over anything in this file.
 const readSelection = () => window.getSelection()?.toString().trim() ?? ''
 
@@ -26,21 +32,21 @@ function App() {
   const [busy, setBusy] = useState(false)
 
   useEffect(() => {
-    // `pnpm dev` serves the popup as a plain page, where chrome.* does not exist.
-    if (typeof chrome === 'undefined' || !chrome.scripting) {
+    // `pnpm dev` serves the popup as a plain page, where neither API exists.
+    if (!ext?.scripting) {
       return
     }
 
     // Opening the popup is the gesture that activates activeTab, so the page can
     // only be read from here — there is no standing permission on any site.
     const load = async () => {
-      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
+      const [tab] = await ext.tabs.query({ active: true, currentWindow: true })
 
       if (!tab?.id) {
         return
       }
 
-      const [injected] = await chrome.scripting.executeScript({
+      const [injected] = await ext.scripting.executeScript({
         target: { tabId: tab.id },
         func: readSelection,
       })
