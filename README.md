@@ -56,6 +56,10 @@ The same `dist` loads in both browsers:
   `dist/manifest.json`. Firefox MV3 treats `host_permissions` as opt-in, so if Analyze fails
   with a network error, grant the localhost permission from the add-on's permissions panel.
 
+The `browser_specific_settings.gecko.id` in the manifest is the add-on's permanent identity in
+Firefox. Do not regenerate it — changing it after release makes existing installs a different
+add-on rather than an update.
+
 `pnpm dev` runs the popup as a plain web page for faster iteration.
 
 To use it: highlight text on any page, then open the popup and click **Analyze**. The popup
