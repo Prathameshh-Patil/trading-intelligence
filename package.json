@@ -1,0 +1,5 @@
+{
+  "name": "trading-intelligence",
+  "private": true,
+  "packageManager": "pnpm@11.22.0"
+}
