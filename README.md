@@ -43,10 +43,11 @@ liveness check declared directly on the app.
 
 ## Extension
 
+`apps/extension/dist` is **committed**, so a fresh clone can load the extension straight away
+with no build step:
+
 ```sh
-cd apps/extension
-pnpm install
-pnpm build
+git clone … && cd trading-intelligence
 ```
 
 The same `dist` loads in both browsers:
@@ -60,7 +61,23 @@ The `browser_specific_settings.gecko.id` in the manifest is the add-on's permane
 Firefox. Do not regenerate it — changing it after release makes existing installs a different
 add-on rather than an update.
 
-`pnpm dev` runs the popup as a plain web page for faster iteration.
+### If you change anything under `apps/extension/src`
+
+Because `dist` is committed, it can go stale — the repo saying one thing while the loaded
+extension does another. Rebuild and commit it in the same commit as the source change:
+
+```sh
+cd apps/extension
+pnpm install          # first time only
+pnpm build
+git status            # dist/ should appear — commit it with your src change
+```
+
+Vite hashes the asset filenames, so a real source change always shows up in `git status` after
+a build. **A clean `git status` after `pnpm build` means `dist` is current**; a dirty one you
+did not expect means someone committed source without rebuilding.
+
+`pnpm dev` runs the popup as a plain web page for faster iteration, and does not touch `dist`.
 
 To use it: highlight text on any page, then open the popup and click **Analyze**. The popup
 reads the selection via `activeTab` at the moment you open it — there is no content script and

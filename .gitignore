@@ -11,6 +11,11 @@ __pycache__/
 node_modules/
 dist/
 
+# The extension's build output is committed on purpose, so the extension can be
+# loaded from a fresh clone without running a build first. Rebuild and commit it
+# with any change under apps/extension/src.
+!apps/extension/dist/
+
 .DS_Store
 
 *.log
