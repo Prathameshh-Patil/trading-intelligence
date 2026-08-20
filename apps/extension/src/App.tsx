@@ -82,7 +82,15 @@ function App() {
 
       setAnalysis(await response.json())
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not reach the API')
+      // fetch rejects with a TypeError when the API is unreachable, and its
+      // "Failed to fetch" message tells the user nothing they can act on.
+      setError(
+        e instanceof TypeError
+          ? 'Cannot reach the API. Is the backend running on localhost:8000?'
+          : e instanceof Error
+            ? e.message
+            : 'Analysis failed',
+      )
     } finally {
       setBusy(false)
     }
