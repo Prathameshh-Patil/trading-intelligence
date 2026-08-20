@@ -16,12 +16,8 @@ type Selection = {
   title?: string
 }
 
-// What the content script writes into chrome.storage.local.
-type Stored = {
-  selectedText?: string
-  selectedUrl?: string
-  selectedTitle?: string
-}
+// Runs in the page, not here — it must not close over anything in this file.
+const readSelection = () => window.getSelection()?.toString().trim() ?? ''
 
 function App() {
   const [selection, setSelection] = useState<Selection>({ text: '' })
@@ -31,22 +27,35 @@ function App() {
 
   useEffect(() => {
     // `pnpm dev` serves the popup as a plain page, where chrome.* does not exist.
-    if (typeof chrome === 'undefined' || !chrome.storage) {
+    if (typeof chrome === 'undefined' || !chrome.scripting) {
       return
     }
 
-    chrome.storage.local
-      .get(['selectedText', 'selectedUrl', 'selectedTitle'])
-      .then((stored) => {
-        // chrome.storage resolves to unknown values; the content script writes strings.
-        const { selectedText, selectedUrl, selectedTitle } = stored as Stored
+    // Opening the popup is the gesture that activates activeTab, so the page can
+    // only be read from here — there is no standing permission on any site.
+    const load = async () => {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
 
-        setSelection({
-          text: selectedText ?? '',
-          url: selectedUrl,
-          title: selectedTitle,
-        })
+      if (!tab?.id) {
+        return
+      }
+
+      const [injected] = await chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        func: readSelection,
       })
+
+      setSelection({
+        text: injected.result ?? '',
+        url: tab.url,
+        title: tab.title,
+      })
+    }
+
+    // Chrome refuses injection into chrome://, the Web Store and PDF viewers.
+    load().catch(() =>
+      setError('This page does not allow reading the selection.'),
+    )
   }, [])
 
   const analyze = async () => {

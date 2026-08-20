@@ -52,6 +52,12 @@ pnpm build
 Then load `apps/extension/dist` in `chrome://extensions` with Developer mode on
 ("Load unpacked"). `pnpm dev` runs the popup as a plain web page for faster iteration.
 
+To use it: highlight text on any page, then open the popup and click **Analyze**. The popup
+reads the selection via `activeTab` at the moment you open it — there is no content script and
+no standing permission on any site. It posts to `http://localhost:8000`, so the backend above
+must be running; Chrome blocks reading the selection on `chrome://` pages, the Web Store and
+the PDF viewer.
+
 ## Contributing
 
 Work on a feature branch and open a PR — never push directly to `main`.
