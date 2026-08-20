@@ -85,6 +85,16 @@ no standing permission on any site. It posts to `http://localhost:8000`, so the 
 must be running; Chrome blocks reading the selection on `chrome://` pages, the Web Store and
 the PDF viewer.
 
+## Project tracking
+
+| Folder | Answers |
+| :--- | :--- |
+| [`plans/`](plans/current.md) | What we are doing, who owns it, what is left |
+| [`daily_updates/`](daily_updates/) | What happened on a given day, and how it was verified |
+
+Any change to the repo updates both: `plans/current.md` moves the item's status, and the
+day's file in `daily_updates/` records what was done and what proves it.
+
 ## Contributing
 
 Work on a feature branch and open a PR — never push directly to `main`.
