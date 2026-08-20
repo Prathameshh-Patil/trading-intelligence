@@ -22,3 +22,15 @@ dev = [
     "pytest-asyncio>=1.4.0",
     "ruff>=0.16.3",
 ]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.ruff.lint.flake8-bugbear]
+# FastAPI's dependency injection is a call in an argument default by design.
+extend-immutable-calls = ["fastapi.Depends", "fastapi.Query", "fastapi.Path"]
+
+[tool.mypy]
+# Without this, mypy reads Settings() as missing its env-supplied arguments.
+plugins = ["pydantic.mypy"]
