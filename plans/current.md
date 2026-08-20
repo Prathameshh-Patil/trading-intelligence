@@ -9,6 +9,10 @@ Live tracker: who owns what, what is done, what is next. **Last updated: 2026-08
 | `plans/` | *What are we doing, who owns it, what is left* | Edited as work is picked up and finished |
 | `daily_updates/` | *What happened on a given day, and how it was verified* | One file per day, append-only once the day ends |
 
+Also in this folder: [`trading_intelligence_day1_plan.md`](trading_intelligence_day1_plan.md),
+the original Day 1 plan. Kept as written — it is the brief the work was measured against, so
+it is a historical record, not a living document. This file supersedes it for current state.
+
 **The rule:** any change to the repo updates both. `plans/current.md` moves the item's status;
 `daily_updates/YYYY-MM-DD.md` records what was actually done and what proves it. This applies
 to Claude as much as to either of us — nothing ships without both being current.
