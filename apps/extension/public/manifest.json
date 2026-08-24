@@ -6,7 +6,7 @@
   "minimum_chrome_version": "114",
   "permissions": [
     "activeTab",
-    "tabs",
+    "scripting",
     "storage",
     "sidePanel"
   ],
@@ -36,17 +36,6 @@
     "service_worker": "background.js",
     "type": "module"
   },
-  "content_scripts": [
-    {
-      "matches": [
-        "<all_urls>"
-      ],
-      "js": [
-        "content.js"
-      ],
-      "run_at": "document_idle"
-    }
-  ],
   "browser_specific_settings": {
     "gecko": {
       "id": "{08df3b0c-6f2b-4eb3-a14b-e581e579d9e6}",

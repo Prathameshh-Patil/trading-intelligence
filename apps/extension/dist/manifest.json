@@ -2,10 +2,13 @@
   "manifest_version": 3,
   "name": "Trading Intelligence",
   "version": "0.1.0",
-  "description": "AI-assisted market analysis and decision support.",
+  "description": "AI-assisted market analysis, trade rules, and journalling.",
+  "minimum_chrome_version": "114",
   "permissions": [
     "activeTab",
-    "scripting"
+    "scripting",
+    "storage",
+    "sidePanel"
   ],
   "host_permissions": [
     "http://127.0.0.1:8000/*",
@@ -19,13 +22,19 @@
   },
   "action": {
     "default_title": "Trading Intelligence",
-    "default_popup": "index.html",
     "default_icon": {
       "16": "icons/icon-16.png",
       "32": "icons/icon-32.png",
       "48": "icons/icon-48.png",
       "128": "icons/icon-128.png"
     }
+  },
+  "side_panel": {
+    "default_path": "index.html"
+  },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
   },
   "browser_specific_settings": {
     "gecko": {

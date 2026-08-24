@@ -4,9 +4,21 @@ import type { Capture } from "./types";
 const DEMO_TEXT =
   "Nvidia beat consensus on both revenue and guidance, with data-centre growth accelerating for a third straight quarter. Management raised the full-year outlook, citing record backlog and strong hyperscaler demand.";
 
+// Runs inside the captured page via chrome.scripting, not here — it must not
+// close over anything in this file. See the note on activeTab below.
+const readSelection = (): string =>
+  window.getSelection()?.toString().trim() ?? "";
+
 /**
  * Capture what the user is currently looking at: a screenshot of the visible
  * tab plus any text they have highlighted.
+ *
+ * This reads the selection via activeTab + chrome.scripting, injected only
+ * at the moment the user clicks "Capture screen" in the side panel — that
+ * click is the qualifying user gesture that activates activeTab. There is no
+ * content script and no standing permission on any site (see 8cd4790, which
+ * made the same call for the popup and is the reason this isn't a persistent
+ * content_scripts entry reading every page you visit).
  *
  * Outside the extension (dev server / hosted preview) this returns a synthetic
  * chart and sample headline so the flow stays explorable.
@@ -22,11 +34,22 @@ export async function captureScreen(): Promise<Capture> {
     };
   }
 
-  const stored = await chrome.storage.local.get([
-    "selectedText",
-    "selectedUrl",
-    "selectedTitle",
-  ]);
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+
+  let text = "";
+
+  if (tab?.id) {
+    try {
+      const [injected] = await chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        func: readSelection,
+      });
+      text = injected.result ?? "";
+    } catch {
+      // Chrome refuses injection into chrome://, the Web Store and the PDF
+      // viewer. Not fatal — the screenshot path below still works.
+    }
+  }
 
   let screenshot: string | undefined;
 
@@ -38,28 +61,11 @@ export async function captureScreen(): Promise<Capture> {
     screenshot = undefined;
   }
 
-  let url = stored.selectedUrl as string | undefined;
-  let title = stored.selectedTitle as string | undefined;
-
-  if (!url) {
-    try {
-      const [tab] = await chrome.tabs.query({
-        active: true,
-        currentWindow: true,
-      });
-
-      url = tab?.url;
-      title = tab?.title;
-    } catch {
-      // Ignore — url/title are decorative here.
-    }
-  }
-
   return {
-    text: (stored.selectedText as string | undefined) ?? "",
+    text,
     screenshot,
-    url,
-    title,
+    url: tab?.url,
+    title: tab?.title,
     capturedAt: Date.now(),
   };
 }

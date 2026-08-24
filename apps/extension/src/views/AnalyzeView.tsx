@@ -52,8 +52,23 @@ export default function AnalyzeView({ violations, onNavigate }: Props) {
     setPhase("analyzing");
     setDegraded(null);
 
+    const text = capture.text?.trim() ?? "";
+
+    if (!text) {
+      // The backend requires non-empty text (min_length=1) and a
+      // screenshot-only capture has none — sending it anyway would just
+      // earn a guaranteed 422 that then gets misread as "service down".
+      // Go straight to the local heuristic instead.
+      setResult(offlineAnalysis(""));
+      setDegraded(
+        "No text was captured — screenshot-only reads use the local heuristic",
+      );
+      setPhase("done");
+      return;
+    }
+
     const payload = {
-      text: capture.text,
+      text,
       screenshot: capture.screenshot,
       url: capture.url,
       title: capture.title,
@@ -63,8 +78,10 @@ export default function AnalyzeView({ violations, onNavigate }: Props) {
       setResult(await analyze(payload));
     } catch (err) {
       // Keep the flow usable when the service is down — label it clearly
-      // rather than presenting a heuristic as a model result.
-      setResult(offlineAnalysis(capture.text ?? ""));
+      // rather than presenting a heuristic as a model result. ApiError's
+      // own message already distinguishes "unreachable" from "returned
+      // <status>", so surface that instead of a hardcoded guess.
+      setResult(offlineAnalysis(text));
       setDegraded(
         err instanceof ApiError
           ? err.message

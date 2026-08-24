@@ -19,3 +19,5 @@ dist/
 .DS_Store
 
 *.log
+# Scaffold/legacy files staged for manual removal — never intentional content.
+_to_delete/
