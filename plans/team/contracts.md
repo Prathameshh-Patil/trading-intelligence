@@ -34,7 +34,7 @@ timestamp        datetime64[ns, UTC]   exchange timestamp, not receipt time
 price            float64
 size             int64
 aggressor_side   category  'B' | 'A'   B = buyer lifted the ask, A = seller hit the bid
-symbol           string                'GCZ6', 'NQZ6' — resolved contract, not the parent
+symbol           string                'GCQ6', 'GCZ6' — resolved contract, not the parent
 instrument_id    int64
 ```
 
@@ -193,13 +193,17 @@ The narrowest seam in the project, and it is narrow **on purpose**.
 
 ```ts
 export type CaptureContext = {
-  symbol: string          // 'GC' | 'NQ' | free text if unrecognised
+  symbol: string          // 'GC' | free text if unrecognised — see below
   timeframe: string       // '1m' | '5m' | '15m' | ...
   levels: number[]        // price levels the trader has drawn
   confidence: number      // 0-100, how sure the extraction is
   capturedAt: number
 }
 ```
+
+`symbol` stays a free string rather than a `'GC'` literal on purpose: capture reads whatever chart
+the trader has open, which is frequently **not** something we have a feed for. The unrecognised case
+is a real state the UI must render honestly (Week 3 Thursday), not an error.
 
 **Capture produces context. Capture never produces a number that appears in a signal.** Not delta,
 not CVD, not volume, not an outlier. It is information-theoretically impossible — a rendered candle

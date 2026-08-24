@@ -95,4 +95,5 @@ ships today, what's blocking. Friday 16:00 is the go/no-go against that week's g
 - **Bring-your-own-feed.** The user connects their own CME entitlement; the overlay computes delta
   on their machine; no market data ever touches our servers. This deletes a $1,750/mo distribution
   licence and a five-figure CME derived-data licence. It also narrows the launch audience to
-  futures traders on GC and NQ. That trade is deliberate.
+  futures traders on GC. That trade is deliberate. **NQ was dropped on 25 Aug** — never pulled, and
+  one instrument means one set of thresholds and one reference session to validate.

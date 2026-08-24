@@ -15,9 +15,12 @@ Three working days. Weekend is buffer, not schedule. If Friday is clean, don't w
 > delta↔return correlation that would read −0.50 if the sign were flipped. Items #6 and most of A1
 > are **done**, well beyond the bar this file set for them.
 >
-> Three things that changed as a result, all of them below: **NQ was never pulled** (~$11.42
-> unspent), **reference-chart validation is blocked on tooling** and is the open hard gate, and
-> **an API key needs rotating.**
+> Two things changed as a result, both below: **reference-chart validation is blocked on tooling**
+> and is the open hard gate, and **an API key needs rotating.**
+>
+> **NQ is dropped** (25 Aug). It was never pulled, ~$11.42 unspent, and it stays unspent. **GC is
+> the launch instrument** — decided now rather than deferred to Week 1 Friday, because only GC has
+> data and pretending otherwise would make Friday's "decision" theatre.
 
 ---
 
@@ -35,7 +38,7 @@ $20–50/mo"*, which is a hosted API, and under bring-your-own-feed the model ne
 the architecture has now deleted, and it cannot back a deployed API anyway. **Recommendation: add
 $5 Anthropic credit and stop deferring this.** ~3,000 analyses, zero code change, and the change is
 already verified end to end except for this. Then: `pull_futures_trades.py --estimate-only` for one
-month of GC and NQ. *(closes #1's decision half, and #4's secrets half)*
+month of GC. *(closes #1's decision half, and #4's secrets half)*
 
 **V — first, before anything else: rotate the Anthropic key.** `DELTA_CVD_FINDINGS.md` §5 reports a
 real key was sitting in the git-tracked `.env.example` — uncommitted, confirmed absent from all
@@ -77,9 +80,9 @@ the repo and it will save you a day. Then three real jobs:
    in the next twelve weeks.**
 2. **Solve the reference-validation blocker** — see the box below. It is Week 1 Tuesday's whole
    task and it currently has no working path on your hardware.
-3. **Decide NQ.** It was never pulled, ~$11.42 unspent. Week 1 Friday picks one launch instrument
-   and only GC has data, so either spend the $11 now and decide on evidence, or accept that Friday's
-   "GC or NQ" decision is really "GC, because that's what we have." **Both are fine; pick knowingly.**
+3. ~~Decide NQ~~ — **dropped.** GC is the launch instrument. One instrument, one set of thresholds,
+   one reference session to validate. Everything downstream gets simpler and the ~$11.42 stays
+   unspent.
 
 **S** — **Own the reference-chart problem** (see the box below) — it is a tooling and access
 question, not an engineering one, which makes it yours. Then draft the vendor licensing email. One precise question, identically worded to Databento,
@@ -177,7 +180,6 @@ nothing). Nothing to do; noting it so nobody goes looking.
 ## Entering Week 1 you must have
 
 - [x] **A month of GC ticks on disk with a verified aggressor split** — done 24 Aug, `8aece67`
-- [ ] NQ decided: pulled for ~$11, or Friday's instrument choice acknowledged as "GC, by default"
 - [ ] `data/fixtures/gc_ticks_1session.parquet` committed (2026-07-16 GCQ6), with a `.gitignore` exception
 - [ ] A reference-chart path chosen, and option 1 actually run
 - [ ] **The Anthropic key rotated** — it was in a chat transcript

@@ -24,7 +24,7 @@ be a convincing one, told by someone with every reason to believe it.
 # Week 1 edge test — threshold, committed before results
 Date: 2026-09-03
 Committed at: <time>
-Instrument: <GC or NQ>
+Instrument: GC   (NQ dropped 25 Aug — GC is the launch instrument)
 Data: one month, <start> to <end>
 
 ## The rule I am testing

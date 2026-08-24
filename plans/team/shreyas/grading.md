@@ -114,7 +114,7 @@ grade what it flags.
 | Field | Notes |
 | :--- | :--- |
 | Timestamp | **Exchange time**, so an engineer can find the ticks |
-| Instrument | GC or NQ |
+| Instrument | GC — the only instrument we run |
 | What it flagged | `absorption` / `trapped` / `cluster`, and the price |
 | Your verdict | **agree · disagree · unsure** |
 | Why | One sentence. **This is the field engineers actually use** |

@@ -86,8 +86,10 @@ On Mac, walk the Screen Recording permission prompt and write down every click, 
 write that into onboarding docs in Week 5 and you will not remember it then.
 
 **V** — *(Started Monday, since the CVD spike was already done.)* Finish the outlier detection from
-`strategy.md`: ≥60 on NQ, ≥200 on ES, scaled appropriately for GC — and write down *how* you scaled
-for GC, because that number is going to be argued about in Week 4. Output for one session: a
+`strategy.md`, **for GC only** — NQ is dropped, so the ≥60 NQ and ≥200 ES figures in that document
+are now the *derivation source* you scale from, not thresholds you implement. **Write down how you
+scaled to GC**, because that number is going to be argued about in Week 4 and "it looked right" will
+not survive it. Output for one session: a
 timestamped list of outlier prints with price levels and cluster boundaries.
 
 The 2026-07-16 session hands you a free test case: **price fell 89 points while CVD closed +1,842**,
@@ -150,15 +152,14 @@ questions; that is the job. P stays quiet until the number is settled.
 
 **Afternoon — three decisions, one page:**
 
-1. **Launch instrument** — GC or NQ. One. Not both. **Note that only GC has data**: NQ was never
-   pulled, ~$11.42 unspent. Either that $11 was spent in Week 0 and this is a real decision, or it
-   wasn't and the honest phrasing is "GC, because that's what we have." Both are defensible; say
-   which one you're doing.
+1. ~~**Launch instrument**~~ — **already decided: GC.** NQ was dropped on 25 Aug and this row is
+   kept only so nobody reopens it on Friday. One instrument, one set of thresholds, one reference
+   session.
 2. **Feed vendor** — Rithmic, Tradovate or CQG, based on whose licensing answer came back cleanest
    and whose adapter P found least hostile on Thursday.
 3. **Go or no-go** — and if go, `docs/decisions/2026-09-04-week-1.md` naming what you chose and
    **what would change your mind**. The second half is the part people skip and the part that
-   matters in Week 8 when someone says "we should have picked NQ."
+   matters in Week 8 when someone says "we should have picked a different instrument."
 
 **If the edge test came back flat:** the honest move is to spend Week 2 testing a **second
 formulation from `strategy.md`**, not to proceed to build. Say it out loud on Friday if it happens,
