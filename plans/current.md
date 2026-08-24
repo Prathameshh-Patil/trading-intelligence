@@ -2,6 +2,12 @@
 
 Live tracker: who owns what, what is done, what is next. **Last updated: 2026-08-25.**
 
+> **The twelve-week schedule lives in [`plans/team/`](team/README.md).** This file stays the live
+> status tracker — what is done, what is open, who owns it. `plans/team/` is the day-by-day
+> execution path for all three of us, Week 0 (26 Aug) through Week 12 (20 Nov), derived from the
+> *Twelve Weeks to Ten Subscribers* artifact. Start at [`team/README.md`](team/README.md); read
+> [`team/contracts.md`](team/contracts.md) before writing any code.
+
 ## How the two folders work
 
 | Folder | Answers | Cadence |
@@ -25,12 +31,18 @@ run, say so explicitly rather than implying it was.
 
 ## Ownership
 
+Restated 25 Aug by system, not by task queue — see [`team/roles.md`](team/roles.md).
+
 | Area | Owner | Notes |
 | :--- | :--- | :--- |
-| `services/api` — backend, analysis, contract | Varad | Contract is frozen: see `services/api/README.md` |
-| `apps/extension` — popup, manifest, browser support | Varad | Popup UI written to unbreak the build; styling needs Prathamesh's eye |
-| `apps/web` — landing page | Prathamesh | The page moved here from the extension on 21 Aug |
-| Deployment, hosting | Undecided | Blocking a non-local demo |
+| **Shell** — `apps/desktop`, `apps/extension`, `apps/web`, capture, packaging | [Prathamesh](team/prathamesh/README.md) | Everything the user touches. Frontend→backend ramp: takes `journal.py` in Week 6, `entitlements.py` in Week 9 |
+| **Signal + backend** — `services/engine` (new, Rust), `services/signal-data`, `services/api` | [Varad](team/varad/README.md) | Everything that turns ticks into a number, plus everything on a server. Analyze contract stays frozen: `services/api/README.md` |
+| **Product, QA, ops** — `docs/qa`, copy, vendor + compliance calls, AI code review | Shreyas | Domain validation is the load-bearing part: **if Shreyas says the signal looks wrong, that stops the sprint.** Manual: [`team/shreyas/`](team/shreyas/README.md) |
+| Deployment, hosting | Varad, Week 5 | Railway or Fly + Supabase + Cloudflare Pages. **Not Vercel** — Hobby prohibits commercial use, and a checkout button counts |
+
+**This reassigns two items below.** The Databento pull (#6) and the delta/CVD work (A1) move from
+Prathamesh to Varad, because signal work is now one person's system. `apps/extension` moves from
+Varad to Prathamesh for the same reason.
 
 ---
 
@@ -89,6 +101,46 @@ run, say so explicitly rather than implying it was.
 - [ ] **Not yet verified in a real loaded extension.** `pnpm build` is clean and `dist/` is
       current, but nobody has loaded the rebuilt extension in an actual Chrome profile and
       confirmed "Capture screen" reads a real selection. Do that before marking this fully done.
+
+### Day 2 (later) — 2026-08-24 · `8aece67`, on `main` · [`DELTA_CVD_FINDINGS.md`](../services/signal-data/analysis/DELTA_CVD_FINDINGS.md)
+
+Landed by Prathamesh after the Day 2 entry above was written, and it closes #6 and most of A1.
+
+- [x] **The Databento pull ran for real** — 1,616,772 GC outright trades, July 2026, **$2.52**.
+      `data/` and `*.parquet`/`*.dbn` now gitignored; every billed `get_range()` writes its DBN to
+      `data/raw/` before pandas touches it, so a processing failure never costs a second download.
+      That paid for itself immediately — the crash below happened after GC had downloaded.
+- [x] **The real pull crashed, and the fix is worth knowing.** `to_df()` runs `map_symbols=True`
+      and already attaches a `symbol` column; the definitions merge added a second, so
+      `df["symbol"]` returned a 2-D frame and `groupby` failed. Databento's copy is now
+      `symbol_mapped`, kept as a cross-check — it agrees with the independently-resolved symbol on
+      **100.0000%** of 1,769,563 rows. **A synthetic dry-run could never have caught this**, because
+      hand-built frames don't carry that column. Also: `size` is `uint32`, so `-df["size"]` wraps to
+      ~4.29e9 instead of going negative — cast to `int64` first.
+- [x] **Aggressor convention confirmed three independent ways**, which is the thing everything else
+      rests on. Databento's `side` is the *initiating* side, and `A`/"Ask" does **not** mean "printed
+      at the ask" — reading it the natural-language way inverts the sign and yields a mirror-image
+      CVD that looks entirely plausible. `SIDE_MAP` was already correct but unverified. Now: a
+      **48.32 / 47.79** buy/sell split · **83%** tick-rule agreement in both directions (an inverted
+      mapping would read ~17%) · delta↔return Pearson **+0.50**, stable at 1/5/15-min, which would
+      read −0.50 if flipped.
+- [x] **Delta, session-reset CVD, 31,306 one-minute bars, and a price-level footprint** —
+      `compute_delta_cvd.py`, 439 lines. Session = CME trading day 18:00→17:00 ET, verified against
+      the data: every gap >2h falls exactly on a Friday close / Sunday reopen. *EDT-specific — a
+      month crossing DST needs a real exchange calendar.*
+- [ ] **Reference-chart validation — NOT DONE, and correctly called a hard gate.** Everything above
+      is *internal consistency*: the data agreeing with itself and with published schema semantics.
+      That is much stronger than an unchecked assumption and it makes a sign inversion unlikely. It
+      **structurally cannot** catch a wrong contract, a timezone offset, a differing session
+      boundary, or a systematic magnitude error. ATAS and Sierra are Windows-only; the machine is an
+      ARM Mac. Options ranked in [`team/week-00.md`](team/week-00.md) — TradingView web today (free,
+      but tick-rule derived, so it does **not** clear the gate), a screenshot hand-off, or Parallels.
+- [ ] **NQ was never pulled** — dropped per instruction, ~$11.42 unspent. Week 1 Friday picks one
+      launch instrument and only GC has data.
+- [ ] **The Anthropic key needs rotating.** A real key sat in the git-tracked `.env.example` —
+      uncommitted, confirmed absent from all branch history, one `git add -A` from being pushed.
+      Placeholder restored, so the repo is clean. **But it was also pasted into a chat transcript**,
+      and a key that has been in a transcript should not still be live.
 
 ### Day 3 — 2026-08-25 · full detail in [`daily_updates/2026-08-25.md`](../daily_updates/2026-08-25.md)
 
@@ -150,17 +202,18 @@ the same shape: code that type-checks and tests green but has never been run for
 
 | # | Item | Owner | Notes |
 | :--- | :--- | :--- | :--- |
+| 0 | 🔑 **Rotate the Anthropic key** | Varad | It was in the tracked `.env.example` (uncommitted, absent from history, placeholder restored) **and in a chat transcript.** Ten minutes. Do it before putting credit on the account |
 | 1 | **Pick the analysis backend, then run the live analysis once** | Varad | Blocked on a decision, not on work — see the Day 3 notes. Anthropic credit, local Ollama, or Gemini free tier. Decide it together with #4, they are the same question. Once settled: `LIVE_API_TESTS=1 uv run pytest` (5 tests: bullish, bearish, neutral, negation, bounds), then click a real selection through the loaded extension. Until then the model's sentiment judgement is the one unverified thing in the change |
 | 2 | Click the demo through in **Firefox** | Either | Installs cleanly and CORS accepts it; only Chrome has rendered a verdict |
 | 3 | Review the **popup UI** | Prathamesh | Written from scratch to unbreak the build — a starting point, not a design |
 | 4 | Decide **where the API lives** | Both | Popup hardcodes `http://localhost:8000`, matching `host_permissions`; a deployed URL changes both, and the CORS entries start mattering once `host_permissions` no longer covers the host. **Now also a secrets question:** the API holds an Anthropic key, so it needs somewhere that can hold an env var — and the key must never move into the extension, which is public |
 | 5 | **AMO / Web Store** submission prep | Undecided | See constraints below |
-| 6 | Run the Databento pull for real, confirm the numbers | Prathamesh | `services/signal-data/pull_futures_trades.py --estimate-only` then `--run`; confirm row counts (millions, not thousands), cost, aggressor split (~45–55% either way), and the gap check before trusting the output |
+| 6 | ~~Run the Databento pull for real~~ — **DONE 24 Aug, `8aece67`** | Prathamesh | 1,616,772 GC trades, $2.52, aggressor split 48.32/47.79 — inside the band. Exceeded the bar this row set. **What's left: NQ (~$11.42, never pulled) and the S1 fixture cut** |
 | 7 | Confirm `pnpm tauri dev` opens a real window | Either | Headless-browser screenshot of the compiled bundle isn't the same as a real native window — nobody has looked at one yet |
 | 8 | Load the rebuilt extension in Chrome, confirm capture still works | Either | The `activeTab`/`scripting` rewrite (`955b374`) hasn't been checked in a real loaded extension. Fold #1's click-through into this if doing both at once |
-| A1 | Compute delta and CVD from the tick data, validate against a real footprint chart | Prathamesh | Depends on #6 landing real parquet files. Validate **one session**, not the whole month, against a free footprint chart (ATAS demo or Sierra Chart trial). Unvalidated delta is worse than no delta — check aggressor-side mapping first if the sign or magnitude looks off |
-| A2 | Pull spot XAUUSD for the same month; compute intraday GC-vs-spot correlation and the basis distribution | Varad | Depends on Prathamesh handing over a resampled GC price series (1-min/5-min bars, not the full tick parquet). Needs a separate spot-FX source — `GLBX.MDP3` doesn't carry spot XAUUSD, not yet picked. Deliverable: correlation coefficient **and** basis distribution (not just a mean), plus a v1-scope call. Nobody has published these numbers yet |
-| B | Make `apps/desktop` behave like a real overlay — transparent, borderless, always-on-top, click-through toggle. Prove it floats over a live MT5 demo and that click-through reaches MT5 underneath | Both, after A1 + A2 | Bigger than the plain-window proof — budget real focused time. Install the MT5 demo terminal first if neither of you has it |
+| A1 | Compute delta and CVD ~~from the tick data~~ **done** · **validate against a real footprint chart — OPEN HARD GATE** | Prathamesh did the compute; **Shreyas owns the reference path**, Varad the comparison | Delta, CVD, 1-min bars and footprint all computed for 2026-07-16 GCQ6. **Validation against an independent platform has never happened** and that is the gate. ATAS and Sierra are Windows-only on an ARM Mac — see [`team/week-00.md`](team/week-00.md). **Check timezone, then contract, then the mapping** — the mapping now has three confirmations, so it is the *least* likely, which inverts the usual advice |
+| A2 | ~~Pull spot XAUUSD, compute GC-vs-spot correlation and basis distribution~~ — **CUT 25 Aug** | — | Killed by the artifact's Fact Two, not deprioritised. It was scoping MT5 spot gold as a launch instrument; spot gold has no centralised volume — which is exactly why `real_volume` comes back empty — so there is no delta to compute and nothing to correlate against. Returns in the Week 12 quarter-two discussion as a **context-only** mode: rules, journal and capture work on MT5, delta does not, and we never claim it does. *(`DELTA_CVD_FINDINGS.md` §4 lists it as blocked on Dukascopy being unreachable. True, and still the wrong thing to spend a day on — the blocker was never the download, it's that spot gold cannot carry the product's core number. Nobody needs to find a working mirror.)* |
+| B | Make `apps/desktop` behave like a real overlay — transparent, borderless, always-on-top, click-through toggle. Prove it floats over a live MT5 demo and that click-through reaches MT5 underneath | **Prathamesh**, W1D2–W2 | No longer gated on A1/A2 — it is Week 1 Day 2 and Week 2 in [`team/phase-1-kill-week.md`](team/phase-1-kill-week.md). Install the MT5 demo terminal first if nobody has it |
 
 ---
 
