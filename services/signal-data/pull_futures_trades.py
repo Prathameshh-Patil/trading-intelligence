@@ -15,8 +15,14 @@ USAGE
     python pull_futures_trades.py --run
 
 Requires:
-    pip install databento pandas pyarrow
-    export DATABENTO_API_KEY=db-xxxxxxxxxxxxxxxxxxxxxxxxxxxx
+    pip install databento pandas pyarrow python-dotenv
+
+API key:
+    Copy .env.example to .env in this same folder and paste your real key
+    in there (DATABENTO_API_KEY=db-...). .env is already covered by the
+    repo's root .gitignore, so it never gets committed. This script loads
+    it automatically on startup — no `export` needed, and nothing to type
+    each session.
 """
 
 from __future__ import annotations
@@ -29,6 +35,12 @@ from pathlib import Path
 
 import databento as db
 import pandas as pd
+from dotenv import load_dotenv
+
+# Load DATABENTO_API_KEY from a local .env file sitting next to this script,
+# if one exists. Real values live in .env (gitignored, never committed);
+# .env.example is the tracked template showing the expected shape.
+load_dotenv(Path(__file__).resolve().parent / ".env")
 
 DATASET = "GLBX.MDP3"
 SCHEMA_TRADES = "trades"
@@ -63,7 +75,9 @@ def get_client() -> db.Historical:
     key = os.environ.get("DATABENTO_API_KEY")
     if not key:
         sys.exit(
-            "DATABENTO_API_KEY is not set. Run:\n"
+            "DATABENTO_API_KEY is not set.\n"
+            "Copy .env.example to .env in this folder and paste your real "
+            "key in there (DATABENTO_API_KEY=db-...), or export it directly:\n"
             "    export DATABENTO_API_KEY=db-xxxxxxxxxxxxxxxxxxxxxxxxxxxx\n"
             "then re-run this script."
         )

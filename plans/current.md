@@ -1,6 +1,6 @@
 # Trading Intelligence — Current Plan
 
-Live tracker: who owns what, what is done, what is next. **Last updated: 2026-08-21.**
+Live tracker: who owns what, what is done, what is next. **Last updated: 2026-08-24.**
 
 ## How the two folders work
 
@@ -56,11 +56,47 @@ run, say so explicitly rather than implying it was.
       verdict. Not simulated.
 - [x] **`dist` committed** — a fresh clone can load the extension with no build step.
 
+### Day 2 — 2026-08-24 · full detail in [`daily_updates/2026-08-24.md`](../daily_updates/2026-08-24.md)
+
+- [x] **`apps/desktop` scaffolded** — `create-tauri-app` (React + TS + Vite template), added
+      to the pnpm workspace.
+- [x] **Existing side-panel UI copied in unmodified** — `SidePanel.tsx`, `lib/`, `ui/`,
+      `views/` byte-for-byte identical to `apps/extension` (`diff -q` confirmed). `storage.ts`
+      shimmed to `localStorage`, `capture.ts` shimmed to a placeholder — both marked temporary.
+- [ ] **Native Tauri window — not yet confirmed on-device.** `tsc`/`vite build` are clean and
+      the compiled bundle was screenshotted in headless Chromium at the target window size
+      (Home, Rules, Journal — zero console errors), but nobody has run `pnpm tauri dev` and
+      looked at a real window yet. Don't check this off until that happens.
+- [x] **GC/NQ pull script written, logic dry-run tested** —
+      `services/signal-data/pull_futures_trades.py` against Databento's `GLBX.MDP3`, `trades`
+      schema, parent symbology. Writes `gc_trades.parquet` / `nq_trades.parquet` with
+      `timestamp, price, size, aggressor_side` (+ `symbol`/`instrument_id`). Cost-estimate-first
+      flow; per-day active-contract cleanup verified against a synthetic 200k-row roll month
+      (correctly split two contracts by day).
+- [ ] **Not yet run for real.** Script is written and syntax-checked, not executed against the
+      live API — no real row counts, cost, or aggressor split confirmed yet. That's the bar for
+      checking this off, not writing the script.
+- [x] **API key handled safely** — `.env`/`.env.example`, matching this repo's existing
+      convention; never hardcoded into the tracked script.
+- [x] **Extension side-panel rewrite pushed, and its build fixed** — the side-panel UI had been
+      sitting locally uncommitted; committed and pushed (`b30cee9`). That surfaced two real
+      problems, fixed in `955b374`: `src/content/main.ts` no longer existed on disk, and the
+      manifest had regressed to `content_scripts` + `<all_urls>` — undoing `8cd4790`'s reasoning
+      for dropping it. Fixed by porting `8cd4790`'s `activeTab` + `chrome.scripting` approach
+      into `capture.ts` rather than restoring the lost file, so the privacy-conscious permission
+      set survives. Also fixed `AnalyzeView.tsx` sending empty text on screenshot-only captures
+      (guaranteed 422), and untracked `_to_delete/` in both apps.
+- [ ] **Not yet verified in a real loaded extension.** `pnpm build` is clean and `dist/` is
+      current, but nobody has loaded the rebuilt extension in an actual Chrome profile and
+      confirmed "Capture screen" reads a real selection. Do that before marking this fully done.
+
 ---
 
 ## Next
 
-Ordered. Nothing here is Day 1 scope — Day 1 is complete.
+Ordered. Day 1 and Day 2 are both complete except the items explicitly left unchecked above —
+those (a real `pnpm tauri dev` window, the actual Databento pull, and reloading the extension)
+are #6–#8 below, not optional.
 
 | # | Item | Owner | Notes |
 | :--- | :--- | :--- | :--- |
@@ -69,6 +105,12 @@ Ordered. Nothing here is Day 1 scope — Day 1 is complete.
 | 3 | Decide **where the API lives** | Both | Popup hardcodes `http://localhost:8000`, matching `host_permissions`; a deployed URL changes both, and the CORS entries start mattering once `host_permissions` no longer covers the host |
 | 4 | Replace the **lexicon** with a real model | Varad | Drop-in: `analyze(text)` keeps returning the same four keys |
 | 5 | **AMO / Web Store** submission prep | Undecided | See constraints below |
+| 6 | Run the Databento pull for real, confirm the numbers | Prathamesh | `services/signal-data/pull_futures_trades.py --estimate-only` then `--run`; confirm row counts (millions, not thousands), cost, aggressor split (~45–55% either way), and the gap check before trusting the output |
+| 7 | Confirm `pnpm tauri dev` opens a real window | Either | Headless-browser screenshot of the compiled bundle isn't the same as a real native window — nobody has looked at one yet |
+| 8 | Load the rebuilt extension in Chrome, confirm capture still works | Either | The `activeTab`/`scripting` rewrite (`955b374`) hasn't been checked in a real loaded extension |
+| A1 | Compute delta and CVD from the tick data, validate against a real footprint chart | Prathamesh | Depends on #6 landing real parquet files. Validate **one session**, not the whole month, against a free footprint chart (ATAS demo or Sierra Chart trial). Unvalidated delta is worse than no delta — check aggressor-side mapping first if the sign or magnitude looks off |
+| A2 | Pull spot XAUUSD for the same month; compute intraday GC-vs-spot correlation and the basis distribution | Varad | Depends on Prathamesh handing over a resampled GC price series (1-min/5-min bars, not the full tick parquet). Needs a separate spot-FX source — `GLBX.MDP3` doesn't carry spot XAUUSD, not yet picked. Deliverable: correlation coefficient **and** basis distribution (not just a mean), plus a v1-scope call. Nobody has published these numbers yet |
+| B | Make `apps/desktop` behave like a real overlay — transparent, borderless, always-on-top, click-through toggle. Prove it floats over a live MT5 demo and that click-through reaches MT5 underneath | Both, after A1 + A2 | Bigger than the plain-window proof — budget real focused time. Install the MT5 demo terminal first if neither of you has it |
 
 ---
 
