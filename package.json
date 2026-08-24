@@ -1,5 +1,15 @@
 {
   "name": "trading-intelligence",
   "private": true,
-  "packageManager": "pnpm@11.22.0"
+  "packageManager": "pnpm@11.22.0",
+  "scripts": {
+    "dev": "pnpm --filter extension dev",
+    "dev:web": "pnpm --filter web dev",
+    "build": "pnpm --filter extension build",
+    "build:web": "pnpm --filter web build",
+    "build:all": "pnpm -r build",
+    "lint": "pnpm -r lint",
+    "dev:desktop": "pnpm --filter desktop tauri dev",
+    "build:desktop": "pnpm --filter desktop tauri build"
+  }
 }

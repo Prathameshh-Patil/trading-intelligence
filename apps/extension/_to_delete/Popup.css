@@ -1,0 +1,250 @@
+:root {
+  --bg: #08090d;
+  --panel: #111319;
+  --border: #22242c;
+  --muted: #9aa0ae;
+  --text: #f5f7fb;
+  --accent-a: #8b5cf6;
+  --accent-b: #6366f1;
+  --green: #34d399;
+  --red: #f87171;
+  --amber: #fbbf24;
+}
+
+.popup {
+  width: 380px;
+  max-height: 600px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.popup-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.brand-icon {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
+  color: white;
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.empty-state {
+  border: 1px dashed var(--border);
+  border-radius: 12px;
+  padding: 28px 16px;
+  text-align: center;
+  color: var(--muted);
+}
+
+.empty-state p {
+  margin: 0 0 8px;
+  font-size: 13px;
+}
+
+.empty-state .hint {
+  font-size: 12px;
+  line-height: 1.5;
+  margin-bottom: 0;
+}
+
+.analysis-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+}
+
+.analysis-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+
+.selected-text {
+  margin: 0;
+  max-height: 110px;
+  overflow-y: auto;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text);
+}
+
+.source-row {
+  margin-top: -6px;
+  font-size: 11px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.analyze-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 14px;
+  border: none;
+  border-radius: 10px;
+  background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
+  color: white;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+
+.analyze-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.error-box {
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(248, 113, 113, 0.3);
+  background: rgba(248, 113, 113, 0.1);
+  color: #fca5a5;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.result {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.result-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.result-header .bullish,
+.result-header .bearish,
+.result-header .neutral {
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+}
+
+.result-header .bullish {
+  color: var(--green);
+  background: rgba(52, 211, 153, 0.12);
+}
+
+.result-header .bearish {
+  color: var(--red);
+  background: rgba(248, 113, 113, 0.12);
+}
+
+.result-header .neutral {
+  color: var(--amber);
+  background: rgba(251, 191, 36, 0.12);
+}
+
+.confidence {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.confidence > div:first-child {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.confidence small {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.confidence strong {
+  font-size: 14px;
+}
+
+.confidence-bar {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--border);
+  overflow: hidden;
+}
+
+.confidence-bar > div {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--accent-a), var(--accent-b));
+  transition: width 0.3s ease;
+}
+
+.result-summary small,
+.signals small {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.result-summary p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.signals small {
+  margin-bottom: 6px;
+}
+
+.signal {
+  margin-bottom: 6px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.03);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.signal:last-child {
+  margin-bottom: 0;
+}
+
+.popup-footer {
+  text-align: center;
+  font-size: 10px;
+  color: var(--muted);
+}

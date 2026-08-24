@@ -1,4 +1,3 @@
-import { useEffect, useState } from 'react'
 import './App.css'
 
 const API = 'http://localhost:8000/api/v1/analyze'
