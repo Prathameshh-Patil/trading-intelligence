@@ -1,6 +1,7 @@
 from typing import Annotated, Literal
 
-from fastapi import APIRouter
+import anthropic
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field, StringConstraints
 
 from app.analysis import analyze as run_analysis
@@ -30,4 +31,14 @@ class AnalyzeResponse(BaseModel):
 
 @router.post("/analyze", response_model=AnalyzeResponse)
 def analyze(request: AnalyzeRequest) -> dict:
-    return run_analysis(request.text)
+    try:
+        return run_analysis(request.text)
+    except (anthropic.APIError, ValueError) as exc:
+        # Upstream down, rate-limited or misconfigured (APIError), or an answer
+        # that failed its schema (ValueError, which ValidationError subclasses).
+        # Both are "analysis unavailable" — the same class of answer as the DB
+        # health check's 503, not a 500 traceback the popup can't render.
+        raise HTTPException(
+            status_code=503,
+            detail={"status": "error", "analysis": "unavailable", "error": str(exc)},
+        ) from exc

@@ -30,8 +30,11 @@ uv run alembic upgrade head
 uv run uvicorn app.main:app --reload --port 8000
 ```
 
-`.env` is required — `DATABASE_URL` has no default, so the app and Alembic both fail fast
-without it. Check it worked:
+`.env` is required — neither `DATABASE_URL` nor `ANTHROPIC_API_KEY` has a default, so the
+app and Alembic both fail fast without it. The Anthropic key is what `/api/v1/analyze` calls
+(see [`services/api/README.md`](services/api/README.md)); get one from
+<https://console.anthropic.com>. To run the tests it only has to be present, not valid.
+Check it worked:
 
 ```sh
 curl localhost:8000/health              # {"status":"ok",...}
