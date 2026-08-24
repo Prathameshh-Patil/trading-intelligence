@@ -21,3 +21,11 @@ dist/
 *.log
 # Scaffold/legacy files staged for manual removal — never intentional content.
 _to_delete/
+
+# Market data pulls (services/signal-data): raw DBN downloads and derived
+# parquet. Hundreds of MB of binary — the billed downloads live here, but they
+# are reproducible from Databento and must never enter git history.
+data/
+*.parquet
+*.dbn
+*.dbn.zst
