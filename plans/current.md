@@ -1,6 +1,6 @@
 # Trading Intelligence — Current Plan
 
-Live tracker: who owns what, what is done, what is next. **Last updated: 2026-08-24.**
+Live tracker: who owns what, what is done, what is next. **Last updated: 2026-08-25.**
 
 ## How the two folders work
 
@@ -90,24 +90,74 @@ run, say so explicitly rather than implying it was.
       current, but nobody has loaded the rebuilt extension in an actual Chrome profile and
       confirmed "Capture screen" reads a real selection. Do that before marking this fully done.
 
+### Day 3 — 2026-08-25 · full detail in [`daily_updates/2026-08-25.md`](../daily_updates/2026-08-25.md)
+
+Shipped as [PR #3](https://github.com/Prathameshh-Patil/trading-intelligence/pull/3) (`feat/claude-analysis`), open for review.
+
+- [x] **The lexicon is gone — `analyze()` calls Claude** (`claude-haiku-4-5`). `app/analysis.py`
+      is now one `messages.parse` call against a Pydantic schema; structured outputs enforce
+      the shape, so a malformed answer raises server-side instead of reaching the popup as a
+      wrong-shaped `200`. The four keys did not change, which is what made this the drop-in
+      the plan said it would be — no extension change, no contract change.
+- [x] **Upstream failure is a `503`, not a `500`** — `APIError` (down, rate-limited,
+      bad key) and a schema-failing answer both map to
+      `{"analysis": "unavailable"}`, matching the DB health check's existing shape. The
+      extension already renders any non-200 generically, so nothing there needed touching.
+- [x] **`ANTHROPIC_API_KEY` is a required setting**, same as `DATABASE_URL` — missing key
+      fails at startup, not at the first request. `.env.example` updated in both places.
+- [x] **Tests restructured, `ruff`/`mypy` clean.** 17 tests pass without a valid key. Four
+      swap the Anthropic *transport* rather than stubbing `analyze`, so the real request
+      building and decoding in `analysis.py` are exercised — stubbing `analyze` left it with
+      no coverage at all. The old sentiment assertions moved to 5 live tests behind
+      `LIVE_API_TESTS=1`; they skip on a normal run and cost nothing.
+- [x] **Verification caught a real defect, now fixed.** The first version validated the
+      *prompt's style* (`confidence` 50–95, ≤4 signals) as if it were the contract. The API
+      does not enforce numeric bounds or list maximums — the SDK strips them from the
+      generated schema and they survive only as a description hint, confirmed by dumping the
+      schema. Since `messages.parse` validates client-side, a usable answer that came back
+      with `confidence: 97` became a `503`. `Analysis` now validates the contract (0–100,
+      non-empty signals); the prompt still asks for 50–95 and 1–4. Regression test added.
+- [x] **The failure path is verified against the real API.** A live call with an invalid key
+      reached `api.anthropic.com` and returned `AuthenticationError` (401), which is an
+      `APIError` subclass and maps to the `503` as designed. Free, and it proves the error
+      handling works against the real service rather than against a mock of it.
+- [ ] **The success path has still never run — now blocked on billing, not on code.** A real
+      key was created and works: requests authenticate and get past schema validation to the
+      billing check, which returns `400 "credit balance is too low"`. Correctly surfaced as a
+      `503` with the reason readable in `detail.error`. Nothing was charged. So no analysis has
+      ever been produced: no confirmed latency, no measured cost, and the system prompt's
+      sentiment behaviour is entirely unvalidated. Everything else about the change is verified;
+      this one thing is not, and cannot be until the backend question below is settled.
+- [ ] **The analysis backend is an open decision again**, deliberately deferred on 25 Aug
+      rather than defaulted. Options weighed: add Anthropic credit (~$5 ≈ 3,000 analyses, zero
+      further work, code stays exactly as verified); Ollama running locally (free forever, no
+      key, no rate limit, and page text never leaves the machine — but it cannot back a deployed
+      API); Google Gemini's free tier (no card, closest drop-in, but rate-limited and its
+      free-tier data-use terms need reading first). Whichever wins, `analyze()` keeps the same
+      four keys, so the route, the contract and the extension are unaffected — that was the
+      point of freezing it. **This is really the same question as #4** and should be decided
+      with it: a local model removes the secret and rules out a hosted API; a cloud model does
+      the reverse.
+
 ---
 
 ## Next
 
-Ordered. Day 1 and Day 2 are both complete except the items explicitly left unchecked above —
-those (a real `pnpm tauri dev` window, the actual Databento pull, and reloading the extension)
-are #6–#8 below, not optional.
+Ordered. Days 1–3 are complete except the items explicitly left unchecked above — a real
+`pnpm tauri dev` window, the actual Databento pull, reloading the extension, and now the
+first live analysis call. Those are #1 and #6–#8 below, not optional. Three of the four are
+the same shape: code that type-checks and tests green but has never been run for real.
 
 | # | Item | Owner | Notes |
 | :--- | :--- | :--- | :--- |
-| 1 | Click the demo through in **Firefox** | Either | Installs cleanly and CORS accepts it; only Chrome has rendered a verdict |
-| 2 | Review the **popup UI** | Prathamesh | Written from scratch to unbreak the build — a starting point, not a design |
-| 3 | Decide **where the API lives** | Both | Popup hardcodes `http://localhost:8000`, matching `host_permissions`; a deployed URL changes both, and the CORS entries start mattering once `host_permissions` no longer covers the host |
-| 4 | Replace the **lexicon** with a real model | Varad | Drop-in: `analyze(text)` keeps returning the same four keys |
+| 1 | **Pick the analysis backend, then run the live analysis once** | Varad | Blocked on a decision, not on work — see the Day 3 notes. Anthropic credit, local Ollama, or Gemini free tier. Decide it together with #4, they are the same question. Once settled: `LIVE_API_TESTS=1 uv run pytest` (5 tests: bullish, bearish, neutral, negation, bounds), then click a real selection through the loaded extension. Until then the model's sentiment judgement is the one unverified thing in the change |
+| 2 | Click the demo through in **Firefox** | Either | Installs cleanly and CORS accepts it; only Chrome has rendered a verdict |
+| 3 | Review the **popup UI** | Prathamesh | Written from scratch to unbreak the build — a starting point, not a design |
+| 4 | Decide **where the API lives** | Both | Popup hardcodes `http://localhost:8000`, matching `host_permissions`; a deployed URL changes both, and the CORS entries start mattering once `host_permissions` no longer covers the host. **Now also a secrets question:** the API holds an Anthropic key, so it needs somewhere that can hold an env var — and the key must never move into the extension, which is public |
 | 5 | **AMO / Web Store** submission prep | Undecided | See constraints below |
 | 6 | Run the Databento pull for real, confirm the numbers | Prathamesh | `services/signal-data/pull_futures_trades.py --estimate-only` then `--run`; confirm row counts (millions, not thousands), cost, aggressor split (~45–55% either way), and the gap check before trusting the output |
 | 7 | Confirm `pnpm tauri dev` opens a real window | Either | Headless-browser screenshot of the compiled bundle isn't the same as a real native window — nobody has looked at one yet |
-| 8 | Load the rebuilt extension in Chrome, confirm capture still works | Either | The `activeTab`/`scripting` rewrite (`955b374`) hasn't been checked in a real loaded extension |
+| 8 | Load the rebuilt extension in Chrome, confirm capture still works | Either | The `activeTab`/`scripting` rewrite (`955b374`) hasn't been checked in a real loaded extension. Fold #1's click-through into this if doing both at once |
 | A1 | Compute delta and CVD from the tick data, validate against a real footprint chart | Prathamesh | Depends on #6 landing real parquet files. Validate **one session**, not the whole month, against a free footprint chart (ATAS demo or Sierra Chart trial). Unvalidated delta is worse than no delta — check aggressor-side mapping first if the sign or magnitude looks off |
 | A2 | Pull spot XAUUSD for the same month; compute intraday GC-vs-spot correlation and the basis distribution | Varad | Depends on Prathamesh handing over a resampled GC price series (1-min/5-min bars, not the full tick parquet). Needs a separate spot-FX source — `GLBX.MDP3` doesn't carry spot XAUUSD, not yet picked. Deliverable: correlation coefficient **and** basis distribution (not just a mean), plus a v1-scope call. Nobody has published these numbers yet |
 | B | Make `apps/desktop` behave like a real overlay — transparent, borderless, always-on-top, click-through toggle. Prove it floats over a live MT5 demo and that click-through reaches MT5 underneath | Both, after A1 + A2 | Bigger than the plain-window proof — budget real focused time. Install the MT5 demo terminal first if neither of you has it |
@@ -130,4 +180,16 @@ Things that are cheap to break and expensive to notice.
   clean `git status` after `pnpm build` means `dist` is current.
 - **The API contract is frozen.** Changing field names or the confidence scale breaks the
   extension silently — no type checker spans that boundary.
-- **`.env` stays local.** Only `.env.example` is tracked.
+- **`.env` stays local.** Only `.env.example` is tracked. It now carries two secrets, not
+  one: `DATABASE_URL` and `ANTHROPIC_API_KEY`.
+- **`.env` and `.env.example` sit next to each other and read almost identically.** A real
+  key went into the tracked `.env.example` once already (25 Aug), and it was staged before it
+  was caught — `git commit -a` would have committed it. Nothing leaked and no rotation was
+  needed, but check which of the two files you are editing. `git check-ignore -v <file>` is
+  the one-second answer.
+- **Analysis costs money per request** — roughly $0.0015 a call at Haiku 4.5 rates. Nothing
+  rate-limits or caches it yet, so anything that loops over `/api/v1/analyze` spends real
+  money. Worth knowing before writing a batch script against it.
+- **The system prompt in `app/analysis.py` is the only thing holding sentiment behaviour
+  in place.** No type checker and none of the 13 stubbed tests will catch a regression in
+  it. Re-run `LIVE_API_TESTS=1 uv run pytest` after editing it.
