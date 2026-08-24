@@ -135,8 +135,12 @@ Landed by Prathamesh after the Day 2 entry above was written, and it closes #6 a
       boundary, or a systematic magnitude error. ATAS and Sierra are Windows-only; the machine is an
       ARM Mac. Options ranked in [`team/week-00.md`](team/week-00.md) — TradingView web today (free,
       but tick-rule derived, so it does **not** clear the gate), a screenshot hand-off, or Parallels.
-- [ ] **NQ was never pulled** — dropped per instruction, ~$11.42 unspent. Week 1 Friday picks one
-      launch instrument and only GC has data.
+- [x] **NQ dropped, GC is the launch instrument** — decided 25 Aug rather than deferred to Week 1
+      Friday. It was never pulled and the ~$11.42 stays unspent. One instrument means one set of
+      thresholds, one reference session to validate, and one feed adapter to harden. `strategy.md`'s
+      ≥60 NQ / ≥200 ES figures remain the **derivation source** the GC thresholds are scaled from,
+      not thresholds anyone implements. A second instrument is a quarter-two candidate — a full feed
+      adapter, re-derived thresholds and its own validated reference session, not a flag flip.
 - [ ] **The Anthropic key needs rotating.** A real key sat in the git-tracked `.env.example` —
       uncommitted, confirmed absent from all branch history, one `git add -A` from being pushed.
       Placeholder restored, so the repo is clean. **But it was also pasted into a chat transcript**,
@@ -208,7 +212,7 @@ the same shape: code that type-checks and tests green but has never been run for
 | 3 | Review the **popup UI** | Prathamesh | Written from scratch to unbreak the build — a starting point, not a design |
 | 4 | Decide **where the API lives** | Both | Popup hardcodes `http://localhost:8000`, matching `host_permissions`; a deployed URL changes both, and the CORS entries start mattering once `host_permissions` no longer covers the host. **Now also a secrets question:** the API holds an Anthropic key, so it needs somewhere that can hold an env var — and the key must never move into the extension, which is public |
 | 5 | **AMO / Web Store** submission prep | Undecided | See constraints below |
-| 6 | ~~Run the Databento pull for real~~ — **DONE 24 Aug, `8aece67`** | Prathamesh | 1,616,772 GC trades, $2.52, aggressor split 48.32/47.79 — inside the band. Exceeded the bar this row set. **What's left: NQ (~$11.42, never pulled) and the S1 fixture cut** |
+| 6 | ~~Run the Databento pull for real~~ — **DONE 24 Aug, `8aece67`** | Prathamesh | 1,616,772 GC trades, $2.52, aggressor split 48.32/47.79 — inside the band. Exceeded the bar this row set. **What's left: the S1 fixture cut.** NQ dropped 25 Aug — the ~$11.42 stays unspent |
 | 7 | Confirm `pnpm tauri dev` opens a real window | Either | Headless-browser screenshot of the compiled bundle isn't the same as a real native window — nobody has looked at one yet |
 | 8 | Load the rebuilt extension in Chrome, confirm capture still works | Either | The `activeTab`/`scripting` rewrite (`955b374`) hasn't been checked in a real loaded extension. Fold #1's click-through into this if doing both at once |
 | A1 | Compute delta and CVD ~~from the tick data~~ **done** · **validate against a real footprint chart — OPEN HARD GATE** | Prathamesh did the compute; **Shreyas owns the reference path**, Varad the comparison | Delta, CVD, 1-min bars and footprint all computed for 2026-07-16 GCQ6. **Validation against an independent platform has never happened** and that is the gate. ATAS and Sierra are Windows-only on an ARM Mac — see [`team/week-00.md`](team/week-00.md). **Check timezone, then contract, then the mapping** — the mapping now has three confirmations, so it is the *least* likely, which inverts the usual advice |

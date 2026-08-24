@@ -34,8 +34,10 @@ directly.** They said yes to $39 unprompted in Week 8; the only thing between th
 someone asking. If they hesitate now, that hesitation is more valuable information than the
 original yes, so listen to it rather than rescuing it.
 
-*Float:* if V lands entitlements early, start the second instrument — but only if Week 8 was clean.
-If it wasn't, the second instrument is not happening this quarter and that is the right call.
+*Float:* if V lands entitlements early, take install-friction work from Wednesday. **A second
+instrument is not on the table this quarter** — NQ was dropped on 25 Aug, and adding one in Week 9
+means a new feed adapter, re-derived thresholds and a second reference session to validate, in the
+month where the engineering is supposed to be slowing down.
 
 ---
 
@@ -45,9 +47,12 @@ If it wasn't, the second instrument is not happening this quarter and that is th
 back: you read the tier, you gate the UI, you handle the moment the tier changes mid-session without
 a restart. Third route module you own.
 
-**V** — Second instrument, if Week 8 was clean: feed adapter, thresholds re-derived through the
-harness, fixture session cut and committed for it. **Do not ship it on Week 1's thresholds scaled by
-eyeball** — re-derive, or don't ship it.
+**V** — Signal quality against live telemetry, and reconnect hardening pulled forward from Thursday.
+*(This was "second instrument if Week 8 was clean". NQ was dropped on 25 Aug and nothing replaced it
+— a second instrument needs a new feed adapter, thresholds re-derived through the harness, and its
+own validated reference session, which is a Week 2-shaped job landing in the month the engineering
+is meant to be slowing down. If it ever happens: **re-derive the thresholds, never scale Week 1's by
+eyeball.**)*
 
 **S** — Convert beta trader 2. Then publish the demo recording **where order-flow traders actually
 gather** — the futures forums, the ATAS and Jigsaw communities, the Discord servers you recruited
@@ -231,8 +236,9 @@ Four questions, in this order, and answer each before moving to the next:
 
 Candidates for quarter two, decided against those answers and not before them: MT5 spot gold as a
 **context-only mode** (rules, journal and capture work there; delta does not and you must never
-claim it does — item A2 from the old plan comes back here, properly scoped) · the second instrument
-if Week 9 didn't reach it · Windows code signing, which becomes worth its $215–260/yr at around
+claim it does — item A2 from the old plan comes back here, properly scoped) · **a second instrument**,
+which is where NQ can legitimately return — with a full feed adapter, re-derived thresholds and its
+own validated reference session, not as a flag flip · Windows code signing, which becomes worth its $215–260/yr at around
 fifty users · a real onboarding flow that doesn't require Shreyas on a call.
 
 ---

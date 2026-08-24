@@ -332,8 +332,9 @@ that most directly changes trader behaviour, and it is also the one most likely 
 get the timing right, get the dismissal right, and make sure it cannot fire twice for the same
 violation. Ask Shreyas to sit with it before you consider it done.
 
-**V** — Tune outlier thresholds per instrument against S's full disagreement log — now three
-sessions of Week 3 plus two of dogfood. Run every candidate through the harness. Write the final
+**V** — Tune the GC outlier thresholds against S's full disagreement log — now three
+sessions of Week 3 plus two of dogfood. *(One instrument, so this is one set of numbers. Keep the
+scaling derivation next to them anyway — a second instrument in quarter two starts from it.)* Run every candidate through the harness. Write the final
 numbers and the reasoning into `docs/decisions/`.
 
 **S** — Dogfood day three. Sit with P's rule warning for a full session and say honestly whether it
