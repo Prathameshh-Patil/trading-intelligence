@@ -265,6 +265,19 @@ run it, and that boundary was held.
       hand-built bars where the answer is known by construction. One of them corrected a wrong
       comment of mine: MAE is the *least favourable* excursion and is **positive** when a trade
       never goes adverse.
+- [x] **`ruff` and `mypy` clean across the whole module, not just the new files.** The four older
+      scripts' 7 lint findings and 6 type errors — recorded that afternoon as cosmetic and left
+      alone rather than folded into an unrelated change — are now their own change. **One was not
+      cosmetic:** `pull_futures_trades.py` chose its default month with `date.today()`, and from
+      IST the calendar flips 2.5h *before* August's last CME session ends, so a no-`--month` pull
+      between 00:00 and 02:30 IST on 1 September would have bought an unfinished August and
+      returned a truncated file that looks complete. Now on the exchange clock, matching the `ET`
+      convention already in two sibling scripts. The rest are stub-precision casts and one
+      `type: ignore` that carries its reason; the five shebangs were **deleted rather than
+      `chmod +x`**, because they advertised a `./script.py` invocation that dies on the first
+      import outside the `uv` venv. **16 tests still pass and `compute_delta_cvd.py` re-run on the
+      fixture is identical to the committed footprint at 980/980 levels, max abs diff 0.** The two
+      pull scripts were not re-run — both bill a live Databento call
 - [ ] **Nothing is backtested, on purpose.** The harness was driven with a throwaway z-score rule
       (N=60, one session) to exercise the code; those numbers are a mechanism check, not evidence
       about GC, and are recorded as a finding nowhere.

@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 Cut the S1 tick fixture from the full month of GC trades.
 

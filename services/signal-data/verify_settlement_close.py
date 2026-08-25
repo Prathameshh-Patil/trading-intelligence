@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 Resolve the 2026-07-16 closing-price discrepancy using data already on disk.
 NO API CALLS, NO COST.
@@ -50,6 +49,7 @@ import argparse
 import sys
 from datetime import date, datetime, time, timedelta
 from pathlib import Path
+from typing import cast
 from zoneinfo import ZoneInfo
 
 import pandas as pd
@@ -151,7 +151,7 @@ def main() -> None:
     df = load_session(parquet, session)
 
     # --- The two close definitions -------------------------------------
-    last_row = df.loc[df["timestamp"].idxmax()]
+    last_row = cast(pd.Series, df.loc[df["timestamp"].idxmax()])
     last_trade = float(last_row["price"])
 
     print("\n--- Close definitions ---")

@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 Turn raw GC (COMEX gold futures) trade prints into delta, CVD and a
 price-level footprint, and render the plots used to validate them against a
@@ -31,7 +30,9 @@ USAGE
 from __future__ import annotations
 
 import argparse
+from datetime import date
 from pathlib import Path
+from typing import cast
 
 import matplotlib
 
@@ -114,7 +115,7 @@ def plot_session_cvd(
     read off the time axis rather than manufactured by scaling."""
     tz = DISPLAY_TZ
     t_trades = trades["timestamp"].dt.tz_convert(tz)
-    t_bars = bars.index.tz_convert(tz)
+    t_bars = pd.DatetimeIndex(bars.index).tz_convert(tz)
 
     fig, axes = plt.subplots(
         3, 1, figsize=(13, 10), sharex=True,
@@ -324,7 +325,7 @@ def main() -> None:
             if not rng:
                 continue
             stats.append((abs(d["price"].iloc[-1] - d["price"].iloc[0]) / rng, s))
-        session = max(stats)[1]
+        session = cast(date, max(stats)[1])
         print(f"\nauto-selected cleanest trending session: {session}")
 
     sess = df[df["session"] == session].copy()
