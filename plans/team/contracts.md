@@ -41,9 +41,25 @@ instrument_id    int64
 **Fixture:** `data/fixtures/gc_ticks_1session.parquet` — the **2026-07-16 GCQ6 session**, 77,532
 trades, already chosen as the validation session in `DELTA_CVD_FINDINGS.md` for its 0.90 directional
 efficiency and because it sits clear of both the 29 Jul GCQ6→GCZ6 roll and the 30 Jul day Databento
-flagged `degraded`. Cut it from the existing `data/gc_trades.parquet`. `data/` is gitignored as of
-`8aece67`, so the fixture needs an explicit `.gitignore` exception. This is the file every test in
-the project asserts against for the next twelve weeks.
+flagged `degraded`. Cut it from the existing `data/gc_trades.parquet`. This is the file every test
+in the project asserts against for the next twelve weeks.
+
+**The `.gitignore` exception is in place** (25 Aug). `data/` is excluded as of `8aece67`, and git
+does not descend into an excluded directory — so a bare `!data/fixtures/gc_ticks_1session.parquet`
+silently does nothing. Every level is re-included in turn, and only this one path comes back:
+
+```
+services/signal-data/data/gc_trades.parquet             ignored
+services/signal-data/data/raw/*.dbn.zst                 ignored
+services/signal-data/data/fixtures/other.parquet        ignored
+services/signal-data/data/fixtures/gc_ticks_1session.parquet   TRACKED
+```
+
+Checked with `git check-ignore`, not by reading the patterns. Nothing else under `data/` can be
+committed by accident, so the month of billed binary stays out of history.
+
+**Still blocked on the file itself:** `services/signal-data/data/` does not exist on Varad's
+machine — the 1.6M-trade pull was never pushed, correctly. Ask Prathamesh at Wednesday's standup.
 
 **Frozen:** W0D2. **Already real** — the full month (1,616,772 GC trades) was pulled on 24 Aug and
 `pull_futures_trades.py` writes exactly these columns.

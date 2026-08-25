@@ -29,3 +29,15 @@ data/
 *.parquet
 *.dbn
 *.dbn.zst
+
+# One exception: the S1 tick fixture (plans/team/contracts.md). One session,
+# not a month, and every test in the project asserts against it — so it lives
+# in git or nobody can work while the other one is asleep.
+# `data/` excludes the directory itself, and git will not descend into an
+# excluded directory, so every level has to be re-included before the file can
+# be. A bare `!data/fixtures/gc_ticks_1session.parquet` silently does nothing.
+!services/signal-data/data/
+services/signal-data/data/*
+!services/signal-data/data/fixtures/
+services/signal-data/data/fixtures/*
+!services/signal-data/data/fixtures/gc_ticks_1session.parquet

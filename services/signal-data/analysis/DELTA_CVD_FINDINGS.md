@@ -1,7 +1,8 @@
 # GC delta / CVD — findings
 
-**Date:** 2026-08-24 · **Data:** `data/gc_trades.parquet` — GC, July 2026, 1,616,772 outright trades
-**Script:** `services/signal-data/compute_delta_cvd.py`
+**Date:** 2026-08-24 · **Updated:** 2026-08-25 (§3 closed, §4 cut)
+**Data:** `data/gc_trades.parquet` — GC, July 2026, 1,616,772 outright trades
+**Scripts:** `compute_delta_cvd.py` · `pull_tbbo_validate.py` · `verify_settlement_close.py`
 
 ---
 
@@ -26,7 +27,9 @@ had never been checked against real rows, so it was unverified rather than known
 
 ### Three independent confirmations
 
-Documentation alone is not proof, so the convention was tested against the data itself.
+Documentation alone is not proof, so the convention was tested against the data itself. A fourth
+— the quote rule, which reclassifies every trade without reading `side` at all — landed the next
+day and is in §3.
 
 **(a) Aggressor balance** — a broken mapping usually shows as a lopsided split:
 
@@ -103,55 +106,76 @@ would look like, which is why it was worth chasing rather than accepting.
 
 ---
 
-## 3. Reference-chart validation — **NOT DONE. GATE NOT MET.**
+## 3. Reference validation — **CLOSED 24 Aug** (`c504e50`)
 
-The Step 3 hard gate has **not** been cleared. Nothing downstream should be built on this yet.
+Closed by an independent **method**, not an independent platform. The blocker below was never
+about the numbers — ATAS and Sierra Chart are Windows-only and the machine is an ARM MacBook Air —
+so the gate was cleared by re-deriving the aggressor side from data the pipeline does not use,
+which sidesteps the platform problem entirely.
 
-Everything in §1 is *internal consistency* — the data agreeing with itself and with published
-schema semantics. That is meaningfully stronger than an unchecked assumption, and it makes a
-sign inversion very unlikely. It is **not** the same as the numbers matching an independent
-platform's rendering of the same session, which is what was asked for and what would catch
-errors these tests structurally cannot: a wrong contract, a timezone offset, a session-boundary
-definition that differs from the reference, or a systematic magnitude problem.
+### `pull_tbbo_validate.py` — the quote rule
 
-**Why it could not be done here:**
+Every trade in the 2026-07-16 GCQ6 session reclassified by price against the bid/ask immediately
+before the trade, using the `side` field **not at all**.
 
-- **ATAS and Sierra Chart are both Windows-only.** The target machine is an ARM MacBook Air.
-  Neither runs natively; both would need Parallels/Wine plus a Windows licence.
-- No Chrome extension is connected to this session, so a web-based reference could not be
-  driven either.
-- Network egress from both available sandboxes is allowlisted; market-data hosts are blocked.
+| Check | Result |
+| :--- | :--- |
+| Agreement with `SIDE_MAP` | **99.65%** across 75,578 comparable trades |
+| Confusion matrix | near-symmetric — 96 vs 165 disagreements, so no directional bias |
+| Hourly delta sign | **0 of 23 hours** disagree |
+| The disputed 08:00–09:00 ET window | **+1,103** quote rule · +1,083 pipeline · +1,093 side field |
+| Footprint cross-check | **980/980** common price levels · volume **r=1.0000** · delta **r=0.9870** · 96.91% sign agreement |
 
-**Practical options, in order of effort:**
+That last row is against `gc_footprint_quoterule_2026-07-15.csv`. **The name is a trap, not a
+different day** — `pull_tbbo_validate.py` names its output from the *start of the pull window*
+(`2026-07-15T22:00` UTC) while `compute_delta_cvd.py` names by the CME session day. Same session;
+volume r=1.0000 over 980 shared levels would be impossible otherwise.
 
-1. **TradingView (web, works on macOS, free tier).** Chart `COMEX:GC1!`, 1-minute, add the
-   built-in *Cumulative Volume Delta* indicator, set the session to 2026-07-16. Caveat worth
-   knowing: TradingView derives delta from lower-timeframe bars using a tick-rule
-   approximation, **not** true aggressor tags. Good for comparing direction, swings and turning
-   points; not for tick-for-tick magnitude.
-2. **Screenshot hand-off.** Open any footprint platform you already have and send the
-   2026-07-16 GC session — the CVD line and a few price levels are enough to compare against
-   `gc_cvd_2026-07-16.png` and `gc_footprint_2026-07-16.csv`.
-3. **Enable computer use** on the Mac so a reference platform can be driven directly, if one
-   gets installed.
+The 08:00–09:00 window is the one that mattered: §2 chased it precisely because absorption and a
+flipped sign look identical, and it now reproduces under a method that cannot inherit the flip.
 
-**If it doesn't match, check in this order:** (1) the aggressor mapping — though it now has
-three independent confirmations, so this is the least likely; (2) timezone — the data is UTC,
-plots are rendered in America/New_York, and the session boundary is 18:00 ET; (3) contract —
-July 2026 rolls GCQ6 → GCZ6 on Jul 29, and a reference charting a continuous front-month series
-may splice differently.
+### `verify_settlement_close.py` — the one external reference
+
+Free, no API call. Resolves the 12.2-point gap between our daily close (3979.9, last trade) and
+TradingView's reported close (3992.1) as **settlement-window vs last-trade**, not a data bug —
+VWAP over the CME closing range matches within 0.25 points.
+
+Small, and it carries more than its size. The quote rule runs on the same venue's data, so it
+**cannot** catch a wrong contract or a timezone offset — it definitively catches an inverted
+mapping, which is what it was aimed at. The settlement check is the only comparison here against
+a number computed by somebody else, so it is what covers contract and timezone.
+
+### The residual — carry this downstream
+
+**Session-total delta is method-dependent at ~15–20%:** side field **+1,842** vs quote rule
+**+2,216**. Direction and shape are robust; **absolute magnitude needs an error bar**, and every
+threshold derived from this data inherits it.
+
+Still not covered: an independent *rendering* of the session. Nothing here draws the chart a
+second way. That is the honest cost of closing the gate by method, and it is the residual a
+reference platform would have removed.
+
+**If a future comparison disagrees, check in this order** — inverted from the usual advice, because
+the mapping now has four independent confirmations and is the *least* likely culprit: (1) timezone —
+data is UTC, plots render in America/New_York, session boundary is 18:00 ET; (2) contract — July
+2026 rolls GCQ6 → GCZ6 on 29 Jul, and a continuous front-month series may splice differently;
+(3) the aggressor mapping, last.
 
 ---
 
-## 4. GC vs spot XAUUSD — **NOT STARTED. BLOCKED.**
+## 4. GC vs spot XAUUSD — **CUT 25 Aug. Do not hunt for a mirror.**
 
-`dukascopy.com` and `datafeed.dukascopy.com` are unreachable from both available sandboxes
-(DNS does not resolve; the egress proxy returns 403 on CONNECT). The download has to happen on
-a machine with open network access.
+This was recorded as blocked on `dukascopy.com` and `datafeed.dukascopy.com` being unreachable
+from both available sandboxes (DNS does not resolve; the egress proxy returns 403 on CONNECT).
+That is accurate and it is **not** why the work stopped.
 
-Once a month of XAUUSD 1-minute bars for July 2026 exists locally, the remaining work —
-UTC alignment, resampling, return correlation, basis distribution, dislocation flagging — is
-offline and straightforward.
+**Spot gold has no centralised volume** — which is exactly why `real_volume` comes back empty on
+MT5 — so there is no aggressor side, no delta, and nothing to correlate the product's core number
+against. A working download mirror would not change that. The study was scoping spot XAUUSD as a
+launch instrument, and that scope is gone: GC is the launch instrument (see `plans/current.md`).
+
+It returns in the Week 12 quarter-two discussion as a **context-only** mode — rules, journal and
+capture work on MT5, delta does not, and we never claim it does.
 
 ---
 
@@ -173,7 +197,10 @@ offline and straightforward.
 - **`.gitignore`** now covers `data/`, `*.parquet`, `*.dbn`, `*.dbn.zst`.
 - **A real API key was sitting in the git-tracked `.env.example`.** Uncommitted, and confirmed
   absent from all branch history, but one `git add -A` from being pushed. Placeholder restored.
-  **That key should be rotated** — it was also pasted into a chat transcript.
+  **That key should be revoked** — it was also pasted into a chat transcript. *Rotate* was the
+  original wording, from when a hosted backend was still being chosen; the analysis backend
+  decision on 25 Aug is to build our own model, so nothing depends on that key and there is no
+  replacement to issue. A live key serving no purpose is strictly worse than no key.
 - **`uint32` negation trap.** `size` is `uint32`; `-df["size"]` wraps to ~4.29e9 instead of
   going negative. The script casts to `int64` first. Worth remembering for any future code
   touching this column.
@@ -184,10 +211,14 @@ offline and straightforward.
 
 | Step | State |
 | :--- | :--- |
-| 1 · Aggressor convention | **Confirmed** — docs + three empirical checks |
+| 1 · Aggressor convention | **Confirmed** — docs + three empirical checks, plus the quote rule below |
 | 2 · Delta, CVD, 1-min bars, footprint | **Done** |
-| 3 · Reference-chart validation | **NOT DONE — hard gate open** |
-| 4 · GC vs spot XAUUSD | **Blocked** — Dukascopy unreachable from here |
-| NQ | Dropped per instruction; not pulled, ~$11.42 unspent |
+| 3 · Reference validation | **Closed 24 Aug** (`c504e50`) — quote rule + settlement close. Residual: session-total delta is method-dependent at ~15–20% |
+| 4 · GC vs spot XAUUSD | **Cut 25 Aug** — spot gold has no centralised volume, so there is nothing to correlate. Not a download problem |
+| NQ | Dropped 25 Aug; never pulled, ~$11.42 unspent. A quarter-two candidate, not a flag flip |
 
-Databento spend so far: **~$2.52** (GC only).
+Databento spend so far: **~$2.52** (GC) plus the one TBBO session pull behind §3.
+
+**The one number to carry out of this file:** direction and shape of delta are trustworthy;
+**absolute magnitude carries a ~15–20% method-dependence** and every threshold derived downstream
+inherits it.
