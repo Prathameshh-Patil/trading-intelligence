@@ -85,18 +85,22 @@ and put the screenshot in `daily_updates/2026-08-27.md`. *(closes #7)*
 `DELTA_CVD_FINDINGS.md` end to end before you touch anything; it is the best-documented thing in
 the repo and it will save you a day. Then three real jobs:
 
-1. **Cut `data/fixtures/gc_ticks_1session.parquet`** from the existing `data/gc_trades.parquet` —
-   the 2026-07-16 GCQ6 session already chosen as the validation session, 77,532 trades. `data/` is
-   gitignored, so the fixture needs an explicit exception. **This is S1 and it unblocks every test
-   in the next twelve weeks.**
-   > ⚠️ **Blocked as written — checked 25 Aug. `services/signal-data/data/` does not exist on
-   > Varad's machine.** `8aece67` gitignored `data/`, `*.parquet` and `*.dbn`, so the 1.6M-trade
-   > pull was never pushed and lives only on Prathamesh's disk. There is nothing here to cut from.
-   > **Get the parquet from Prathamesh before Thursday** — it is the free option and it needs a
-   > person, so ask at Wednesday's standup, not Thursday morning. The fallback is re-pulling from
-   > Databento (~$2.52 and a Databento key), which is real money spent to recreate a file that
-   > already exists twenty feet away. Same shape as the `data/`-missing blocker that stopped A2 on
-   > Day 3 — this is the second task lost to it, which is the argument for landing S1 in git.
+1. ~~**Cut `data/fixtures/gc_ticks_1session.parquet`**~~ — ✅ **DONE 25 Aug, before Week 0 started.**
+   Blocked in the morning and closed the same evening: the `.gitignore` exception landed in
+   `fdb96c8`, and Prathamesh cut the session with `cut_s1_fixture.py` and pushed the **fixture**
+   rather than the month (`14f5547`), straight onto the one path that exception re-includes.
+   **Verified after pulling, against the contract rather than the filename:** 77,532 rows exactly,
+   all six S1 columns with correct dtypes and no extras, `GCQ6` only, the CME session window, and
+   **session delta +1,842 — matching `DELTA_CVD_FINDINGS.md` §3 to the unit.**
+   > 📋 **Thursday's job is no longer the cut — it is the two things the cut surfaced.**
+   > **(a)** `aggressor_side` carries a real third value, **`'N'` — 1,811 trades, 2.34%** — that S1
+   > declares as `'B' | 'A'`. S1's own row count already includes them, so the count and the type
+   > cannot both be true. **This is a frozen contract: the amendment is drafted in `contracts.md`
+   > and NOT applied. It needs all three of you.** Take it to Wednesday's standup as a yes/no.
+   > **(b)** The fixture holds **421 genuine duplicate rows** — identical timestamps, up to 6
+   > copies, the signature of one aggressor sweeping several resting orders. They are not errors.
+   > A `drop_duplicates()` that looks like hygiene moves session delta from **+1,842 to +1,989, an
+   > 8% drift.** Both are recorded in `contracts.md` S1.
 2. ~~**Solve the reference-validation blocker**~~ — **closed 24 Aug by `c504e50`**, by quote-rule
    cross-check rather than by finding a Mac footprint platform. See the box below. **Your job here
    is now the residual, not the gate:** session-total delta is method-dependent at ~15–20%, and the
@@ -233,7 +237,7 @@ nothing). Nothing to do; noting it so nobody goes looking.
 ## Entering Week 1 you must have
 
 - [x] **A month of GC ticks on disk with a verified aggressor split** — done 24 Aug, `8aece67`
-- [ ] `data/fixtures/gc_ticks_1session.parquet` committed (2026-07-16 GCQ6), with a `.gitignore` exception — **blocked: the source parquet is not on this machine, see W0D2**
+- [x] `data/fixtures/gc_ticks_1session.parquet` committed (2026-07-16 GCQ6), with a `.gitignore` exception — **done 25 Aug (`fdb96c8` exception, `14f5547` fixture), before Week 0 started.** Verified: 77,532 rows, six columns, session delta +1,842 matching the findings. **Carries one open item for standup — `'N'` is a real third `aggressor_side` value S1 does not admit; amendment drafted in `contracts.md`, not applied**
 - [x] **Reference validation closed** — `c504e50`, quote-rule cross-check, not a charting platform.
       *Residual: session-total delta is method-dependent at ~15–20%; direction and shape are robust*
 - [ ] **The Anthropic key revoked** — it was in a chat transcript, and nothing depends on it now

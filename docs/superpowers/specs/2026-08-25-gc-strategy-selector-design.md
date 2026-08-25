@@ -256,10 +256,18 @@ Style follows the repo: plain functions over frames, no class hierarchy, no fram
 
 ## 8. Blocked on
 
-- **`services/signal-data/data/` does not exist on this machine.** The 1.6M-trade parquet is on
-  Prathamesh's disk and correctly gitignored. Stage 1 cannot start without it. **Ask at Wednesday's
-  standup** — the same ask that unblocks the S1 fixture, so it is one request covering two items.
-  The `.gitignore` exception for the S1 fixture landed 25 Aug (`fdb96c8`), so the plumbing is ready.
+- ~~`services/signal-data/data/` does not exist on this machine.~~ **Partly unblocked the same
+  evening.** Prathamesh pushed the **S1 fixture** in `14f5547` — the 2026-07-16 GCQ6 session, 77,532
+  trades, verified against the contract. So there is now one real session on disk.
+
+  **That is enough to build and test Stage 1's machinery, and not enough to run it.** One session
+  cannot produce a backtest — §6 needs months. The full month (1.6M trades) is still only on
+  Prathamesh's disk, correctly gitignored, and remains an ask.
+
+  **Two data facts from that fixture bind any strategy code written here** (both now in
+  `contracts.md` S1): `aggressor_side` carries a real `'N'` value on 2.34% of trades, so
+  `map({"B": 1, "A": -1})` silently yields NaN; and 421 duplicate rows are genuine multi-fills,
+  where a reflexive `drop_duplicates()` moves session delta by **8%**.
 - **quantfeed's §5 checklist** — unanswered, and it determines whether Stage 1 runs against the
   existing Databento month or waits.
 
