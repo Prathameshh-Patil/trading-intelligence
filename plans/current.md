@@ -183,36 +183,65 @@ Shipped as [PR #3](https://github.com/Prathameshh-Patil/trading-intelligence/pul
       `503` with the reason readable in `detail.error`. Nothing was charged. So no analysis has
       ever been produced: no confirmed latency, no measured cost, and the system prompt's
       sentiment behaviour is entirely unvalidated. Everything else about the change is verified;
-      this one thing is not, and cannot be until the backend question below is settled.
-- [ ] **The analysis backend is an open decision again**, deliberately deferred on 25 Aug
-      rather than defaulted. Options weighed: add Anthropic credit (~$5 ≈ 3,000 analyses, zero
-      further work, code stays exactly as verified); Ollama running locally (free forever, no
-      key, no rate limit, and page text never leaves the machine — but it cannot back a deployed
-      API); Google Gemini's free tier (no card, closest drop-in, but rate-limited and its
-      free-tier data-use terms need reading first). Whichever wins, `analyze()` keeps the same
-      four keys, so the route, the contract and the extension are unaffected — that was the
-      point of freezing it. **This is really the same question as #4** and should be decided
-      with it: a local model removes the secret and rules out a hosted API; a cloud model does
-      the reverse.
+      this one thing is not. **And as of the own-model decision below it stays that way** — this
+      is no longer a few days from being closed by a $5 top-up. Whatever sentiment quality the
+      product ships is now the own model's to earn, and the four Day 1 cases (bullish, bearish,
+      neutral, negation) are the bar it has to clear, exactly as they were for the lexicon.
+- [x] **S3 frozen and its fake landed** — `services/api/tests/fixtures/keys_fake.py`, pulled forward
+      from W0D3 because it needs nothing that is blocked. All six branches of the key-validate
+      contract were driven against a real server on port 8001, not asserted from reading:
+      `core` → `200 tier core`, `journal` → `200 core_journal` with an expiry, `expired`/`revoked`
+      → `200 valid:false`, an unknown key → `200 reason:unknown`, and `ti_live_down…` → `503`. The
+      branch is chosen by the key, so Prathamesh can reach every one on demand in Week 5 rather
+      than only when the server happens to be in that state. **`valid:false` is a 200, not a 401** —
+      that is the load-bearing part of S3, because the desktop app must tell "your key is bad" apart
+      from "we couldn't reach the server". A missing header is a 422. `ruff`/`mypy` clean and the
+      17-test suite is unaffected. `contracts.md` said W1D1 while both schedule files said W0D3;
+      that contradiction is resolved to W0D3.
+- [x] **Two leftovers from the NQ drop, found by re-grepping rather than assuming** —
+      `team/varad/README.md` still told Varad to run the Databento estimate for "one month GC + NQ"
+      on Wed 26, contradicting the drop decided the same day; and `contracts.md` carried the S3
+      date contradiction above. Both fixed. `pull_futures_trades.py` still has its `NQ` entry and
+      that is **deliberate** — dropping NQ was a scope decision, not a decision to delete the
+      capability, and it returns as a quarter-two candidate.
+- [x] **The analysis backend question is closed — we build our own model.** Decided 25 Aug.
+      None of the three hosted options weighed earlier that day (Anthropic credit, Ollama,
+      Gemini free tier) is taken; **no money goes on any account and the analysis work is parked
+      until the model exists.** Claude stays in `analyze()` as the interim implementation — it
+      is written, typechecked and tested, and ripping it out now would buy nothing but an empty
+      route.
+      **What this changes:** the `$5 credit` recommendation is withdrawn everywhere; the "first
+      live analysis" is no longer pending-on-billing, it is *not happening* on this backend; and
+      the 5 `LIVE_API_TESTS=1` tests stay skipped indefinitely rather than for a few more days.
+      **What it does not change:** the four-key contract stays frozen, so the own model drops in
+      behind the same `analyze()` signature with no route, contract or extension change — the
+      same swap already performed once on Day 3, lexicon → Claude, with zero extension edits.
+      **Two things this now needs and does not have:** a home in the twelve-week schedule (no
+      week in `plans/team/` budgets for training or serving a model), and a decision on whether
+      it serves from the same box as the API — which is the other half of #4.
 
 ---
 
 ## Next
 
 Ordered. Days 1–3 are complete except the items explicitly left unchecked above — a real
-`pnpm tauri dev` window, the actual Databento pull, reloading the extension, and now the
-first live analysis call. Those are #1 and #6–#8 below, not optional. Three of the four are
-the same shape: code that type-checks and tests green but has never been run for real.
+`pnpm tauri dev` window, reloading the extension, and the S1 fixture cut. Those are #6–#8
+below, not optional, and they are the same shape: code that type-checks and tests green but
+has never been run for real.
+
+**#1 is no longer one of them.** The first live analysis was the fourth item on that list
+until 25 Aug, when the backend question was closed by deciding to build our own model. It is
+not blocked-and-waiting; it is off this list until that model exists.
 
 | # | Item | Owner | Notes |
 | :--- | :--- | :--- | :--- |
 | 0 | 🔑 **Rotate the Anthropic key** | Varad | It was in the tracked `.env.example` (uncommitted, absent from history, placeholder restored) **and in a chat transcript.** Ten minutes. Do it before putting credit on the account |
-| 1 | **Pick the analysis backend, then run the live analysis once** | Varad | Blocked on a decision, not on work — see the Day 3 notes. Anthropic credit, local Ollama, or Gemini free tier. Decide it together with #4, they are the same question. Once settled: `LIVE_API_TESTS=1 uv run pytest` (5 tests: bullish, bearish, neutral, negation, bounds), then click a real selection through the loaded extension. Until then the model's sentiment judgement is the one unverified thing in the change |
+| 1 | ~~Pick the analysis backend, then run the live analysis once~~ — **PARKED 25 Aug: we build our own model** | Varad | No hosted backend is bought, so no live analysis runs and the 5 `LIVE_API_TESTS=1` tests stay skipped. Claude stays in as the interim implementation; the four-key contract stays frozen, so the own model is a drop-in behind the same `analyze()` — the Day 3 lexicon→Claude swap already proved that seam holds. **What this row becomes: scope the own model and give it a week in `plans/team/`.** Nothing there budgets for training or serving one, and an unscheduled model is how Week 6 disappears |
 | 2 | Click the demo through in **Firefox** | Either | Installs cleanly and CORS accepts it; only Chrome has rendered a verdict |
 | 3 | Review the **popup UI** | Prathamesh | Written from scratch to unbreak the build — a starting point, not a design |
 | 4 | Decide **where the API lives** | Both | Popup hardcodes `http://localhost:8000`, matching `host_permissions`; a deployed URL changes both, and the CORS entries start mattering once `host_permissions` no longer covers the host. **Now also a secrets question:** the API holds an Anthropic key, so it needs somewhere that can hold an env var — and the key must never move into the extension, which is public |
 | 5 | **AMO / Web Store** submission prep | Undecided | See constraints below |
-| 6 | ~~Run the Databento pull for real~~ — **DONE 24 Aug, `8aece67`** | Prathamesh | 1,616,772 GC trades, $2.52, aggressor split 48.32/47.79 — inside the band. Exceeded the bar this row set. **What's left: the S1 fixture cut.** NQ dropped 25 Aug — the ~$11.42 stays unspent |
+| 6 | ~~Run the Databento pull for real~~ — **DONE 24 Aug, `8aece67`** | Prathamesh | 1,616,772 GC trades, $2.52, aggressor split 48.32/47.79 — inside the band. Exceeded the bar this row set. **What's left: the S1 fixture cut — and it is blocked.** `data/` and `*.parquet` are gitignored as of `8aece67`, so the 1.6M-trade pull was never pushed and `services/signal-data/data/` does not exist on Varad's machine (checked 25 Aug). Nothing to cut from. **Ask Prathamesh for the parquet at Wednesday's standup**; re-pulling (~$2.52) is the fallback and it buys a file that already exists on a teammate's laptop. NQ dropped 25 Aug — the ~$11.42 stays unspent |
 | 7 | Confirm `pnpm tauri dev` opens a real window | Either | Headless-browser screenshot of the compiled bundle isn't the same as a real native window — nobody has looked at one yet |
 | 8 | Load the rebuilt extension in Chrome, confirm capture still works | Either | The `activeTab`/`scripting` rewrite (`955b374`) hasn't been checked in a real loaded extension. Fold #1's click-through into this if doing both at once |
 | A1 | Compute delta and CVD ~~from the tick data~~ **done** · **validate against a real footprint chart — OPEN HARD GATE** | Prathamesh did the compute; **Shreyas owns the reference path**, Varad the comparison | Delta, CVD, 1-min bars and footprint all computed for 2026-07-16 GCQ6. **Validation against an independent platform has never happened** and that is the gate. ATAS and Sierra are Windows-only on an ARM Mac — see [`team/week-00.md`](team/week-00.md). **Check timezone, then contract, then the mapping** — the mapping now has three confirmations, so it is the *least* likely, which inverts the usual advice |
@@ -244,9 +273,15 @@ Things that are cheap to break and expensive to notice.
   was caught — `git commit -a` would have committed it. Nothing leaked and no rotation was
   needed, but check which of the two files you are editing. `git check-ignore -v <file>` is
   the one-second answer.
-- **Analysis costs money per request** — roughly $0.0015 a call at Haiku 4.5 rates. Nothing
-  rate-limits or caches it yet, so anything that loops over `/api/v1/analyze` spends real
-  money. Worth knowing before writing a batch script against it.
-- **The system prompt in `app/analysis.py` is the only thing holding sentiment behaviour
-  in place.** No type checker and none of the 13 stubbed tests will catch a regression in
-  it. Re-run `LIVE_API_TESTS=1 uv run pytest` after editing it.
+- **`/api/v1/analyze` has no working backend.** The interim implementation calls Claude, and the
+  account has no credit, so every call returns `503 analysis unavailable`. That is the *correct*
+  behaviour for an unreachable upstream, not a bug — but it means the endpoint is not usable for
+  anything right now, and nothing downstream should be written as though it is until the own model
+  lands. **Nothing rate-limits or caches it**, which stopped mattering the day it stopped costing
+  money and starts mattering again the moment the own model is serving.
+- **Sentiment behaviour is held in place by nothing that runs.** In the interim implementation it
+  lives entirely in the system prompt in `app/analysis.py`; no type checker and none of the default
+  tests touch it, and the 5 `LIVE_API_TESTS=1` tests that would are skipped with no backend to run
+  against. **This transfers to the own model unchanged** — it will have its own untested-by-default
+  judgement, and the four Day 1 cases (bullish, bearish, neutral, negation) are the bar for both.
+  Whatever replaces `analyze()` needs those four re-runnable without a paid API behind them.

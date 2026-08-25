@@ -31,21 +31,32 @@ one). Confirm "Capture screen" reads a real selection through the `activeTab` + 
 path. Then the same in Firefox — it installs and CORS accepts it, but no Firefox profile has ever
 rendered a verdict. *(closes `current.md` #2, #8)*
 
-**V** — Settle the analysis-backend decision, then run the Databento estimate. Decision first:
-the artifact's budget line is *"LLM extraction — vision calls for chart context, ~10 users —
-$20–50/mo"*, which is a hosted API, and under bring-your-own-feed the model never sees market data
-— only a screenshot's symbol and timeframe. Ollama was the privacy answer to a privacy problem that
-the architecture has now deleted, and it cannot back a deployed API anyway. **Recommendation: add
-$5 Anthropic credit and stop deferring this.** ~3,000 analyses, zero code change, and the change is
-already verified end to end except for this. Then: `pull_futures_trades.py --estimate-only` for one
-month of GC. *(closes #1's decision half, and #4's secrets half)*
+**V** — ~~Settle the analysis-backend decision~~ — **settled 25 Aug: we build our own model.** No
+hosted backend is bought; the earlier "add $5 Anthropic credit" recommendation is **withdrawn**, and
+nothing goes on any account. Claude stays in `analyze()` as the interim implementation and the
+four-key contract stays frozen, so the own model drops in behind the same signature later — the same
+seam that survived lexicon → Claude on Day 3 with zero extension edits. Wednesday's remaining job is
+just `pull_futures_trades.py --estimate-only` for one month of GC.
+
+> **The two consequences worth saying out loud.** First, **the analyze feature has no working
+> backend now** — no live call has ever succeeded and none will before the model exists, so the
+> popup's core action stays unverified end to end for as long as that takes. Second, **the own model
+> has no home in this schedule.** Weeks 1–12 budget for the Rust engine, the overlay, the API and
+> the harness; not one of them budgets for training or serving a model. Scope it and give it a week
+> before it silently eats one. *(closes #1's decision half, and #4's secrets half — the API no
+> longer needs to hold a third-party key at all, which makes the hosting question easier, not
+> harder)*
 
 **V — first, before anything else: rotate the Anthropic key.** `DELTA_CVD_FINDINGS.md` §5 reports a
 real key was sitting in the git-tracked `.env.example` — uncommitted, confirmed absent from all
 branch history, one `git add -A` from being pushed — **and that it was also pasted into a chat
 transcript.** The placeholder is restored, so the repo is clean, but a key that has been in a
-transcript is a key that should not still be live. Ten minutes at console.anthropic.com. Do it
-before you spend money on the account.
+transcript is a key that should not still be live. Ten minutes at console.anthropic.com.
+
+**Still do this — the own-model decision makes it easier, not unnecessary.** Nothing depends on that
+key any more, so it is a **revoke**, not a rotate: delete it and leave the placeholder in `.env`.
+`anthropic_api_key` is a required setting, but the tests only need it to be *present*, not valid, so
+the suite stays green on a placeholder. A live key with no purpose is strictly worse than no key.
 
 **S** — Two hours reading, one hour writing. Learn what a footprint chart actually shows: bid
 volume and ask volume side by side at each price, delta as their difference, CVD as the running
@@ -78,6 +89,14 @@ the repo and it will save you a day. Then three real jobs:
    the 2026-07-16 GCQ6 session already chosen as the validation session, 77,532 trades. `data/` is
    gitignored, so the fixture needs an explicit exception. **This is S1 and it unblocks every test
    in the next twelve weeks.**
+   > ⚠️ **Blocked as written — checked 25 Aug. `services/signal-data/data/` does not exist on
+   > Varad's machine.** `8aece67` gitignored `data/`, `*.parquet` and `*.dbn`, so the 1.6M-trade
+   > pull was never pushed and lives only on Prathamesh's disk. There is nothing here to cut from.
+   > **Get the parquet from Prathamesh before Thursday** — it is the free option and it needs a
+   > person, so ask at Wednesday's standup, not Thursday morning. The fallback is re-pulling from
+   > Databento (~$2.52 and a Databento key), which is real money spent to recreate a file that
+   > already exists twenty feet away. Same shape as the `data/`-missing blocker that stopped A2 on
+   > Day 3 — this is the second task lost to it, which is the argument for landing S1 in git.
 2. **Solve the reference-validation blocker** — see the box below. It is Week 1 Tuesday's whole
    task and it currently has no working path on your hardware.
 3. ~~Decide NQ~~ — **dropped.** GC is the launch instrument. One instrument, one set of thresholds,
@@ -92,9 +111,10 @@ licence?"* Do not soften it, do not add context, do not ask three questions. Get
 reviewed at standup Friday and send Monday morning. Also: book the CA call for Week 1 Tuesday —
 book it now, CAs are not available on two days' notice.
 
-*Float:* if V's pull finishes early, run the first live Claude analysis (`LIVE_API_TESTS=1 uv run
-pytest`, 5 tests) — that is the last unverified thing in PR #3 and it takes ten minutes once there
-is credit on the account.
+*Float:* ~~run the first live Claude analysis~~ — **gone, 25 Aug.** No hosted backend is being
+bought, so the 5 `LIVE_API_TESTS=1` tests stay skipped and PR #3's one unverified claim stays
+unverified. Use the slack to **scope the own model instead** — what it is, what it trains on, what
+it has to beat (the four Day 1 sentiment cases), and which week it lives in.
 
 *Why nobody is blocked:* P is in Tauri, V is in Databento, S is in a text editor and a calendar.
 
@@ -106,10 +126,11 @@ is credit on the account.
 workspace builds from a fresh clone — `git clean -xdf` in a scratch copy, `pnpm install`,
 `pnpm build`, `cargo build`. A fresh-clone check now is worth an hour; in Week 6 it is worth a day.
 
-**V** — Freeze **S3** — write `services/api/tests/fixtures/keys_fake.py`, the 30-line FastAPI app
-returning all six branches of the key-validate contract on port 8001. It is not needed until Week 5.
-Write it now anyway, while there is slack, because Week 5 has none. Commit `contracts.md`'s S1 and
-S3 sections as the frozen record.
+**V** — ~~Freeze **S3**~~ — **done early, 25 Aug.** `services/api/tests/fixtures/keys_fake.py` is
+written and all six branches were driven against it on port 8001 (`ruff`/`mypy` clean, the 17-test
+suite unaffected). `contracts.md` S3 is updated and frozen. **What is left on Friday: commit S1's
+section as the frozen record** — the S1 *fixture* itself is blocked on getting the parquet from
+Prathamesh, but freezing the column contract is not blocked by that and should still happen.
 
 **S** — Start beta trader recruitment. Target three, from the communities where this strategy
 actually lives — futures order-flow forums, Discord servers, the ATAS and Jigsaw communities. **Not
@@ -180,13 +201,16 @@ nothing). Nothing to do; noting it so nobody goes looking.
 ## Entering Week 1 you must have
 
 - [x] **A month of GC ticks on disk with a verified aggressor split** — done 24 Aug, `8aece67`
-- [ ] `data/fixtures/gc_ticks_1session.parquet` committed (2026-07-16 GCQ6), with a `.gitignore` exception
+- [ ] `data/fixtures/gc_ticks_1session.parquet` committed (2026-07-16 GCQ6), with a `.gitignore` exception — **blocked: the source parquet is not on this machine, see W0D2**
 - [ ] A reference-chart path chosen, and option 1 actually run
-- [ ] **The Anthropic key rotated** — it was in a chat transcript
+- [ ] **The Anthropic key revoked** — it was in a chat transcript, and nothing depends on it now
 - [ ] A real Tauri window, seen with human eyes, screenshotted
 - [ ] The extension confirmed working in Chrome **and** Firefox
-- [ ] The analysis backend decided and one live analysis actually returned
-- [ ] S1 and S3 frozen; `keys_fake.py` committed
+- [x] **The analysis backend decided** — our own model (25 Aug). *No live analysis returns; that
+      moves to whenever the model lands, and the four-key contract is what makes the wait safe*
+- [ ] The own model scoped, and given a week in this schedule
+- [x] **S3 frozen; `keys_fake.py` committed** — done early, 25 Aug, all six branches verified live
+- [ ] S1 frozen (the column contract — separable from the blocked fixture)
 - [ ] Three vendor emails drafted, ready to send Monday 08:00
 - [ ] A CA call booked for Tuesday
 - [ ] Shreyas able to explain absorption in his own words
