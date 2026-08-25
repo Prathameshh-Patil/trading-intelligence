@@ -140,11 +140,15 @@ Note `valid: false` is a **200, not a 401**. The desktop app must distinguish "y
 (show a message, keep working offline) from "we couldn't reach the server" (keep working, retry
 quietly). A 401 conflates them.
 
-**Fixture:** `services/api/tests/fixtures/keys_fake.py` — a 30-line FastAPI app returning all six
-branches, runnable on port 8001. **Varad, W1D1.** Prathamesh points at it from W5D1 and never
-knows the difference when the real one lands W5D3.
+**Fixture:** `services/api/tests/fixtures/keys_fake.py` — a FastAPI app returning all six branches,
+runnable on port 8001. **Varad — landed early, 25 Aug.** Prathamesh points at it from W5D1 and never
+knows the difference when the real one lands W5D3. The branch is selected by the key
+(`ti_live_core…`, `journal`, `expired`, `revoked`, `down`; anything else is `unknown`), so all six
+are reachable on demand rather than only when the server happens to be in that state. A missing
+header is a 422 — the seventh case, and the one the desktop app should never produce.
 
-**Frozen:** W1D1.
+**Frozen:** W0D3. *(This section previously read W1D1, which contradicted `week-00.md` and
+`varad/README.md`; both put it on Fri 28. W0D3 is correct and the fixture is now ahead of it.)*
 
 ---
 
@@ -228,7 +232,7 @@ asleep.
 | :--- | :--- | :--- | :--- |
 | `data/fixtures/gc_ticks_1session.parquet` | Varad | W0D2 | Every engine test, and the mock engine |
 | `apps/desktop/src/lib/engine/mock.ts` | Prathamesh | W1D2 | All UI work, weeks 1–3 |
-| `services/api/tests/fixtures/keys_fake.py` | Varad | W1D1 | Desktop key flow, week 5 |
+| `services/api/tests/fixtures/keys_fake.py` | Varad | ✅ **landed 25 Aug** (was W1D1/W0D3) | Desktop key flow, week 5 |
 | `POST /api/v1/dev/issue-key` | Varad | W5D2 | Website purchase flow, week 6 |
 | `docs/qa/reference-session.md` | Shreyas | W1D2 | Every "is the delta right" argument, forever |
 
