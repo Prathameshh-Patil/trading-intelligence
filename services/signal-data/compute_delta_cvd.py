@@ -42,21 +42,12 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-# --------------------------------------------------------------------------
-# CME trading day.
-#
-# Gold on Globex runs 18:00 ET -> 17:00 ET the next day. During EDT that is
-# 22:00 UTC -> 21:00 UTC. Adding 2h to a UTC timestamp therefore rolls the
-# 22:00 UTC open forward onto the calendar date of the session it belongs to,
-# so Sunday-evening trade is grouped with Monday, where a trader would expect
-# to find it. Confirmed against the data: every gap >2h in the month sits
-# exactly on a Friday 21:00 UTC close / Sunday 22:00 UTC reopen.
-#
-# This is EDT-specific. A month spanning the DST boundary needs a real
-# exchange calendar instead of a fixed offset.
-# --------------------------------------------------------------------------
-SESSION_SHIFT = pd.Timedelta(hours=2)
+from s1 import load_ticks, minute_bars, session_cvd
 
+# The load / delta / bar layer lives in s1.py, against the S1 tick contract, so
+# this script and the backtest harness cannot disagree about what a session or a
+# bar is. It used to be duplicated here against the pull script's own encoding,
+# which read the S1 fixture as zero delta on every row without complaining.
 DISPLAY_TZ = "America/New_York"
 
 # Palette roles (see the data-viz reference palette). Diverging blue<->red for
@@ -73,62 +64,8 @@ C_SECONDARY = "#52514e"
 
 
 # --------------------------------------------------------------------------
-# Load & core signal
+# Core signal
 # --------------------------------------------------------------------------
-def load_trades(path: Path) -> pd.DataFrame:
-    df = pd.read_parquet(path)
-    missing = {"timestamp", "price", "size", "aggressor_side"} - set(df.columns)
-    if missing:
-        raise SystemExit(f"{path} is missing required columns: {sorted(missing)}")
-
-    df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True)
-    df = df.sort_values("timestamp").reset_index(drop=True)
-    df["session"] = (df["timestamp"] + SESSION_SHIFT).dt.date
-    return df
-
-
-def add_delta(df: pd.DataFrame) -> pd.DataFrame:
-    """Signed volume per trade. `unknown` contributes 0 -- it is not evidence
-    of either side, and silently folding it into one is how a footprint picks
-    up a directional bias that isn't in the market."""
-    side = df["aggressor_side"]
-    df["delta"] = np.select(
-        [side == "buy_initiated", side == "sell_initiated"],
-        [df["size"].astype("int64"), -df["size"].astype("int64")],
-        default=0,
-    ).astype("int64")
-    return df
-
-
-def session_cvd(df: pd.DataFrame) -> pd.DataFrame:
-    """Continuous, trade-by-trade CVD. Resets each session: CVD is only
-    meaningful relative to a starting point, and carrying it across the
-    overnight break makes the level, not the shape, do the talking."""
-    out = df.copy()
-    out["cvd"] = out.groupby("session", sort=False)["delta"].cumsum()
-    return out
-
-
-def minute_bars(df: pd.DataFrame) -> pd.DataFrame:
-    """1-minute bars: delta per minute plus CVD at each minute's close. This
-    is the resolution a footprint chart is read at, so it's what gets compared
-    against the reference."""
-    idx = df.set_index("timestamp")
-    bars = idx.resample("1min").agg(
-        delta=("delta", "sum"),
-        volume=("size", "sum"),
-        trades=("price", "size"),
-        open=("price", "first"),
-        high=("price", "max"),
-        low=("price", "min"),
-        close=("price", "last"),
-    )
-    bars = bars[bars["trades"] > 0].copy()
-    bars["session"] = (bars.index + SESSION_SHIFT).date
-    bars["cvd"] = bars.groupby("session", sort=False)["delta"].cumsum()
-    return bars
-
-
 def footprint(df: pd.DataFrame) -> pd.DataFrame:
     """Delta aggregated by PRICE LEVEL rather than by time -- net buy/sell
     volume at each traded price. This is the view that catches a sign error
@@ -356,7 +293,7 @@ def main() -> None:
     out_dir = Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    df = add_delta(load_trades(Path(args.parquet)))
+    df = load_ticks(Path(args.parquet))
     print(f"loaded {len(df):,} trades  "
           f"{df['timestamp'].min()} -> {df['timestamp'].max()}")
 
@@ -369,7 +306,7 @@ def main() -> None:
           f"on {df['size'].sum():,} contracts "
           f"({df['delta'].sum() / df['size'].sum() * 100:+.2f}% imbalance)")
 
-    df = session_cvd(df)
+    df = df.assign(cvd=session_cvd(df))
     bars = minute_bars(df)
     bars.to_csv(out_dir / "gc_minute_bars_2026-07.csv")
     print(f"\nwrote {len(bars):,} 1-minute bars -> "
