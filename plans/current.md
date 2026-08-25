@@ -141,7 +141,23 @@ Landed by Prathamesh after the Day 2 entry above was written, and it closes #6 a
       ARM Mac. Options ranked in [`team/week-00.md`](team/week-00.md) — TradingView web today (free,
       but tick-rule derived, so it does **not** clear the gate), a screenshot hand-off, or Parallels.
 - [x] **NQ dropped, GC is the launch instrument** — decided 25 Aug rather than deferred to Week 1
-      Friday. It was never pulled and the ~$11.42 stays unspent. One instrument means one set of
+      Friday. ~~It was never pulled and the ~$11.42 stays unspent.~~
+      🔴 **FALSE — corrected 25 Aug evening. NQ was pulled. The money is already spent.**
+      `services/signal-data/data/nq_trades.parquet` holds **9,091,850 NQU6 trades** for July 2026
+      (73 MB), and `data/raw/NQ_trades_2026-07.dbn.zst` (178 MB) is the billed download behind it,
+      timestamped 00:42 on 25 Aug — seven minutes after GC's. `run.log:31` reads
+      `[NQ] CACHED trades: reusing ... no API call, no cost`, which is what the record was built
+      on: that line describes the *second* run reusing a cache, not the first run that paid for it.
+      A 178 MB Databento DBN does not exist without a billed `get_range()`.
+      **What this does to the decision:** the two strong arguments are untouched — one instrument
+      still means one set of thresholds, one reference session, one adapter to harden, and a second
+      instrument in Week 9 is still a Week 2-shaped job in the month engineering should be slowing
+      down. **The two stated premises are both false**, though: "only GC has data" is wrong, and
+      "spend ~$11.42 to manufacture a choice" is wrong because the choice was already paid for.
+      The Week 1 Friday decision would have been real, not theatre.
+      **Nothing here reverses the drop** — that is a standup call, not a repo edit. But it should be
+      re-taken on true premises, and it is worth ten minutes on Wednesday. *(NQ's aggressor split is
+      50.07 / 49.93 with **27 unknown rows, 0.0%**, against GC's 3.89% — a materially cleaner feed.)* One instrument means one set of
       thresholds, one reference session to validate, and one feed adapter to harden. `strategy.md`'s
       ≥60 NQ / ≥200 ES figures remain the **derivation source** the GC thresholds are scaled from,
       not thresholds anyone implements. A second instrument is a quarter-two candidate — a full feed
@@ -226,6 +242,42 @@ Shipped as [PR #3](https://github.com/Prathameshh-Patil/trading-intelligence/pul
       week in `plans/team/` budgets for training or serving a model), and a decision on whether
       it serves from the same box as the API — which is the other half of #4.
 
+### Day 3 (evening) — 2026-08-25 · Prathamesh's lane
+
+Three Week 0 / Week 1 items taken early, chosen because everything left on Prathamesh's Week 0
+list needs a device and a pair of eyes (a real Chrome profile, a real Tauri window) and these
+needed neither.
+
+- [x] **S1 fixture cut and committed** — `14f5547`, above. Closes #6 outright and discharges
+      Varad's Thursday item 1, which `week-00.md` still had marked blocked.
+- [x] **S1's `'N'` contradiction found and amended** — the contract pinned `aggressor_side` to
+      `'B' | 'A'` while stating a row count that includes 1,811 trades (2.34%) with neither.
+      Both could not hold. Resolved in the fixture by keeping every row and emitting `N`;
+      `contracts.md` S1 now carries the amendment and the counts. **Not frozen by this** — S1's
+      freeze is Friday's gate and the amendment goes into it, which is the right order.
+      Consumers must exclude `N` from delta and never guess it: it carries real volume, so
+      treating the split as exhaustive biases every CVD in the product by 2.34%.
+- [x] **Fresh-clone build check — passes, done early** (W0D3). `pnpm install` clean,
+      `pnpm build:all` green across extension/desktop/web, `cargo build` clean in 35.66s cold.
+      Run against a scratch `git clone`, **not** `git clean -xdf` in place — see the new standing
+      constraint below, this one nearly cost the month of tick data.
+- [x] **⚠️ `pnpm build` covers one of four workspace projects** — root `build` is
+      `pnpm --filter extension build`. The fresh-clone check as written in `week-00.md` would
+      have gone green with `apps/desktop` and `apps/web` both broken. `pnpm build:all` is the
+      real check. Decide at Friday's gate whether root `build` should just be `build:all`.
+- [x] **S2 frozen in code — `apps/desktop/src/lib/engine/types.ts`** (W1D1, pulled forward).
+      Faithful transcription of `contracts.md` S2 plus S6's `CaptureContext`; `tsc --noEmit`
+      clean and the file is confirmed in the compilation, not merely on disk. This is the item
+      `prathamesh/README.md` calls *"the most valuable half hour of the week"*, and it unblocks
+      `engine/mock.ts` (W1D2) and all UI work in Weeks 1–3.
+- [ ] **`FeedCreds` is undefined and S2 cannot be fully frozen until it isn't.** It is named in
+      the `Engine` interface at `contracts.md:119` and **defined nowhere in the repo** (grepped,
+      not assumed). Left deliberately open in `types.ts` rather than invented, because the
+      credential fields are a function of the vendor and **the vendor is itself open** — C1
+      proposes Databento → quantfeed and says plainly that nothing about it is confirmed.
+      Guessing now means freezing a wrong guess. **Blocks nothing before Week 3** — `mock.ts`
+      ignores creds — but it must be closed before the W3D3 integration day.
+
 ---
 
 ## Next
@@ -247,7 +299,7 @@ not blocked-and-waiting; it is off this list until that model exists.
 | 3 | Review the **popup UI** | Prathamesh | Written from scratch to unbreak the build — a starting point, not a design |
 | 4 | Decide **where the API lives** | Both | Popup hardcodes `http://localhost:8000`, matching `host_permissions`; a deployed URL changes both, and the CORS entries start mattering once `host_permissions` no longer covers the host. **Now also a secrets question:** the API holds an Anthropic key, so it needs somewhere that can hold an env var — and the key must never move into the extension, which is public |
 | 5 | **AMO / Web Store** submission prep | Undecided | See constraints below |
-| 6 | ~~Run the Databento pull for real~~ — **DONE 24 Aug, `8aece67`** | Prathamesh | 1,616,772 GC trades, $2.52, aggressor split 48.32/47.79 — inside the band. Exceeded the bar this row set. **What's left: the S1 fixture cut — and it is blocked.** `data/` and `*.parquet` are gitignored as of `8aece67`, so the 1.6M-trade pull was never pushed and `services/signal-data/data/` does not exist on Varad's machine (checked 25 Aug). Nothing to cut from. **Ask Prathamesh for the parquet at Wednesday's standup**; re-pulling (~$2.52) is the fallback and it buys a file that already exists on a teammate's laptop. **The `.gitignore` exception is already in place** (25 Aug) — `services/signal-data/data/fixtures/gc_ticks_1session.parquet` is the one path under `data/` that git will track, verified with `git check-ignore`, so the cut is a one-liner the moment the parquet lands. NQ dropped 25 Aug — the ~$11.42 stays unspent |
+| 6 | ~~Run the Databento pull for real~~ — **DONE 24 Aug, `8aece67`** | Prathamesh | 1,616,772 GC trades, $2.52, aggressor split 48.32/47.79 — inside the band. Exceeded the bar this row set. **The S1 fixture cut is also done — 25 Aug, `14f5547`, and this row is now closed.** 77,532 rows, 110,817 contracts, GCQ6 only, committed through the `.gitignore` exception with `cut_s1_fixture.py` beside it so it is reproducible rather than a binary someone once made. Verified by reading the file back (dtypes conform; `timestamp` survives the round-trip as `datetime64[ns, UTC]`, not a silent `[us]` downgrade). **Nobody needs to ask for the parquet at Wednesday's standup and nobody re-pulls** — the ~$2.52 fallback stays unspent. *(NQ's ~$11.42 did **not** — see the corrected NQ bullet above; it was pulled on 25 Aug and the record was wrong.)* **It did change S1:** `aggressor_side` is `'B' \| 'A' \| 'N'`, N = 1,811 trades (2.34%) with no aggressor disseminated. Amendment written into `contracts.md` S1, **pending Friday's freeze gate** |
 | 7 | Confirm `pnpm tauri dev` opens a real window | Either | Headless-browser screenshot of the compiled bundle isn't the same as a real native window — nobody has looked at one yet |
 | 8 | Load the rebuilt extension in Chrome, confirm capture still works | Either | The `activeTab`/`scripting` rewrite (`955b374`) hasn't been checked in a real loaded extension. Fold #1's click-through into this if doing both at once |
 | A1 | Compute delta and CVD ~~from the tick data~~ **done** · ~~validate against a real footprint chart~~ — **SUBSTANTIALLY CLOSED 24 Aug, `c504e50`** | Prathamesh | Closed by an independent *method* rather than an independent platform, which sidesteps the Windows-only blocker entirely: `pull_tbbo_validate.py` reclassifies every trade in the 2026-07-16 session by the **quote rule** (price vs the bid/ask immediately before the trade), using the `side` field not at all. **99.65% agreement with `SIDE_MAP` across 75,578 comparable trades**, a near-symmetric confusion matrix (96 vs 165), **0 of 23 hours disagreeing in sign**, and a footprint cross-check at 980/980 common price levels with volume r=1.0000 and delta r=0.9870. Separately `verify_settlement_close.py` resolved the 12.2-point gap against TradingView's reported close as settlement-window-vs-last-trade, VWAP matching within 0.25 — that one **is** an external reference, so contract and timezone are checked too. **Residual, and it must be carried downstream:** session-total delta is method-dependent at the ~15–20% level (side field +1,842 vs quote rule +2,216). **Direction and shape are robust; absolute magnitude needs an error bar.** *(`DELTA_CVD_FINDINGS.md` §3 rewritten 25 Aug — it now records the gate as closed, carries the residual as the file's headline number, and inverts the debugging order so the aggressor mapping is checked **last**, since it has four independent confirmations)* |
@@ -265,6 +317,16 @@ Things that are cheap to break and expensive to notice.
   not resolve, change the package, not the bound.
 - **Lockfiles are the source of truth.** `uv.lock` and `pnpm-lock.yaml` — let the tools write
   them, and give dependency changes their own reviewed commit.
+- **Never `git clean -xdf` in this working copy.** `services/signal-data/data/gc_trades.parquet`
+  is gitignored, was never pushed, and is **the only copy on any machine** of the 1,616,772-trade
+  July 2026 pull that cost $2.52 and underwrites every delta number in the project. `-x` means
+  "ignored files too", so it deletes exactly that. `.env` files and both `.venv`s go with it.
+  **For a fresh-clone check, `git clone` into `/tmp`** — same guarantee (tracked files only),
+  none of the blast radius. Noted 25 Aug when the W0D3 task, as written, said `git clean -xdf`.
+- **`pnpm build` is not a whole-workspace build.** Root `build` is
+  `pnpm --filter extension build` — one of four projects. **`pnpm build:all` is the real one.**
+  A green `pnpm build` says nothing about `apps/desktop` or `apps/web`, which is the trap a
+  fresh-clone check exists to catch and would itself have walked into.
 - **The add-on id is permanent.** `browser_specific_settings.gecko.id`. Changing it after
   release makes existing installs a *different* add-on, not an update.
 - **`strict_min_version` is 140**, because `data_collection_permissions` requires it. That

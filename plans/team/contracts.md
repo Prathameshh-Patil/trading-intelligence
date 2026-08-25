@@ -33,7 +33,8 @@ The atom. Everything else is derived from this.
 timestamp        datetime64[ns, UTC]   exchange timestamp, not receipt time
 price            float64
 size             int64
-aggressor_side   category  'B' | 'A'   B = buyer lifted the ask, A = seller hit the bid
+aggressor_side   category  'B' | 'A' | 'N'   B = buyer lifted the ask, A = seller hit the bid,
+                                           N = no aggressor disseminated (see amendment below)
 symbol           string                'GCQ6', 'GCZ6' — resolved contract, not the parent
 instrument_id    int64
 ```
@@ -58,8 +59,44 @@ services/signal-data/data/fixtures/gc_ticks_1session.parquet   TRACKED
 Checked with `git check-ignore`, not by reading the patterns. Nothing else under `data/` can be
 committed by accident, so the month of billed binary stays out of history.
 
-**Still blocked on the file itself:** `services/signal-data/data/` does not exist on Varad's
-machine — the 1.6M-trade pull was never pushed, correctly. Ask Prathamesh at Wednesday's standup.
+**~~Still blocked on the file itself~~ — unblocked 25 Aug, `14f5547`.** The fixture is committed
+(746 KB) and `cut_s1_fixture.py` is committed beside it, so it is reproducible rather than a binary
+someone once made. The month it was cut from still lives only on Prathamesh's disk and still is not
+pushed — correctly — but **nothing is waiting on that any more.** Varad can clone and run.
+
+Verified by reading the committed file, not the commit message: 77,532 rows (matching this
+contract's stated count exactly), 110,817 contracts, `GCQ6` only, window
+`2026-07-15T22:00:00Z → 2026-07-16T20:59:57Z`, and all six dtypes conforming — including
+`timestamp` surviving the parquet round-trip as `datetime64[ns, UTC]` rather than being silently
+downgraded to `[us]`.
+
+### Amendment · `'N'` is a real value — proposed 25 Aug, for Friday's gate
+
+Cutting the fixture surfaced a contradiction inside this section: `aggressor_side` was pinned to
+`'B' | 'A'`, but the row count stated above (77,532) **includes trades that have neither.** Both
+could not hold. The committed fixture resolves it by keeping every row and emitting a third
+category:
+
+| | count | share |
+| :--- | ---: | ---: |
+| `B` buyer lifted the ask | 38,321 | 49.43% |
+| `A` seller hit the bid | 37,400 | 48.24% |
+| **`N` no aggressor disseminated** | **1,811** | **2.34%** |
+
+`N` is auction, implied and off-book trades — the exchange never published an initiating side.
+
+**What consumers must do: exclude `N` from delta, never guess it.** It carries real volume, so
+`volume` and `delta` legitimately disagree on those rows; a consumer that treats the split as
+exhaustive will either crash on an unexpected category or, worse, quietly bucket 2.34% of trades to
+one side and bias every CVD in the product. Dropping the rows at the cut instead was rejected
+deliberately: it would mean nobody discovers `N` exists until live data, in Week 3, with a feed
+running.
+
+**Freeze status:** S1 is *not yet frozen* — `week-00.md`'s entry checklist still carries
+"S1 frozen (the column contract)" open, and W0D3 gives Varad the job of committing it as the frozen
+record. So this amendment lands **before** the freeze, not against it, and needs no contract-change
+ceremony. **Read it out at Friday's 16:00 gate and freeze S1 with `'N'` in it.** If it is missed
+there, the frozen contract and the fixture every test asserts against disagree from day one.
 
 **Frozen:** W0D2. **Already real** — the full month (1,616,772 GC trades) was pulled on 24 Aug and
 `pull_futures_trades.py` writes exactly these columns.
@@ -246,7 +283,7 @@ asleep.
 
 | Fixture | Owner | Lands | Unblocks |
 | :--- | :--- | :--- | :--- |
-| `data/fixtures/gc_ticks_1session.parquet` | Varad | W0D2 | Every engine test, and the mock engine |
+| `data/fixtures/gc_ticks_1session.parquet` | ~~Varad~~ **Prathamesh** | ✅ **landed 25 Aug** (`14f5547`, was W0D2) | Every engine test, and the mock engine |
 | `apps/desktop/src/lib/engine/mock.ts` | Prathamesh | W1D2 | All UI work, weeks 1–3 |
 | `services/api/tests/fixtures/keys_fake.py` | Varad | ✅ **landed 25 Aug** (was W1D1/W0D3) | Desktop key flow, week 5 |
 | `POST /api/v1/dev/issue-key` | Varad | W5D2 | Website purchase flow, week 6 |

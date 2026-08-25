@@ -18,9 +18,20 @@ Three working days. Weekend is buffer, not schedule. If Friday is clean, don't w
 > Two things changed as a result, both below: **reference-chart validation is blocked on tooling**
 > and is the open hard gate, and **an API key needs rotating.**
 >
-> **NQ is dropped** (25 Aug). It was never pulled, ~$11.42 unspent, and it stays unspent. **GC is
-> the launch instrument** — decided now rather than deferred to Week 1 Friday, because only GC has
-> data and pretending otherwise would make Friday's "decision" theatre.
+> **NQ is dropped** (25 Aug). **GC is the launch instrument** — decided now rather than deferred to
+> Week 1 Friday.
+>
+> 🔴 **Correction, 25 Aug evening: the reason given here was false.** This said NQ "was never
+> pulled, ~$11.42 unspent" and that "only GC has data". **NQ was pulled.**
+> `data/nq_trades.parquet` holds 9,091,850 NQU6 trades for July 2026 and the billed 178 MB DBN sits
+> in `data/raw/`, timestamped seven minutes after GC's. The money is gone. `run.log:31` says
+> `no API call, no cost` — that is a *second* run reusing a cache, not the run that paid.
+>
+> The drop's real arguments survive intact: one instrument means one set of thresholds, one
+> reference session to validate, one adapter to harden — and a second instrument in Week 9 is a
+> Week 2-shaped job in the month engineering should be slowing down. **Those never depended on
+> which data existed.** Keep the drop if those still convince; just do not keep it for the reason
+> written above. Ten minutes at Wednesday's standup. See `current.md`, Day 2 (later).
 
 ---
 
@@ -89,14 +100,27 @@ the repo and it will save you a day. Then three real jobs:
    the 2026-07-16 GCQ6 session already chosen as the validation session, 77,532 trades. `data/` is
    gitignored, so the fixture needs an explicit exception. **This is S1 and it unblocks every test
    in the next twelve weeks.**
-   > ⚠️ **Blocked as written — checked 25 Aug. `services/signal-data/data/` does not exist on
-   > Varad's machine.** `8aece67` gitignored `data/`, `*.parquet` and `*.dbn`, so the 1.6M-trade
-   > pull was never pushed and lives only on Prathamesh's disk. There is nothing here to cut from.
-   > **Get the parquet from Prathamesh before Thursday** — it is the free option and it needs a
-   > person, so ask at Wednesday's standup, not Thursday morning. The fallback is re-pulling from
-   > Databento (~$2.52 and a Databento key), which is real money spent to recreate a file that
-   > already exists twenty feet away. Same shape as the `data/`-missing blocker that stopped A2 on
-   > Day 3 — this is the second task lost to it, which is the argument for landing S1 in git.
+   > ✅ **DONE — 25 Aug, `14f5547`. Do not spend Thursday on this, and do not ask for the parquet
+   > at Wednesday's standup.** Prathamesh cut it himself rather than waiting to be asked.
+   > `data/fixtures/gc_ticks_1session.parquet` (746 KB) is committed through the `.gitignore`
+   > exception, and `cut_s1_fixture.py` is committed beside it, so the fixture is **reproducible
+   > rather than a binary somebody once made**. Clone and run.
+   >
+   > Verified against the file itself, not the commit message: **77,532 rows** — matching
+   > `contracts.md`'s stated count exactly — 110,817 contracts, `GCQ6` only, window
+   > `2026-07-15T22:00Z → 2026-07-16T20:59Z`, all six dtypes conforming, `timestamp` surviving the
+   > parquet round-trip as `datetime64[ns, UTC]` instead of being silently downgraded to `[us]`.
+   >
+   > ⚠️ **It changed the contract, and that is your Friday job.** The cut surfaced a genuine
+   > contradiction in S1: `aggressor_side` was pinned `'B' | 'A'`, but the 77,532 row count
+   > *includes* trades with neither. **`N` is 1,811 trades, 2.34%** — auction, implied and off-book,
+   > where the exchange never published an initiating side. The amendment is written into
+   > `contracts.md` S1 already; **read it out at Friday's gate and freeze S1 with `'N'` in it.**
+   > Consumers must exclude `N` from delta and never guess it — it carries real volume, so a
+   > consumer treating the split as exhaustive silently biases every CVD in the product by 2.34%.
+   >
+   > The old blocker text is gone rather than struck through because it was actionable advice
+   > ("ask at Wednesday's standup") that is now actively wrong.
 2. ~~**Solve the reference-validation blocker**~~ — **closed 24 Aug by `c504e50`**, by quote-rule
    cross-check rather than by finding a Mac footprint platform. See the box below. **Your job here
    is now the residual, not the gate:** session-total delta is method-dependent at ~15–20%, and the
@@ -131,9 +155,28 @@ way this was not, because Shreyas's licence emails go out Monday.
 
 #### W0D3 · Fri Aug 28
 
-**P** — Merge PR #3 if review is clean. Then branch `feat/tauri-overlay` off `main` and confirm the
-workspace builds from a fresh clone — `git clean -xdf` in a scratch copy, `pnpm install`,
-`pnpm build`, `cargo build`. A fresh-clone check now is worth an hour; in Week 6 it is worth a day.
+**P** — Merge PR #3 if review is clean. Then branch `feat/tauri-overlay` off `main`.
+
+~~Confirm the workspace builds from a fresh clone~~ — ✅ **done early, 25 Aug. It passes.** Run
+against a scratch `git clone` into `/tmp` rather than `git clean -xdf` in place, and that distinction
+turned out to matter: **`git clean -xdf` here would delete `services/signal-data/data/gc_trades.parquet`**,
+which is gitignored, never pushed, and the only copy of the $2.52 pull on any machine. A clone gives
+the same guarantee — tracked files only — without putting the month of billed data one flag away from
+deletion. **Change the instruction, not just the outcome.**
+
+| Stage | Result |
+| :--- | :--- |
+| `pnpm install` | clean, lockfile up to date, 40 packages, 483ms |
+| `pnpm build:all` | 3 of 4 projects build — extension, desktop, web. `packages/contracts` has no build script |
+| `cargo build` (desktop) | clean, 35.66s from cold |
+
+⚠️ **One real finding: `pnpm build` is not the check anybody thinks it is.** Root `build` is
+`pnpm --filter extension build` — **one of four workspace projects.** A fresh-clone check running
+`pnpm build`, exactly as this file used to say, would go green while `apps/desktop` and `apps/web`
+were both broken. `pnpm build:all` (`pnpm -r build`) is the one that covers them, and it is what was
+actually run above. Worth deciding at Friday's gate whether root `build` should just *be* `build:all`
+— the current split is a trap that pays out in Week 6, which is precisely the week this task exists
+to protect.
 
 **V** — ~~Freeze **S3**~~ — **done early, 25 Aug.** `services/api/tests/fixtures/keys_fake.py` is
 written and all six branches were driven against it on port 8001 (`ruff`/`mypy` clean, the 17-test
@@ -233,7 +276,8 @@ nothing). Nothing to do; noting it so nobody goes looking.
 ## Entering Week 1 you must have
 
 - [x] **A month of GC ticks on disk with a verified aggressor split** — done 24 Aug, `8aece67`
-- [ ] `data/fixtures/gc_ticks_1session.parquet` committed (2026-07-16 GCQ6), with a `.gitignore` exception — **blocked: the source parquet is not on this machine, see W0D2**
+- [x] **`data/fixtures/gc_ticks_1session.parquet` committed** (2026-07-16 GCQ6, 77,532 rows) through
+      the `.gitignore` exception — done 25 Aug, `14f5547`, with `cut_s1_fixture.py` beside it
 - [x] **Reference validation closed** — `c504e50`, quote-rule cross-check, not a charting platform.
       *Residual: session-total delta is method-dependent at ~15–20%; direction and shape are robust*
 - [ ] **The Anthropic key revoked** — it was in a chat transcript, and nothing depends on it now
@@ -243,7 +287,10 @@ nothing). Nothing to do; noting it so nobody goes looking.
       moves to whenever the model lands, and the four-key contract is what makes the wait safe*
 - [ ] The own model scoped, and given a week in this schedule
 - [x] **S3 frozen; `keys_fake.py` committed** — done early, 25 Aug, all six branches verified live
-- [ ] S1 frozen (the column contract — separable from the blocked fixture)
+- [ ] S1 frozen (the column contract) — **the fixture is no longer the blocker; the `'N'` amendment
+      is.** `aggressor_side` is `'B' | 'A' | 'N'`, written up in `contracts.md` S1 and waiting on
+      Friday's gate. Freeze it *with* `N`, or the frozen contract and the fixture every test asserts
+      against disagree on day one
 - [ ] Three vendor emails drafted, ready to send Monday 08:00
 - [ ] A CA call booked for Tuesday
 - [ ] Shreyas able to explain absorption in his own words
