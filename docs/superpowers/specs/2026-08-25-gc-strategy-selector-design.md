@@ -1,6 +1,6 @@
 # GC strategy selector — design
 
-**Date:** 2026-08-25 · **Owner:** Varad · **Status:** design, nothing built
+**Date:** 2026-08-25 · **Owner:** Varad · **Status:** §7's `s1.py` and `backtest.py` built and tested (25 Aug, night); **no strategy defined and no backtest run**
 **Scope:** personal research tool. **Not a product feature.** See §1.
 
 ---
@@ -239,8 +239,9 @@ beyond what the analysis scripts already use.
 
 | File | Purpose |
 | :--- | :--- |
+| `s1.py` | ✅ **landed 25 Aug.** The S1 contract read once — load, delta, minute bars. Not in this table when it was written; the traps have to live somewhere and every file below reads through it. `compute_delta_cvd.py` was folded onto it, which is how it was found that that script read the S1 fixture as zero delta, silently |
 | `strategies/gc.py` | the candidates as data — entry, exit, nothing else |
-| `backtest.py` | one strategy over the month → §4's full metric set |
+| `backtest.py` | ✅ **landed 25 Aug.** One strategy over the month → §4's full metric set. Clock-based horizons, session-bounded windows, `n` and a sub-30 `thin` flag on every summary, and §6.3's side-matched null. **Never yet run on a real strategy** — §6.1 comes first |
 | `regimes.py` | features, clustering, labels |
 | `select.py` | regime→strategy map, plus both nulls |
 | `decision_filter.py` | **§3's seam. Varad authors it. Empty stub until then** |
@@ -291,7 +292,12 @@ Style follows the repo: plain functions over frames, no class hierarchy, no fram
 
 ## 10. Not verified
 
-Nothing in this document has been built or run. What is verified is the repo state it was fitted to:
+**Updated 25 Aug (night): §7's `s1.py` and `backtest.py` are built, tested and clean.** Nothing
+else here has been. In particular **no backtest has been run on any strategy**, so every
+expectation in §2, §4 and §6 — including §6's recorded prediction of *inconclusive* — remains
+exactly as unverified as when it was written.
+
+Originally, and true of everything not listed above: nothing in this document has been built or run. What is verified is the repo state it was fitted to:
 the Databento coupling surface (two files, checked by grep), the S1 column contract, what
 `compute_delta_cvd.py` actually computes (delta, session CVD, minute bars, footprint — read from its
 signatures), the ~15–20% magnitude residual, the existence and emptiness of the `Strategy` type, and

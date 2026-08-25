@@ -226,6 +226,50 @@ Shipped as [PR #3](https://github.com/Prathameshh-Patil/trading-intelligence/pul
       week in `plans/team/` budgets for training or serving a model), and a decision on whether
       it serves from the same box as the API — which is the other half of #4.
 
+### Day 3 (night) — 2026-08-25 · Stage 1's machinery · [`daily_updates/2026-08-25.md`](../daily_updates/2026-08-25.md)
+
+The part of the selector design the S1 fixture unblocks. **No strategy is evaluated and no result
+is claimed** — §8 of the design says one session builds and tests Stage 1's machinery and cannot
+run it, and that boundary was held.
+
+- [x] **`services/signal-data` has an environment, pinned to 3.12.** It had no `pyproject.toml`,
+      so its scripts ran against ambient `python3` — **3.14.6 on this machine**, against a repo
+      whose standing constraint is 3.12-only. Now `requires-python = ">=3.12,<3.13"`, the same
+      load-bearing upper bound `services/api` carries, with `uv.lock` committed and `.venv` on
+      **3.12.12**.
+- [x] **`s1.py` — the S1 contract read once**, 100 lines. All three `contracts.md` traps encoded
+      rather than commented: `SIDES` covers `B`/`A`/`N` and **raises** on an unknown code instead
+      of defaulting to zero, `size` is cast before negation, nothing deduplicates. Reproduces the
+      contract's own numbers on the fixture — 77,532 rows, **session delta +1,842**, `N`
+      contributing 0, bar volume reconciling to 110,817 contracts.
+- [x] **A real bug, found by pointing the old script at the new fixture.**
+      `compute_delta_cvd.py` matched on `buy_initiated`/`sell_initiated` — what the pull script
+      writes — while the S1 parquet carries `B`/`A`/`N`. `np.select` returned its default, so the
+      project's main analysis script read **the file every test asserts against for twelve weeks
+      as zero delta on every row, silently**, and printed a clean plausible empty result. Same
+      class of failure as the `'N'` NaN: a mapping that does not cover its input.
+- [x] **Fixed by deletion, not by patching.** `compute_delta_cvd.py`'s `load_trades`, `add_delta`,
+      `session_cvd`, `minute_bars` and `SESSION_SHIFT` are gone and imported from `s1.py` —
+      **439 → 376 lines**, one definition of a session and a bar. **Proof it changed nothing
+      else:** the script re-run end to end on the fixture produces a footprint identical to the
+      committed `analysis/gc_footprint_2026-07-16.csv` — cut from the *full month* through the
+      *old* code — at **980 of 980 price levels, max abs diff 0**.
+- [x] **`backtest.py` — design §4's metric set**, 108 lines. Horizons measured on the **clock, not
+      row offsets** (empty minutes are dropped, so `iloc[i+5]` can be an hour later); no window
+      crosses a session boundary; MFE/MAE per horizon; every summary carries `n` and a `thin` flag
+      that fires under 30 samples, which is §6.5 made mechanical. `random_entries` is §6.3's null
+      with matched count, holding period **and side mix**.
+- [x] **16 tests, `ruff` and `mypy` clean on the new files.** 7 assert the contract's own numbers
+      against the real fixture — including one that runs `drop_duplicates()` and asserts the
+      **+1,842 → +1,989** drift, so the trap is executable rather than a paragraph. 9 run on
+      hand-built bars where the answer is known by construction. One of them corrected a wrong
+      comment of mine: MAE is the *least favourable* excursion and is **positive** when a trade
+      never goes adverse.
+- [ ] **Nothing is backtested, on purpose.** §6.1 requires `thresholds_selector.md` pre-committed
+      before the first backtest and it does not exist. The harness was driven with a throwaway
+      z-score rule (N=60, one session) to exercise the code; those numbers are a mechanism check,
+      not evidence about GC, and are recorded as a finding nowhere.
+
 ---
 
 ## Next
@@ -243,7 +287,7 @@ not blocked-and-waiting; it is off this list until that model exists.
 | # | Item | Owner | Notes |
 | :--- | :--- | :--- | :--- |
 | 0 | 🔑 **Revoke the Anthropic key** | Varad | It was in the tracked `.env.example` (uncommitted, absent from history, placeholder restored) **and in a chat transcript.** Ten minutes, at console.anthropic.com. *Revoke*, not rotate: the own-model decision means nothing depends on it and there is no replacement to issue, so this got easier — the suite stays green on a placeholder because the tests only need the key **present**, not valid |
-| 1 | ~~Pick the analysis backend, then run the live analysis once~~ — **PARKED 25 Aug: we build our own model** | Varad | No hosted backend is bought, so no live analysis runs and the 5 `LIVE_API_TESTS=1` tests stay skipped. Claude stays in as the interim implementation; the four-key contract stays frozen, so the own model is a drop-in behind the same `analyze()` — the Day 3 lexicon→Claude swap already proved that seam holds. **Scoped 25 Aug — and it does not need a week.** The "own model" turned out not to be a replacement for `analyze()` at all: it is a **GC strategy selector**, and it is a *personal research tool*, not a product feature. Design in [`docs/superpowers/specs/2026-08-25-gc-strategy-selector-design.md`](../docs/superpowers/specs/2026-08-25-gc-strategy-selector-design.md). It takes no week from `plans/team/`, so the "unscheduled model eats Week 6" risk is closed by the thing not being scheduled rather than by scheduling it. **`analyze()` keeps Claude as its interim implementation and stays `503` indefinitely** — that is unchanged and still unverified end to end |
+| 1 | ~~Pick the analysis backend, then run the live analysis once~~ — **PARKED 25 Aug: we build our own model** | Varad | No hosted backend is bought, so no live analysis runs and the 5 `LIVE_API_TESTS=1` tests stay skipped. Claude stays in as the interim implementation; the four-key contract stays frozen, so the own model is a drop-in behind the same `analyze()` — the Day 3 lexicon→Claude swap already proved that seam holds. **Scoped 25 Aug — and it does not need a week.** The "own model" turned out not to be a replacement for `analyze()` at all: it is a **GC strategy selector**, and it is a *personal research tool*, not a product feature. Design in [`docs/superpowers/specs/2026-08-25-gc-strategy-selector-design.md`](../docs/superpowers/specs/2026-08-25-gc-strategy-selector-design.md). It takes no week from `plans/team/`, so the "unscheduled model eats Week 6" risk is closed by the thing not being scheduled rather than by scheduling it. **`analyze()` keeps Claude as its interim implementation and stays `503` indefinitely** — that is unchanged and still unverified end to end. **Stage 1's machinery landed the night of 25 Aug** — `s1.py`, `backtest.py`, 16 tests, and a 3.12-pinned environment for `services/signal-data`, which had none. **Still not started: any actual backtest.** `thresholds_selector.md` must be pre-committed first (§6.1), the candidate strategies are Varad's to author (§9 Q1), and one session cannot support §6 regardless — the full month is still only on Prathamesh's disk |
 | 2 | Click the demo through in **Firefox** | Either | Installs cleanly and CORS accepts it; only Chrome has rendered a verdict |
 | 3 | Review the **popup UI** | Prathamesh | Written from scratch to unbreak the build — a starting point, not a design |
 | 4 | Decide **where the API lives** | Both | Popup hardcodes `http://localhost:8000`, matching `host_permissions`; a deployed URL changes both, and the CORS entries start mattering once `host_permissions` no longer covers the host. **Now also a secrets question:** the API holds an Anthropic key, so it needs somewhere that can hold an env var — and the key must never move into the extension, which is public |
