@@ -97,14 +97,19 @@ the repo and it will save you a day. Then three real jobs:
    > Databento (~$2.52 and a Databento key), which is real money spent to recreate a file that
    > already exists twenty feet away. Same shape as the `data/`-missing blocker that stopped A2 on
    > Day 3 — this is the second task lost to it, which is the argument for landing S1 in git.
-2. **Solve the reference-validation blocker** — see the box below. It is Week 1 Tuesday's whole
-   task and it currently has no working path on your hardware.
+2. ~~**Solve the reference-validation blocker**~~ — **closed 24 Aug by `c504e50`**, by quote-rule
+   cross-check rather than by finding a Mac footprint platform. See the box below. **Your job here
+   is now the residual, not the gate:** session-total delta is method-dependent at ~15–20%, and the
+   thresholds you commit on Thursday of Week 1 inherit that error bar. Decide how you carry it
+   before you derive a number that pretends it isn't there.
 3. ~~Decide NQ~~ — **dropped.** GC is the launch instrument. One instrument, one set of thresholds,
    one reference session to validate. Everything downstream gets simpler and the ~$11.42 stays
    unspent.
 
-**S** — **Own the reference-chart problem** (see the box below) — it is a tooling and access
-question, not an engineering one, which makes it yours. Then draft the vendor licensing email. One precise question, identically worded to Databento,
+**S** — ~~Own the reference-chart problem~~ — **discharged; `c504e50` closed it on 24 Aug without a
+charting platform.** Do not open ATAS or Sierra trials for this reason (a demo account is still
+worth having for Week 3 grading, which is a different job). **Straight to the vendor licensing
+email** — you have the whole day for it now. One precise question, One precise question, identically worded to Databento,
 Rithmic and Tradovate: *"Our software runs on the end user's machine and connects using the user's
 own data entitlement. Market data does not pass through our servers. Do we need a distribution
 licence?"* Do not soften it, do not add context, do not ask three questions. Get all three drafts
@@ -145,7 +150,30 @@ and agree they are frozen. That five minutes is what buys the next eleven weeks 
 
 ---
 
-## The open hard gate: reference-chart validation
+## ~~The open hard gate~~ — closed 24 Aug by `c504e50`, read this before acting on it
+
+> **Status, added 25 Aug.** Prathamesh closed this on 24 Aug and it was not visible locally until
+> `origin/main` was fetched today. `pull_tbbo_validate.py` reclassifies the 2026-07-16 session by
+> the **quote rule** — price against the bid/ask immediately before each trade, ignoring the `side`
+> field entirely — and agrees with `SIDE_MAP` on **99.65% of 75,578 comparable trades**, with **0 of
+> 23 hours disagreeing in sign** and a footprint cross-check at 980/980 price levels (volume
+> r=1.0000, delta r=0.9870). `verify_settlement_close.py` separately resolves the 12.2-point gap
+> against TradingView's reported close as a settlement-window-vs-last-trade difference, VWAP
+> matching within 0.25 — **that one is a genuinely external reference, so contract and timezone are
+> covered too.**
+>
+> **This closes the gate by changing the method, not by finding a Mac footprint platform.** The
+> ranked options below are therefore no longer blocking, and **Shreyas's Week 0 ownership of this
+> problem is discharged** — do not spend Thursday on it.
+>
+> **What survives: session-total delta is method-dependent at ~15–20%** (side field +1,842 vs quote
+> rule +2,216). Direction and shape are robust; **absolute magnitude carries that as an error bar**,
+> and every threshold derived in Weeks 1 and 4 inherits it. That is the number to argue about now.
+>
+> `DELTA_CVD_FINDINGS.md` §3 still reads as open — `c504e50`'s own message flags it stale and defers
+> the rewrite. **Someone still owes that document an update.**
+
+The original framing is kept below as the record of why the gate existed and what it was for.
 
 `DELTA_CVD_FINDINGS.md` §3 is explicit and correct about this, and it is the most important thing
 in that document:
@@ -202,7 +230,8 @@ nothing). Nothing to do; noting it so nobody goes looking.
 
 - [x] **A month of GC ticks on disk with a verified aggressor split** — done 24 Aug, `8aece67`
 - [ ] `data/fixtures/gc_ticks_1session.parquet` committed (2026-07-16 GCQ6), with a `.gitignore` exception — **blocked: the source parquet is not on this machine, see W0D2**
-- [ ] A reference-chart path chosen, and option 1 actually run
+- [x] **Reference validation closed** — `c504e50`, quote-rule cross-check, not a charting platform.
+      *Residual: session-total delta is method-dependent at ~15–20%; direction and shape are robust*
 - [ ] **The Anthropic key revoked** — it was in a chat transcript, and nothing depends on it now
 - [ ] A real Tauri window, seen with human eyes, screenshotted
 - [ ] The extension confirmed working in Chrome **and** Firefox
