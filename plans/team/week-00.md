@@ -47,7 +47,7 @@ just `pull_futures_trades.py --estimate-only` for one month of GC.
 > longer needs to hold a third-party key at all, which makes the hosting question easier, not
 > harder)*
 
-**V — first, before anything else: rotate the Anthropic key.** `DELTA_CVD_FINDINGS.md` §5 reports a
+**V — first, before anything else: revoke the Anthropic key.** `DELTA_CVD_FINDINGS.md` §5 reports a
 real key was sitting in the git-tracked `.env.example` — uncommitted, confirmed absent from all
 branch history, one `git add -A` from being pushed — **and that it was also pasted into a chat
 transcript.** The placeholder is restored, so the repo is clean, but a key that has been in a
@@ -118,8 +118,12 @@ book it now, CAs are not available on two days' notice.
 
 *Float:* ~~run the first live Claude analysis~~ — **gone, 25 Aug.** No hosted backend is being
 bought, so the 5 `LIVE_API_TESTS=1` tests stay skipped and PR #3's one unverified claim stays
-unverified. Use the slack to **scope the own model instead** — what it is, what it trains on, what
-it has to beat (the four Day 1 sentiment cases), and which week it lives in.
+unverified. ~~Use the slack to scope the own model instead~~ — **scoped 25 Aug, and it needs no week
+here.** The "own model" was never a replacement for `analyze()`: it is a **GC strategy selector**,
+and it is a personal research tool rather than a product feature, so it takes nothing from this
+schedule. Design in `docs/superpowers/specs/2026-08-25-gc-strategy-selector-design.md`.
+**Use the float for the feed-vendor question instead** (`current.md` C1) — it is time-critical in a
+way this was not, because Shreyas's licence emails go out Monday.
 
 *Why nobody is blocked:* P is in Tauri, V is in Databento, S is in a text editor and a calendar.
 
