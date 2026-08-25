@@ -245,7 +245,7 @@ beyond what the analysis scripts already use.
 | `regimes.py` | features, clustering, labels |
 | `select.py` | regime→strategy map, plus both nulls |
 | `decision_filter.py` | **§3's seam. Varad authors it. Empty stub until then** |
-| `thresholds_selector.md` | pre-committed, before the first backtest runs |
+| `thresholds_selector.md` | ⚠️ **Part A landed 25 Aug; Parts B and C are empty on purpose.** Part A restates the commitments this document already made (walk-forward, both nulls, the sub-30 floor, ±20% perturbation, pre-filter/post-filter side by side) so the committed file is the whole commitment. **B is the per-strategy thresholds and C is the regime ones — the trader's to write, for the same reason as §3, and nothing may be backtested until B is committed** |
 
 `backtest.py` is **Week 4's harness arriving early and scoped down.** If it earns its keep here, it
 *is* the Week 4 harness rather than a second one — the only place this research tool is allowed to
@@ -292,7 +292,7 @@ Style follows the repo: plain functions over frames, no class hierarchy, no fram
 
 ## 10. Not verified
 
-**Updated 25 Aug (night): §7's `s1.py` and `backtest.py` are built, tested and clean.** Nothing
+**Updated 25 Aug (night): §7's `s1.py` and `backtest.py` are built, tested and clean, and `thresholds_selector.md` exists with Part A binding and Parts B/C deliberately unfilled.** Nothing
 else here has been. In particular **no backtest has been run on any strategy**, so every
 expectation in §2, §4 and §6 — including §6's recorded prediction of *inconclusive* — remains
 exactly as unverified as when it was written.

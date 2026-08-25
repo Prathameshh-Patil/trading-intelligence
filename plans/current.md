@@ -265,10 +265,21 @@ run it, and that boundary was held.
       hand-built bars where the answer is known by construction. One of them corrected a wrong
       comment of mine: MAE is the *least favourable* excursion and is **positive** when a trade
       never goes adverse.
-- [ ] **Nothing is backtested, on purpose.** §6.1 requires `thresholds_selector.md` pre-committed
-      before the first backtest and it does not exist. The harness was driven with a throwaway
-      z-score rule (N=60, one session) to exercise the code; those numbers are a mechanism check,
-      not evidence about GC, and are recorded as a finding nowhere.
+- [ ] **Nothing is backtested, on purpose.** The harness was driven with a throwaway z-score rule
+      (N=60, one session) to exercise the code; those numbers are a mechanism check, not evidence
+      about GC, and are recorded as a finding nowhere.
+- [x] **`thresholds_selector.md` written — Part A binding, Parts B and C empty on purpose.**
+      §6.1's instrument, same mechanism as [`team/varad/thresholds.md`](team/varad/thresholds.md):
+      a git timestamp earlier than the results. Part A restates what the design already committed
+      to — walk-forward, both nulls, the sub-30 floor (which `backtest.py` now flags mechanically),
+      ±20% threshold perturbation, pre-filter/post-filter side by side — so the committed file is
+      the whole commitment rather than a pointer to one. **Parts B and C are the numbers, and they
+      are Varad's**, for the same reason §3's `decision_filter.py` is: a threshold picked by an
+      assistant looks like the mechanism working while doing none of what it is for.
+- [ ] **⛔ Blocked on Varad, and this is now the only thing between here and a first backtest.**
+      Part B needs the 3–4 candidate strategies stated precisely enough to implement, each with
+      its committed median/hit-rate/margin-over-null/minimum-N — and the line the sibling file
+      calls the most important one: *what result would make me say no.*
 
 ---
 
@@ -287,7 +298,7 @@ not blocked-and-waiting; it is off this list until that model exists.
 | # | Item | Owner | Notes |
 | :--- | :--- | :--- | :--- |
 | 0 | 🔑 **Revoke the Anthropic key** | Varad | It was in the tracked `.env.example` (uncommitted, absent from history, placeholder restored) **and in a chat transcript.** Ten minutes, at console.anthropic.com. *Revoke*, not rotate: the own-model decision means nothing depends on it and there is no replacement to issue, so this got easier — the suite stays green on a placeholder because the tests only need the key **present**, not valid |
-| 1 | ~~Pick the analysis backend, then run the live analysis once~~ — **PARKED 25 Aug: we build our own model** | Varad | No hosted backend is bought, so no live analysis runs and the 5 `LIVE_API_TESTS=1` tests stay skipped. Claude stays in as the interim implementation; the four-key contract stays frozen, so the own model is a drop-in behind the same `analyze()` — the Day 3 lexicon→Claude swap already proved that seam holds. **Scoped 25 Aug — and it does not need a week.** The "own model" turned out not to be a replacement for `analyze()` at all: it is a **GC strategy selector**, and it is a *personal research tool*, not a product feature. Design in [`docs/superpowers/specs/2026-08-25-gc-strategy-selector-design.md`](../docs/superpowers/specs/2026-08-25-gc-strategy-selector-design.md). It takes no week from `plans/team/`, so the "unscheduled model eats Week 6" risk is closed by the thing not being scheduled rather than by scheduling it. **`analyze()` keeps Claude as its interim implementation and stays `503` indefinitely** — that is unchanged and still unverified end to end. **Stage 1's machinery landed the night of 25 Aug** — `s1.py`, `backtest.py`, 16 tests, and a 3.12-pinned environment for `services/signal-data`, which had none. **Still not started: any actual backtest.** `thresholds_selector.md` must be pre-committed first (§6.1), the candidate strategies are Varad's to author (§9 Q1), and one session cannot support §6 regardless — the full month is still only on Prathamesh's disk |
+| 1 | ~~Pick the analysis backend, then run the live analysis once~~ — **PARKED 25 Aug: we build our own model** | Varad | No hosted backend is bought, so no live analysis runs and the 5 `LIVE_API_TESTS=1` tests stay skipped. Claude stays in as the interim implementation; the four-key contract stays frozen, so the own model is a drop-in behind the same `analyze()` — the Day 3 lexicon→Claude swap already proved that seam holds. **Scoped 25 Aug — and it does not need a week.** The "own model" turned out not to be a replacement for `analyze()` at all: it is a **GC strategy selector**, and it is a *personal research tool*, not a product feature. Design in [`docs/superpowers/specs/2026-08-25-gc-strategy-selector-design.md`](../docs/superpowers/specs/2026-08-25-gc-strategy-selector-design.md). It takes no week from `plans/team/`, so the "unscheduled model eats Week 6" risk is closed by the thing not being scheduled rather than by scheduling it. **`analyze()` keeps Claude as its interim implementation and stays `503` indefinitely** — that is unchanged and still unverified end to end. **Stage 1's machinery landed the night of 25 Aug** — `s1.py`, `backtest.py`, 16 tests, and a 3.12-pinned environment for `services/signal-data`, which had none. **Still not started: any actual backtest.** `thresholds_selector.md` now exists with §6.1's Part A binding, but **Parts B and C are empty and only Varad can fill them** — the candidate strategies are his to author (§9 Q1), and a threshold picked by an assistant is not a commitment by the person with the bias. One session cannot support §6 regardless; the full month is still only on Prathamesh's disk |
 | 2 | Click the demo through in **Firefox** | Either | Installs cleanly and CORS accepts it; only Chrome has rendered a verdict |
 | 3 | Review the **popup UI** | Prathamesh | Written from scratch to unbreak the build — a starting point, not a design |
 | 4 | Decide **where the API lives** | Both | Popup hardcodes `http://localhost:8000`, matching `host_permissions`; a deployed URL changes both, and the CORS entries start mattering once `host_permissions` no longer covers the host. **Now also a secrets question:** the API holds an Anthropic key, so it needs somewhere that can hold an env var — and the key must never move into the extension, which is public |
