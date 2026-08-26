@@ -1,0 +1,106 @@
+{
+  "generated_at": "2026-08-26T09:23:17.289715+00:00",
+  "spec": "docs/superpowers/specs/2026-08-25-gc-strategy-selector-design.md",
+  "parquet": "data/gc_trades.parquet",
+  "bar_size": "5min",
+  "window_bars": 12,
+  "vol_window_minutes": 30,
+  "level": "window",
+  "k": 3,
+  "split_date": "2026-07-19",
+  "walk_forward_safe": true,
+  "include_session_phase_in_clustering": false,
+  "random_state": 0,
+  "feature_cols": [
+    "realized_vol",
+    "cvd_slope",
+    "cvd_persistence",
+    "cvd_efficiency_specced",
+    "price_efficiency_asused"
+  ],
+  "n_labelled": 6243,
+  "n_fit": 3493,
+  "silhouette": {
+    "2": 0.29921661658598026,
+    "3": 0.23863188617441344
+  },
+  "scaler_mean": [
+    0.000357424456702084,
+    -0.005912924750601804,
+    0.3686987716101606,
+    12.223484245336627,
+    0.40720842879772456
+  ],
+  "scaler_scale": [
+    0.00021724389408983789,
+    41.29851054114394,
+    0.24760516827253945,
+    10.872908830569175,
+    0.24266158096154183
+  ],
+  "cluster_centers_standardized": [
+    [
+      -0.19100949677503964,
+      -0.06509250177511006,
+      -0.5477745023266545,
+      -0.43378642849898114,
+      -0.7856832218289809
+    ],
+    [
+      0.29215035883517343,
+      0.026322972629411644,
+      -0.40059089746204635,
+      -0.4767161028142314,
+      0.9652464634998792
+    ],
+    [
+      -0.04706423177229759,
+      0.06716043664847532,
+      1.2719113470036905,
+      1.1884161244063414,
+      0.07503787692372665
+    ]
+  ],
+  "regime_summary": [
+    {
+      "regime": 0,
+      "n": 2480,
+      "pct": 39.7,
+      "realized_vol_med": 0.000277,
+      "cvd_slope_med": -0.614,
+      "cvd_persistence_med": 0.215,
+      "cvd_eff_specced_med": 6.695,
+      "price_eff_asused_med": 0.213,
+      "pct_asia": 40.1,
+      "pct_london": 22.5,
+      "pct_ny": 37.4
+    },
+    {
+      "regime": 1,
+      "n": 1985,
+      "pct": 31.8,
+      "realized_vol_med": 0.000324,
+      "cvd_slope_med": 0.189,
+      "cvd_persistence_med": 0.248,
+      "cvd_eff_specced_med": 6.19,
+      "price_eff_asused_med": 0.637,
+      "pct_asia": 41.1,
+      "pct_london": 19.8,
+      "pct_ny": 39.1
+    },
+    {
+      "regime": 2,
+      "n": 1778,
+      "pct": 28.5,
+      "realized_vol_med": 0.000291,
+      "cvd_slope_med": -12.878,
+      "cvd_persistence_med": 0.672,
+      "cvd_eff_specced_med": 23.392,
+      "price_eff_asused_med": 0.438,
+      "pct_asia": 34.7,
+      "pct_london": 24.1,
+      "pct_ny": 41.2
+    }
+  ],
+  "known_spec_ambiguity": "\u00a72's feature table defines directional efficiency as abs(CVD)/price range and cites 2026-07-16's 0.90 as validating it, but that 0.90 was actually produced by compute_delta_cvd.py's session auto-select using abs(close-open)/range on price alone, no CVD. Both are computed here as separate features (cvd_efficiency_specced, price_efficiency_asused) pending a decision on which was intended -- do not pre-commit regime definitions built on either one without resolving this first."
+}
