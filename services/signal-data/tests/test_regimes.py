@@ -92,6 +92,22 @@ def test_no_feature_can_see_a_later_bar() -> None:
     pd.testing.assert_frame_equal(full.iloc[:cut], part)
 
 
+def test_a_window_may_not_straddle_the_session_reset() -> None:
+    """CVD restarts at ~0 each session, so a window holding both sides reads
+    the reset as a move. In the committed July labels this produced the eight
+    largest cvd_slope values in the month -- up to +505 on bars whose CVD was
+    negative. The rows are dropped, not fudged.
+    """
+    bars_1min = frame(list(range(40)) + list(range(ROLL, ROLL + 40)))
+    regime_bars = regimes.resample_bars(bars_1min, "5min")
+    feat = regimes.window_features(bars_1min, regime_bars, window=4, vol_window_min=15)
+
+    first_of_new = int(np.flatnonzero(feat["session"].to_numpy() == SPLIT)[0])
+    # The new session needs 4 of its own bars before a window closes.
+    assert feat["cvd_slope"].iloc[first_of_new:first_of_new + 3].isna().all()
+    assert not np.isnan(feat["cvd_slope"].iloc[first_of_new + 3])
+
+
 def test_the_first_bars_of_a_window_have_no_features_yet() -> None:
     bars_1min = frame(list(range(60)))
     regime_bars = regimes.resample_bars(bars_1min, "5min")

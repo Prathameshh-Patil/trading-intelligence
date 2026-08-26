@@ -266,15 +266,21 @@ def window_features(bars_1min: pd.DataFrame, regime_bars: pd.DataFrame,
     high = regime_bars["high"].to_numpy()
     low = regime_bars["low"].to_numpy()
     cvd = regime_bars["cvd"].to_numpy()
+    session = regime_bars["session"].to_numpy()
 
     slope = np.full(n, np.nan)
     persistence = np.full(n, np.nan)
     efficiency = np.full(n, np.nan)
 
     for i in range(n):
-        if i + 1 < window:
-            continue
         lo = i + 1 - window
+        # A window may not straddle the session reset. `cvd` restarts at ~0
+        # every session (resample_bars), so a window holding both sides reads
+        # the reset as a move: the eight largest cvd_slope values in July 2026
+        # were all here, up to +505 on bars whose CVD was NEGATIVE. Leaving
+        # these NaN drops 4% of bars, which is what the warm-up already does.
+        if lo < 0 or session[lo] != session[i]:
+            continue
         slope[i] = _slope(cvd[lo:i + 1])
         persistence[i] = _cvd_persistence(delta[lo:i + 1])
         efficiency[i] = _efficiency(close[lo:i + 1], high[lo:i + 1], low[lo:i + 1])
