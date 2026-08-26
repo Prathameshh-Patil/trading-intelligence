@@ -356,6 +356,28 @@ boundary as Day 3 and held the same way: no backtest, no result claimed about GC
       of each family, and the likeliest one to be wrong says so in the file: `absorption_fade`
       assumes the aggressor was trapped, where the same bar reads as *continuation* if you think
       the aggressor is early. One sign change either way, but it is a decision.
+- [x] **`stage1.py` — the runner, 118 lines, 6 tests.** Every candidate through `backtest.py`
+      with its null and A5's perturbation: one row per strategy × variant × horizon, N on all of
+      them. Holds **no thresholds of its own** — the caller binds bars (and ticks) with
+      `functools.partial` and supplies the committed numbers, which is what lets candidates of
+      different arities share one loop. `decision_filter` is a parameter, not a stub module, and
+      the `filtered` variant appears only when one is given; its absence is the honest report that
+      none has been applied. **No walk-forward split, deliberately** — A1's split is about regimes,
+      regimes are Stage 2, and nothing here fits anything. `tests/conftest.py` added because
+      `bars_at` was about to become its third copy. **34 tests, `ruff` and `mypy` clean on 9 files.**
+- [x] **A5 does not mean what it looks like for two of the four candidates.** It exists for the
+      ~15–20% delta method-dependence, and that reasoning holds for a threshold in **contracts**.
+      A z-score divides by the standard deviation of the same series, so a uniform 20% rescale of
+      delta cancels exactly — asserted in a test: `delta_outlier`'s signals are *identical* on a
+      frame whose delta reads 20% larger, `absorption_fade`'s are not. `footprint_stack`'s `ratio`
+      is invariant for the same reason. **So `cvd_divergence` and `absorption_fade` carry the
+      inherited error; `delta_outlier` and `footprint_stack` are structurally immune.** Reporting
+      `delta_outlier`'s ±20% threshold swing as if it were the inherited error would *overstate*
+      its uncertainty. `PERTURB` in `stage1.py` records which keys move and why.
+- [x] **`bar_imbalance` benchmarked, and the concern is closed.** Flagged as the expensive
+      candidate and worth timing before it went inside any loop: **0.02s on all 77,532 ticks**,
+      extrapolating to roughly **0.4s for a 1.6M-trade month**. A full `stage1.run` over the
+      session is 0.35s. Measured, not assumed.
 - [ ] **⛔ Still blocked on Varad, unchanged.** Part B is still the only thing between here and a
       first backtest. Four rule-shaped functions now exist to be corrected rather than four blank
       blocks — a smaller ask, the same ask. **Part B must be committed before the first backtest
