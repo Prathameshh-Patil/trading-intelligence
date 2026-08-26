@@ -8,31 +8,10 @@ Both produce numbers that look completely reasonable.
 import numpy as np
 import pandas as pd
 import pytest
+from conftest import SESSION, bars_at, entries_at
 
 import backtest as bt
 from s1 import TICK
-
-SESSION = pd.Timestamp("2026-07-16").date()
-
-
-def bars_at(minutes: list[int], closes: list[float], session=SESSION) -> pd.DataFrame:
-    """Bars at the given minute offsets. Gaps are the point -- a real frame
-    drops minutes that had no trades."""
-    idx = pd.DatetimeIndex([pd.Timestamp("2026-07-15T22:00:00Z") + pd.Timedelta(minutes=m) for m in minutes])
-    c = pd.Series(closes, index=idx)
-    return pd.DataFrame(
-        {"open": c, "high": c, "low": c, "close": c,
-         "volume": 1, "delta": 0, "trades": 1,
-         "session": [session] * len(idx) if not isinstance(session, list) else session},
-        index=idx,
-    )
-
-
-def entries_at(bars: pd.DataFrame, positions: dict[int, int]) -> pd.Series:
-    s = pd.Series(0, index=bars.index)
-    for i, side in positions.items():
-        s.iloc[i] = side
-    return s
 
 
 def test_horizon_is_measured_on_the_clock_not_on_row_offsets() -> None:

@@ -17,67 +17,14 @@ What this file does NOT test is whether any strategy makes money. That is
 thresholds_selector.md Part B's question and it is not answerable yet.
 """
 
-from datetime import date
-
 import numpy as np
 import pandas as pd
 import pytest
+from conftest import NEXT, SESSION, bars_at, noise, ticks_at
 
 import backtest as bt
 import strategies as st
 from s1 import TICK
-
-SESSION = pd.Timestamp("2026-07-16").date()
-NEXT = pd.Timestamp("2026-07-17").date()
-OPEN = pd.Timestamp("2026-07-15T22:00:00Z")
-
-
-def bars_at(
-    minutes: list[int],
-    closes: list[float],
-    deltas: list[int] | None = None,
-    ranges: list[float] | None = None,
-    session: date | list[date] = SESSION,
-) -> pd.DataFrame:
-    """Bars at the given minute offsets, shaped like s1.minute_bars output.
-
-    Gaps in `minutes` are the point -- a real frame drops minutes that had no
-    trades. `ranges` is the high-low spread in PRICE, centred on the close.
-    """
-    idx = pd.DatetimeIndex([OPEN + pd.Timedelta(minutes=m) for m in minutes])
-    c = pd.Series(closes, index=idx, dtype="float64")
-    half = pd.Series(ranges if ranges is not None else [0.0] * len(idx), index=idx) / 2
-    sess: list[date] = session if isinstance(session, list) else [session] * len(idx)
-    bars = pd.DataFrame(
-        {
-            "open": c,
-            "high": c + half,
-            "low": c - half,
-            "close": c,
-            "volume": 100,
-            "delta": deltas if deltas is not None else [0] * len(idx),
-            "trades": 10,
-            "session": sess,
-        },
-        index=idx,
-    )
-    bars["cvd"] = bars.groupby("session", sort=False)["delta"].cumsum()
-    return bars
-
-
-def ticks_at(rows: list[tuple[int, float, int, str]], session: date = SESSION) -> pd.DataFrame:
-    """Tick frame shaped like s1.load_ticks output: (minute, price, size, side)."""
-    df = pd.DataFrame(rows, columns=["minute", "price", "size", "aggressor_side"])
-    df["timestamp"] = [OPEN + pd.Timedelta(minutes=int(m)) for m in df["minute"]]
-    df["delta"] = df["size"] * df["aggressor_side"].map({"B": 1, "A": -1, "N": 0})
-    df["session"] = session
-    return df.drop(columns="minute")
-
-
-def noise(n: int) -> list[int]:
-    """Small deltas with real spread -- a constant series has zero std and
-    every z-score off it is infinite."""
-    return [8, 10, 12, 9, 11][: n % 5] + [8, 10, 12, 9, 11] * (n // 5)
 
 
 # --------------------------------------------------------------------------
