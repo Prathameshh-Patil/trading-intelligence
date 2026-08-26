@@ -378,6 +378,14 @@ boundary as Day 3 and held the same way: no backtest, no result claimed about GC
       candidate and worth timing before it went inside any loop: **0.02s on all 77,532 ticks**,
       extrapolating to roughly **0.4s for a 1.6M-trade month**. A full `stage1.run` over the
       session is 0.35s. Measured, not assumed.
+- [x] **Part B scaffolded, and deliberately not filled.** Asked to fill it in, Claude declined the
+      numbers: §6.1's mechanism is a commitment by the person with the bias, and a threshold picked
+      by an assistant makes the guardrail *look* satisfied while doing none of its work. What was
+      written instead is the four blocks with the rules transcribed from their docstrings, each
+      naming exactly which thresholds its function requires, plus the table of which two candidates
+      inherit the ±15–20% delta error. **Every `<...>` field is empty and still Varad's.** The
+      file's status section records the ask and the refusal, so the history shows the gate holding
+      rather than the file quietly filling up.
 - [ ] **⛔ Still blocked on Varad, unchanged.** Part B is still the only thing between here and a
       first backtest. Four rule-shaped functions now exist to be corrected rather than four blank
       blocks — a smaller ask, the same ask. **Part B must be committed before the first backtest
