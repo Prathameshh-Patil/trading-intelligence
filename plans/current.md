@@ -498,18 +498,26 @@ or `strategies.py`, and the docstring says it must never gain one. It routes thr
       `cvd_efficiency_specced` correlate at **r = 0.803** on the committed labels — both are
       `abs(CVD)` over a denominator — which double-weights CVD directionality in a Euclidean KMeans
       and is exactly the axis regime 2 separates on (standardized centres 1.27 and 1.19).
-- [ ] **⛔ The efficiency ambiguity is Varad's, and it is still open.** §2 defines directional
-      efficiency as `abs(CVD)/range`; the 0.90 cited as validating it came from `abs(close-open)/range`
-      on price alone. Prathamesh computed both rather than guess, which was right, and the file's own
-      `KNOWN_SPEC_AMBIGUITY` says not to pre-commit definitions built on either until it is resolved —
-      **`70b5ac4` pre-committed definitions built on both.** The §6.2 artefact is therefore premature,
-      not wrong. *Recommendation, not a decision: keep `price_efficiency_asused` and delete
-      `cvd_efficiency_specced`. It is the Kaufman efficiency ratio, dimensionless and bounded in
-      [0, 1]; the specced formula divides contracts by dollars, is unbounded, and its honest
-      order-flow counterpart — `abs(sum delta)/sum(abs delta)` — is already in the feature set under
-      the name `cvd_persistence`, which is what the r = 0.803 is.* Resolving it changes the feature
-      matrix, so **the committed definitions need regenerating afterwards** — on the machine that has
-      the month.
+- [x] **✅ The efficiency ambiguity is closed — `871690f`.** §2 defines directional efficiency as
+      `abs(CVD)/range`; the 0.90 cited as validating it came from `abs(close-open)/range` on price
+      alone. Prathamesh computed both rather than guess, which was right, and the file's own
+      `KNOWN_SPEC_AMBIGUITY` said not to pre-commit definitions built on either until it was resolved —
+      **`70b5ac4` pre-committed definitions built on both.** *(The §6.2 artefact was premature, not
+      wrong.)* **Varad's call, 26 Aug: keep the price ratio, drop the spec's formula.** It is the
+      Kaufman efficiency ratio, dimensionless and bounded in [0, 1]; `abs(CVD)/range` divides
+      contracts by dollars, is unbounded, and its honest order-flow counterpart —
+      `abs(sum delta)/sum(abs delta)` — was already in the feature set as `cvd_persistence`, which is
+      what the r = 0.803 was. **Five features become four**, and `price_efficiency_asused` became
+      `price_efficiency` — the suffix only ever named a contrast. `regime_definitions.json` now
+      carries `spec_deviation` (the resolution) in place of `known_spec_ambiguity` (the open
+      question). Verified end to end on the S1 fixture; 61 tests, `ruff`/`mypy` clean.
+- [ ] **⏭ `analysis/regimes/` is now stale and must be regenerated — Prathamesh's, since only he has
+      the month.** Its cluster centres, scaler and `regime_summary` are all five-dimensional, and the
+      labels themselves move under four features. **Not deleted:** those files are the §6.2
+      pre-commitment and quietly rewriting them is the thing §6.2 exists to prevent, so
+      [`analysis/regimes/README.md`](../services/signal-data/analysis/regimes/README.md) marks them
+      superseded and carries the exact re-run command. Two things to settle while re-running: the
+      `k=3`-vs-silhouette question below, and whether these are regimes at all.
 - [ ] **The silhouette preferred k=2 and the committed run is k=3.** `regime_definitions.json`
       records `k=2: 0.299, k=3: 0.239`. Independently reproduced on the fixture (0.395 vs 0.311), so
       it is not an artefact of the month. k=3 may well be the right call, but under §6.2 the reason
