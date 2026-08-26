@@ -73,20 +73,15 @@ USAGE
         --level window --k 3 --split-date 2026-07-19 \
         --no-session-phase-in-clustering --out-dir analysis/regimes
 
-DO NOT point --parquet at data/fixtures/gc_ticks_1session.parquet as-is.
-    Tested against it while building this: the S1 fixture carries
-    aggressor_side as the raw contract encoding 'B'/'A'/'N' (per
-    contracts.md S1 and cut_s1_fixture.py's deliberate reverse-mapping), but
-    compute_delta_cvd.add_delta() -- which this file imports and reuses --
-    only matches the pipeline's own post-mapped strings buy_initiated /
-    sell_initiated / unknown. Pointed at the fixture, every trade falls
-    through to the np.select default and delta comes back exactly 0 for the
-    entire session -- confirmed by direct check, not inferred. This is a
-    pre-existing gap between the frozen S1 contract and add_delta(), not
-    something introduced or fixed here; add_delta() needs a 'B'/'A'/'N'
-    branch (or the fixture needs a pipeline-format sibling) before anything
-    in this project can validate against the frozen fixture instead of the
-    full month. Flag it before relying on the fixture for anything.
+ON THE S1 FIXTURE (data/fixtures/gc_ticks_1session.parquet)
+    An earlier version of this file imported compute_delta_cvd.add_delta(),
+    which only matched the pipeline's post-mapped buy_initiated/sell_initiated
+    strings and silently read the fixture's raw 'B'/'A'/'N' encoding as zero
+    delta on every row. s1.py's SIDES map (see s1.load_ticks) is exhaustive
+    over both encodings, so this file now goes through s1.py instead and the
+    fixture works -- but it is one session (77,532 trades), too thin on its
+    own for k=2/3 clustering to mean anything. Fine for an import/plumbing
+    smoke test; use --parquet data/gc_trades.parquet for anything real.
 
 TESTED (2026-08-26, against data/gc_trades.parquet, GC July 2026, 23
 sessions, walk-forward split at 2026-07-19):
@@ -131,14 +126,8 @@ from sklearn.cluster import KMeans
 from sklearn.metrics import silhouette_score
 from sklearn.preprocessing import StandardScaler
 
-from compute_delta_cvd import (
-    DISPLAY_TZ,
-    SESSION_SHIFT,
-    add_delta,
-    load_trades,
-    minute_bars,
-    session_cvd,
-)
+from compute_delta_cvd import DISPLAY_TZ
+from s1 import SESSION_SHIFT, load_ticks, minute_bars
 
 SPEC = "docs/superpowers/specs/2026-08-25-gc-strategy-selector-design.md"
 
@@ -550,8 +539,7 @@ def main() -> None:
     out_dir = Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    df = add_delta(load_trades(Path(args.parquet)))
-    df = session_cvd(df)
+    df = load_ticks(Path(args.parquet))  # s1.py: reads + validates + adds delta/session
     bars_1min = minute_bars(df)
     print(f"loaded {len(df):,} trades -> {len(bars_1min):,} 1-min bars "
           f"across {bars_1min['session'].nunique()} session(s)")
