@@ -210,6 +210,94 @@ def test_slope_needs_two_points() -> None:
 
 
 # --------------------------------------------------------------------------
+# The dwell penalty -- regimes that outlive the trade they selected
+# --------------------------------------------------------------------------
+# Three bars that clearly want cluster 0, one that mildly wants cluster 1,
+# three more that want 0. The middle bar is the one-bar blip a dwell penalty
+# is supposed to absorb.
+BLIP = np.array([[0.0, 5.0]] * 3 + [[1.0, 0.0]] + [[0.0, 5.0]] * 3)
+ONE_SESSION = np.array([SPLIT] * 7)
+
+
+def test_lambda_zero_is_exactly_plain_kmeans() -> None:
+    """The escape hatch has to be free, or nobody can compare against it."""
+    rng = np.random.default_rng(0)
+    dist = rng.random((200, 3))
+    got = regimes.dwell_labels(dist, np.array([SPLIT] * 200), 0.0)
+    assert (got == dist.argmin(axis=1)).all()
+
+
+def test_a_penalty_absorbs_a_one_bar_blip() -> None:
+    assert regimes.dwell_labels(BLIP, ONE_SESSION, 0.0).tolist() == [0, 0, 0, 1, 0, 0, 0]
+    assert regimes.dwell_labels(BLIP, ONE_SESSION, 2.0).tolist() == [0] * 7
+
+
+def test_the_penalty_does_not_carry_across_a_session() -> None:
+    """A switching cost across the overnight halt asserts a continuity the
+    tape does not have -- and it showed: carried, the label changed across a
+    boundary 4.5% of the time against plain KMeans's 45.5%.
+    """
+    split_at_blip = np.array([SPLIT] * 3 + [pd.Timestamp("2026-07-18").date()] * 4)
+    got = regimes.dwell_labels(BLIP, split_at_blip, 2.0)
+    assert got[3] == 1, "the first bar of a session is free to pick any regime"
+
+
+def test_the_labels_are_causal() -> None:
+    """The whole reason this is a forward pass and not a Viterbi decode.
+
+    Truncate the tape and every bar that survives must keep its label -- a
+    full-sequence decode fails this, which is why one is not used.
+    """
+    rng = np.random.default_rng(1)
+    dist = rng.random((300, 3))
+    sess = np.array([SPLIT] * 300)
+    full = regimes.dwell_labels(dist, sess, 0.5)
+    for cut in (17, 128, 299):
+        assert (regimes.dwell_labels(dist[:cut], sess[:cut], 0.5) == full[:cut]).all()
+
+
+def test_a_bigger_penalty_never_means_more_switching() -> None:
+    rng = np.random.default_rng(2)
+    dist = rng.random((500, 3))
+    sess = np.array([SPLIT] * 500)
+    switches = [
+        int((np.diff(regimes.dwell_labels(dist, sess, lam)) != 0).sum())
+        for lam in (0.0, 0.1, 0.25, 0.5, 1.0, 2.0)
+    ]
+    assert switches == sorted(switches, reverse=True), switches
+    assert switches[-1] < switches[0]
+
+
+def test_the_default_is_the_measured_one() -> None:
+    # 0.5 buys 30min regime survival 46.2% -> 54.0% for a silhouette cost of
+    # 0.305 -> 0.290. Past it the clusters dissolve into the smoothing.
+    assert regimes.DEFAULT_DWELL_LAMBDA == 0.5
+
+
+def test_run_lengths_counts_what_the_penalty_moves() -> None:
+    labels = pd.Series([0.0, 0.0, 1.0, 1.0, 1.0, 0.0])
+    valid = pd.Series([True] * 6)
+    assert regimes.run_lengths(labels, valid) == {
+        "n_runs": 3, "median_bars": 2.0, "longest_bars": 3, "flip_pct": 33.3,
+    }
+
+
+def test_fit_regimes_carries_the_penalty_and_records_it() -> None:
+    bars_1min = frame(list(range(200)) + list(range(ROLL, ROLL + 200)))
+    regime_bars = regimes.resample_bars(bars_1min, "5min")
+    feat = regimes.window_features(bars_1min, regime_bars, window=3, vol_window_min=15)
+    mask = regimes.fit_mask_before(feat, "window", SPLIT)
+
+    plain = regimes.fit_regimes(feat, "window", 2, mask, 0, False, dwell_lambda=0.0)
+    sticky = regimes.fit_regimes(feat, "window", 2, mask, 0, False, dwell_lambda=2.0)
+
+    assert plain["dwell_lambda"] == 0.0 and sticky["dwell_lambda"] == 2.0
+    v = plain["valid"]
+    assert regimes.run_lengths(sticky["labels"], v)["n_runs"] <= \
+        regimes.run_lengths(plain["labels"], v)["n_runs"]
+
+
+# --------------------------------------------------------------------------
 # Clustering -- the flag that exists because session dummies dominate
 # --------------------------------------------------------------------------
 def test_session_dummies_enter_the_matrix_only_when_asked() -> None:

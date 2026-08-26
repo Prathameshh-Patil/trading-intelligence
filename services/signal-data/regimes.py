@@ -53,6 +53,37 @@ GUARDRAIL §6.4 -- WALK-FORWARD, NEVER IN-SAMPLE
     session runs 18:00 -> 17:00 ET, so calendar-dating it would hand six hours
     of the split session's own bars to the fit set.
 
+REGIMES THAT HOLD LONG ENOUGH TO BE ONE -- --dwell-lambda, ADDED 2026-08-26
+    Plain KMeans labels each bar independently. In the first July run that
+    flipped the regime on 28.9% of bars -- a median run of TWO bars, ten
+    minutes -- while the features themselves had a lag-1 autocorrelation of
+    0.83-0.96. The tape was not moving; the cluster boundary was. Against
+    backtest.py's HORIZONS of (5, 15, 30) minutes, only 18.9% of entries
+    still held their regime thirty minutes later, which is not a regime a
+    strategy can be selected under.
+
+    Two thirds of that was a defect, since fixed: a trailing window was
+    straddling the session CVD reset (see window_features). The rest is
+    KMeans being asked for a hard label on a space with no gaps in it, and
+    --dwell-lambda is the answer to that part -- a cost charged for changing
+    label, applied FORWARD ONLY so the labels stay causal. See dwell_labels
+    for why a Viterbi decode is not used despite being stickier.
+
+    Measured on July 2026, four features, k=3, after the straddle fix:
+
+        lambda   median run   flips   silhouette   30min survival
+          0.0      4 bars     13.7%      0.305         46.2%
+          0.5      7 bars      9.5%      0.290         54.0%
+          1.0      9 bars      7.9%      0.270         59.0%
+          2.0     11 bars      5.8%      0.237         (dissolving)
+
+    0.5 is the default because it is close to free -- past it the clusters
+    start dissolving into the smoothing. NOTE that the silhouette reported by
+    silhouette_preview describes the CLUSTERING, not the emitted labels; at
+    lambda > 0 the labels are deliberately less separated than that number.
+    The honest reading of the table is that Stage 2 is defensible at the
+    5-minute horizon, arguable at 15, and thin at 30 whatever lambda is.
+
 A DELIBERATE DEVIATION FROM §2 -- DECIDED 2026-08-26
     §2's feature table defines "Directional efficiency" as
     `abs(CVD) / price range` and cites 2026-07-16's 0.90 as the number that
@@ -139,6 +170,8 @@ from sklearn.preprocessing import StandardScaler  # type: ignore[import-untyped]
 
 from compute_delta_cvd import DISPLAY_TZ
 from s1 import SESSION_SHIFT, load_ticks, minute_bars
+
+DEFAULT_DWELL_LAMBDA = 0.5   # see dwell_labels; 0.0 recovers plain KMeans
 
 SPEC = "docs/superpowers/specs/2026-08-25-gc-strategy-selector-design.md"
 
@@ -379,8 +412,47 @@ def fit_mask_before(feat: pd.DataFrame, level: str, split: date) -> pd.Series:
     return pd.Series(sessions < split, index=feat.index)
 
 
+def dwell_labels(dist: np.ndarray, session: np.ndarray, lam: float) -> np.ndarray:
+    """Nearest-centroid labels, with a cost `lam` charged for changing label.
+
+    Plain KMeans assigns each bar independently, which is why the committed
+    July run flipped regime on 28.9% of bars while its own features had a
+    lag-1 autocorrelation of 0.83-0.96 -- the tape was not moving, the
+    boundary was. `lam` makes a switch cost something, so a bar has to be
+    meaningfully closer to another centroid to earn one.
+
+    FORWARD PASS ONLY. Bar t is decided from bars <= t, so these labels stay
+    usable on a live tape and cannot leak. A full Viterbi decode over the
+    sequence is stickier -- median run 9 bars against 5 at lam=1.0 -- and is
+    deliberately not used: it reads bars after t, which is the one thing this
+    module exists not to do.
+
+    The running cost restarts at each session. Carrying a switching penalty
+    across the overnight halt would assert a continuity the tape does not
+    have, and it showed: with the cost carried, the label changed across a
+    session boundary 4.5% of the time against plain KMeans's 45.5%, which is
+    the penalty suppressing real session-to-session change rather than noise.
+    At --level session every row is its own session, so the penalty is inert
+    there by construction -- correct, since consecutive rows are days apart.
+
+    lam=0.0 reproduces plain KMeans exactly.
+    """
+    n, k = dist.shape
+    switch = lam * (1.0 - np.eye(k))
+    out = np.empty(n, dtype="int64")
+    cost = dist[0]
+    out[0] = int(cost.argmin())
+    for t in range(1, n):
+        cost = dist[t] if session[t] != session[t - 1] else (
+            (cost[:, None] + switch).min(axis=0) + dist[t]
+        )
+        out[t] = int(cost.argmin())
+    return out
+
+
 def fit_regimes(feat: pd.DataFrame, level: str, k: int, fit_mask: pd.Series | None,
-                 random_state: int, include_session_phase: bool = True):
+                 random_state: int, include_session_phase: bool = True,
+                 dwell_lambda: float = DEFAULT_DWELL_LAMBDA):
     X = build_feature_matrix(feat, level, include_session_phase)
     valid = X.notna().all(axis=1)
 
@@ -401,8 +473,11 @@ def fit_regimes(feat: pd.DataFrame, level: str, k: int, fit_mask: pd.Series | No
     km = KMeans(n_clusters=k, n_init=10, random_state=random_state)
     km.fit(scaler.transform(X.loc[fit_rows]))
 
+    dist = km.transform(scaler.transform(X.loc[valid]))
+    session = (feat.loc[valid, "session"] if level == "window"
+               else feat.loc[valid].index.to_series()).to_numpy()
     labels = pd.Series(index=feat.index, dtype="float64")
-    labels.loc[valid] = km.predict(scaler.transform(X.loc[valid])).astype("float64")
+    labels.loc[valid] = dwell_labels(dist, session, dwell_lambda).astype("float64")
 
     return {
         "labels": labels,
@@ -413,6 +488,7 @@ def fit_regimes(feat: pd.DataFrame, level: str, k: int, fit_mask: pd.Series | No
         "X": X,
         "walk_forward_safe": walk_forward_safe,
         "feature_cols": list(X.columns),
+        "dwell_lambda": dwell_lambda,
     }
 
 
@@ -438,6 +514,22 @@ def silhouette_preview(X: pd.DataFrame, fit_rows: pd.Series, random_state: int,
 # --------------------------------------------------------------------------
 # Reporting
 # --------------------------------------------------------------------------
+def run_lengths(labels: pd.Series, valid: pd.Series) -> dict[str, float]:
+    """How long a regime holds -- the number --dwell-lambda exists to move.
+
+    Reported next to every run because a regime that does not outlive the
+    trade it selected cannot have selected it.
+    """
+    lab = labels[valid].to_numpy()
+    runs = np.diff(np.flatnonzero(np.r_[True, lab[1:] != lab[:-1], True]))
+    return {
+        "n_runs": len(runs),
+        "median_bars": float(np.median(runs)),
+        "longest_bars": int(runs.max()),
+        "flip_pct": round(float((len(runs) - 1) / len(lab) * 100), 1),
+    }
+
+
 def summarize_regimes(feat: pd.DataFrame, labels: pd.Series, valid: pd.Series,
                        level: str) -> pd.DataFrame:
     rows = []
@@ -547,6 +639,10 @@ def main() -> None:
                     help="YYYY-MM-DD (ET session date). Fit KMeans only on bars/sessions "
                          "strictly before this date; label everything. Omit only for an "
                          "exploratory look -- required for §6.4 walk-forward-safe output.")
+    ap.add_argument("--dwell-lambda", type=float, default=DEFAULT_DWELL_LAMBDA,
+                    help="Cost charged for changing regime between adjacent bars. Applied "
+                         "forward-only, so the labels stay causal. 0.0 = plain KMeans, which "
+                         "flipped regime on 28.9%% of bars in the July run. See dwell_labels.")
     ap.add_argument("--random-state", type=int, default=0)
     ap.add_argument("--out-dir", default="analysis/regimes")
     ap.add_argument("--no-plot", action="store_true")
@@ -583,7 +679,7 @@ def main() -> None:
 
     include_session_phase = not args.no_session_phase_in_clustering
     result = fit_regimes(feat, args.level, args.k, fit_mask, args.random_state,
-                          include_session_phase)
+                          include_session_phase, args.dwell_lambda)
     labels = result["labels"]
 
     sil = silhouette_preview(result["X"], result["fit_rows"], args.random_state)
@@ -595,8 +691,15 @@ def main() -> None:
 
     summary = summarize_regimes(feat, labels, result["valid"], args.level)
     print(f"\nregime summary ({args.level}-level, bar_size={args.bar_size}, "
-          f"k={args.k}, walk_forward_safe={result['walk_forward_safe']}):")
+          f"k={args.k}, dwell_lambda={args.dwell_lambda}, "
+          f"walk_forward_safe={result['walk_forward_safe']}):")
     print(summary.to_string(index=False))
+
+    hold = run_lengths(labels, result["valid"])
+    print(f"\npersistence: median run {hold['median_bars']:.0f} bars "
+          f"({hold['median_bars'] * pd.Timedelta(args.bar_size).total_seconds() / 60:.0f}min), "
+          f"longest {hold['longest_bars']}, regime changes on {hold['flip_pct']}% of bars "
+          f"(dwell_lambda={args.dwell_lambda})")
 
     under_n = summary[summary["n"] < 30]
     if not under_n.empty:
@@ -624,6 +727,7 @@ def main() -> None:
         "walk_forward_safe": result["walk_forward_safe"],
         "include_session_phase_in_clustering": include_session_phase,
         "random_state": args.random_state,
+        "dwell_lambda": args.dwell_lambda,
         "feature_cols": result["feature_cols"],
         "n_labelled": int(result["valid"].sum()),
         "n_fit": int(result["fit_rows"].sum()),
@@ -632,6 +736,7 @@ def main() -> None:
         "scaler_scale": result["scaler"].scale_.tolist(),
         "cluster_centers_standardized": result["km"].cluster_centers_.tolist(),
         "regime_summary": summary.to_dict(orient="records"),
+        "persistence": hold,
         "spec_deviation": SPEC_DEVIATION,
     }
     defs_path = out_dir / f"regime_definitions_{tag}.json"
