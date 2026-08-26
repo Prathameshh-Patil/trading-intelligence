@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 Stage 2 of the GC strategy selector -- regime features, clustering, labels.
 
@@ -50,6 +49,9 @@ GUARDRAIL §6.4 -- WALK-FORWARD, NEVER IN-SAMPLE
     the labels it writes are not walk-forward-safe -- fine for a first look
     at whether clusters look like anything, not fine as the committed
     definitions in §6.2.
+    The split is taken on the SESSION, not the ET calendar date -- a Globex
+    session runs 18:00 -> 17:00 ET, so calendar-dating it would hand six hours
+    of the split session's own bars to the fit set.
 
 A KNOWN SPEC DISCREPANCY -- FLAGGED, NOT SILENTLY RESOLVED
     §2's feature table defines "Directional efficiency" as
@@ -103,8 +105,9 @@ sessions, walk-forward split at 2026-07-19):
       session-level regimes are too thin to trust, without having to take
       that on faith.
 
-Requires: pandas, numpy, scikit-learn, pyarrow, matplotlib (all already used
-elsewhere in this directory).
+Requires: pandas, numpy, scikit-learn, pyarrow, matplotlib. scikit-learn is
+used only here; it was added to pyproject.toml/uv.lock on 2026-08-26, after
+this file shipped importing it without declaring it.
 """
 
 from __future__ import annotations
@@ -112,7 +115,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, date, datetime
 from pathlib import Path
 
 import matplotlib
@@ -122,9 +125,13 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from sklearn.cluster import KMeans
-from sklearn.metrics import silhouette_score
-from sklearn.preprocessing import StandardScaler
+
+# scikit-learn ships no py.typed marker, so mypy cannot see into it. Ignored
+# at the import, the same way pull_tbbo_validate.py handles numpy's overloads,
+# rather than adding a mypy config section this project has so far done without.
+from sklearn.cluster import KMeans  # type: ignore[import-untyped]
+from sklearn.metrics import silhouette_score  # type: ignore[import-untyped]
+from sklearn.preprocessing import StandardScaler  # type: ignore[import-untyped]
 
 from compute_delta_cvd import DISPLAY_TZ
 from s1 import SESSION_SHIFT, load_ticks, minute_bars
@@ -199,7 +206,7 @@ def resample_bars(bars_1min: pd.DataFrame, bar_size: str) -> pd.DataFrame:
         close=("close", "last"),
     )
     agg = agg[agg["trades"] > 0].copy()
-    agg["session"] = (agg.index + SESSION_SHIFT).date
+    agg["session"] = pd.DatetimeIndex(agg.index + SESSION_SHIFT).date
     agg["cvd"] = agg.groupby("session", sort=False)["delta"].cumsum()
     return agg
 
@@ -276,7 +283,7 @@ def window_features(bars_1min: pd.DataFrame, regime_bars: pd.DataFrame,
     feat["cvd_persistence"] = persistence
     feat["cvd_efficiency_specced"] = cvd_eff
     feat["price_efficiency_asused"] = price_eff
-    feat["session_phase"] = session_phase(feat.index)
+    feat["session_phase"] = session_phase(pd.DatetimeIndex(feat.index))
 
     vol = realized_vol_1min(bars_1min, vol_window_min)
     feat = pd.merge_asof(
@@ -300,7 +307,7 @@ def session_features(bars_1min: pd.DataFrame, regime_bars: pd.DataFrame) -> pd.D
         high = g["high"].to_numpy()
         low = g["low"].to_numpy()
         cvd_eff, price_eff = _efficiency_pair(delta, close, high, low)
-        phases = session_phase(g.index)
+        phases = session_phase(pd.DatetimeIndex(g.index))
         rows.append({
             "session": session,
             "n_bars": len(g),
@@ -354,6 +361,18 @@ def build_feature_matrix(feat: pd.DataFrame, level: str,
             cols += ["pct_asia", "pct_london", "pct_ny"]
         X = feat[cols].copy()
     return X
+
+
+def fit_mask_before(feat: pd.DataFrame, level: str, split: date) -> pd.Series:
+    """Rows whose SESSION is strictly before `split` -- the §6.4 fit set.
+
+    On the session, never the ET calendar date. A Globex session runs
+    18:00 -> 17:00 ET, so 18:00-23:59 already belongs to the NEXT session;
+    calendar-dating it hands six hours of the split session's own bars
+    (72 of them at 5min) to the set the cluster boundaries are fitted on.
+    """
+    sessions = feat["session"].to_numpy() if level == "window" else feat.index.to_numpy()
+    return pd.Series(sessions < split, index=feat.index)
 
 
 def fit_regimes(feat: pd.DataFrame, level: str, k: int, fit_mask: pd.Series | None,
@@ -450,7 +469,7 @@ def plot_regimes(feat: pd.DataFrame, labels: pd.Series, valid: pd.Series,
     if level != "window":
         return  # session-level has too few points for a timeline plot
     tz = DISPLAY_TZ
-    idx = feat.index.tz_convert(tz)
+    idx = pd.DatetimeIndex(feat.index).tz_convert(tz)
     regimes = sorted(labels.dropna().unique())
     color_map = {r: REGIME_COLORS[i % len(REGIME_COLORS)] for i, r in enumerate(regimes)}
 
@@ -474,7 +493,7 @@ def plot_regimes(feat: pd.DataFrame, labels: pd.Series, valid: pd.Series,
     # regime-colored scatter below is unaffected either way since scatter
     # never connects points.
     for _, seg in feat.groupby("session", sort=True):
-        seg_idx = seg.index.tz_convert(tz)
+        seg_idx = pd.DatetimeIndex(seg.index).tz_convert(tz)
         ax.plot(seg_idx, seg["close"], color=C_PRICE, linewidth=0.7, zorder=1)
     for r in regimes:
         mask = (valid & (labels == r)).to_numpy()
@@ -555,10 +574,7 @@ def main() -> None:
     fit_mask = None
     if args.split_date:
         split = pd.Timestamp(args.split_date).date()
-        if args.level == "window":
-            fit_mask = pd.Series((feat.index.tz_convert(DISPLAY_TZ).date < split), index=feat.index)
-        else:
-            fit_mask = pd.Series(feat.index < split, index=feat.index)
+        fit_mask = fit_mask_before(feat, args.level, split)
         print(f"walk-forward split: fitting on rows before {split}, "
               f"labelling all {len(feat):,} rows")
 
@@ -593,7 +609,7 @@ def main() -> None:
     print(f"\nwrote labels -> {labels_path}")
 
     definitions = {
-        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "generated_at": datetime.now(UTC).isoformat(),
         "spec": SPEC,
         "parquet": str(args.parquet),
         "bar_size": args.bar_size,
