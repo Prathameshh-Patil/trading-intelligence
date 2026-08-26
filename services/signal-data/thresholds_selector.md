@@ -96,6 +96,171 @@ finding it out cheaply is the entire reason Stage 1 goes first.
 
 ---
 
+### The four blocks, scaffolded — 2026-08-26
+
+`strategies.py` landed 26 Aug, so the candidates now exist as code and the rules below are
+transcribed from their docstrings. **Everything factual is filled in. Every number and every
+judgment is blank, and stays blank until Varad writes it.** The `<...>` fields are the commitment;
+nothing else here is.
+
+Two things to settle **before** any number, because both change what is being thresholded:
+
+1. **Is `absorption_fade` a fade or a continuation?** The code assumes the aggressor was trapped
+   and the resting side won. The same bar reads as continuation if the aggressor was early. One
+   sign change, but it is a decision.
+2. **Should absorption be measured at the price level rather than over a time bar?** Absorption is
+   classically size stacking at one price and failing to break it, and `compute_delta_cvd.py`'s
+   `footprint()` already aggregates by price level. `|delta| / bar range` is a proxy, and at a
+   median bar range of **15 ticks** it is a loose one. This one may delete the rule rather than
+   tune it.
+
+**Which candidates actually inherit the ±15–20% delta error** (measured 26 Aug, asserted in
+`tests/test_stage1.py`) — this decides how much A5's output means for each:
+
+| Strategy | Thresholds it needs | Inherits the delta error? |
+| :--- | :--- | :--- |
+| `delta_outlier` | `window`, `min_bars`, `z` | **No.** A z-score divides by its own σ, so a uniform delta rescale cancels |
+| `cvd_divergence` | `window`, `min_bars`, `min_slope` | **Yes** — `min_slope` is in contracts |
+| `absorption_fade` | `min_ratio`, `min_delta` | **Yes** — both are in contracts |
+| `footprint_stack` | `ratio`, `min_stack` | **No.** A volume ratio scales on both sides |
+
+```markdown
+# Stage 1 — strategy 1 of 4: delta_outlier
+Date: <YYYY-MM-DD>   Committed at: <time>
+Instrument: GC (GCQ6 and successors)
+Data: <start> to <end>, <n> sessions. Walk-forward: n/a for Stage 1 — nothing is fitted.
+
+## The rule
+A bar whose delta is <z> standard deviations above its trailing <window> goes
+long at that bar's close; <z> below goes short. Trailing statistics only, reset
+at each session boundary, minimum <min_bars> bars of context before any signal.
+
+## What I am measuring
+Realized move at 5 / 15 / 30 minutes, in ticks, plus MFE and MAE at each.
+
+## The threshold — this is the commitment
+- window:                                            <value>
+- min_bars:                                          <value>
+- z:                                                 <value>
+- Median move at <N> minutes:                        <value, signed, ticks>
+- Hit rate:                                          <value>%
+- Versus the null:                                   beat it by <value> ticks
+- Minimum sample size before I believe any of it:    <N>   (floor is 30, A4)
+- Median MAE I am willing to sit through:            <value> ticks
+
+## What result would make me say no
+<Write this. Most important line in the file.>
+
+## What I expect to see
+<Your honest prediction, before you look.>
+```
+
+```markdown
+# Stage 1 — strategy 2 of 4: cvd_divergence
+Date: <YYYY-MM-DD>   Committed at: <time>
+Instrument: GC (GCQ6 and successors)
+Data: <start> to <end>, <n> sessions. Walk-forward: n/a for Stage 1 — nothing is fitted.
+
+## The rule
+Price closes at the high of its trailing <window> while CVD fell by at least
+<min_slope> contracts across that same window: short. A new low that buying did
+not confirm by the same margin: long. The extreme and the flow are measured
+over the SAME window — two windows would be two thresholds pretending to be one.
+
+## What I am measuring
+Realized move at 5 / 15 / 30 minutes, in ticks, plus MFE and MAE at each.
+
+## The threshold — this is the commitment
+- window:                                            <value>
+- min_bars:                                          <value>
+- min_slope (contracts):                             <value>
+- Median move at <N> minutes:                        <value, signed, ticks>
+- Hit rate:                                          <value>%
+- Versus the null:                                   beat it by <value> ticks
+- Minimum sample size before I believe any of it:    <N>   (floor is 30, A4)
+- Median MAE I am willing to sit through:            <value> ticks
+- ...and it must still clear that bar at min_slope x0.8 and x1.2 (A5, and this
+  strategy genuinely inherits the error)
+
+## What result would make me say no
+<Write this.>
+
+## What I expect to see
+<prediction>
+```
+
+```markdown
+# Stage 1 — strategy 3 of 4: absorption_fade
+Date: <YYYY-MM-DD>   Committed at: <time>
+Instrument: GC (GCQ6 and successors)
+Data: <start> to <end>, <n> sessions. Walk-forward: n/a for Stage 1 — nothing is fitted.
+
+## FIRST: the two decisions above
+- Fade or continuation?                              <answer>
+- Time-bar ratio, or price-level absorption?         <answer>
+  If price-level, this block describes a rule that does not exist yet and the
+  numbers below are for the wrong thing. Settle it first.
+
+## The rule
+A bar trading at least <min_ratio> contracts per tick of range, on at least
+<min_delta> contracts of one-sided flow, takes the OPPOSITE side of the delta.
+The size floor is load-bearing: the ratio alone is scale-free, and without
+min_delta the rule selects for the Globex-open dead zone rather than absorption.
+
+## What I am measuring
+Realized move at 5 / 15 / 30 minutes, in ticks, plus MFE and MAE at each.
+
+## The threshold — this is the commitment
+- min_ratio (contracts per tick):                    <value>
+- min_delta (contracts):                             <value>
+- Median move at <N> minutes:                        <value, signed, ticks>
+- Hit rate:                                          <value>%
+- Versus the null:                                   beat it by <value> ticks
+- Minimum sample size before I believe any of it:    <N>   (floor is 30, A4)
+- Median MAE I am willing to sit through:            <value> ticks
+- ...and it must still clear that bar at x0.8 and x1.2 on both (A5, and this
+  strategy genuinely inherits the error)
+
+## What result would make me say no
+<Write this.>
+
+## What I expect to see
+<prediction>
+```
+
+```markdown
+# Stage 1 — strategy 4 of 4: footprint_stack
+Date: <YYYY-MM-DD>   Committed at: <time>
+Instrument: GC (GCQ6 and successors)
+Data: <start> to <end>, <n> sessions. Walk-forward: n/a for Stage 1 — nothing is fitted.
+
+## The rule
+At least <min_stack> price levels inside the bar where buy volume is <ratio>
+times the sell volume one tick below, and NO level imbalanced the other way:
+long. Mirrored for short. Counts levels, not consecutive runs — consecutive
+stacking is a stricter rule and would need its own block.
+
+## What I am measuring
+Realized move at 5 / 15 / 30 minutes, in ticks, plus MFE and MAE at each.
+
+## The threshold — this is the commitment
+- ratio:                                             <value>
+- min_stack (levels):                                <value>
+- Median move at <N> minutes:                        <value, signed, ticks>
+- Hit rate:                                          <value>%
+- Versus the null:                                   beat it by <value> ticks
+- Minimum sample size before I believe any of it:    <N>   (floor is 30, A4)
+- Median MAE I am willing to sit through:            <value> ticks
+
+## What result would make me say no
+<Write this.>
+
+## What I expect to see
+<prediction>
+```
+
+---
+
 ## Part C — Stage 2, fill in before the clustering is fitted
 
 Not before it is *interpreted*. Before it is **fitted**. A2 is only worth something if the labels
@@ -175,10 +340,16 @@ signals. `backtest.py` flags it; the flag only works if you do not argue with it
 
 ## Status
 
-**Written 2026-08-25 (night). Part A is filled and binding. Parts B and C are empty, and they are
-empty on purpose** — they are the trader's commitments, not the assistant's, in the same way
+**Written 2026-08-25 (night). Part A is filled and binding. Parts B and C carry no numbers, and
+that is on purpose** — they are the trader's commitments, not the assistant's, in the same way
 `decision_filter.py` is authored by the trader and not written by Claude (§3). An assistant filling
 in a number here would produce a file that looks like the mechanism working while doing none of
 what the mechanism is for.
+
+**Updated 2026-08-26: Part B is scaffolded, not filled.** `strategies.py` landed, so the four rules
+are transcribed from their docstrings, each block names exactly which thresholds its function
+requires, and the table records which two candidates actually inherit the ±15–20% delta error.
+Asked to fill Part B in, Claude declined the numbers and wrote the scaffold instead. **Every
+`<...>` field is still empty and still Varad's.**
 
 **Nothing may be backtested until B is filled and committed.** Nothing may be clustered until C is.
