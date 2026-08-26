@@ -33,13 +33,27 @@ python regimes.py --parquet data/gc_trades.parquet \
     --no-session-phase-in-clustering --out-dir analysis/regimes
 ```
 
-Two things to settle while re-running, both recorded in `plans/current.md` under Day 4 (evening):
+## There is a second reason these are stale, and it is a bug
 
-- **`k`.** The stale run committed `k=3` while its own silhouette preferred `k=2` (0.299 vs 0.239).
-  Under §6.2 the reason belongs in the artefact.
-- **Whether these are regimes at all.** In the stale labels the median run was **2 bars — ten
-  minutes** — and the label changed on **28.9%** of bars. Dropping a redundant feature will move
-  that number; it is unlikely to fix it.
+`0481809` fixed `window_features` letting a trailing window straddle the session CVD reset. `cvd`
+restarts at ~0 each session, so such a window reads the reset as a move — **the eight largest
+`cvd_slope` values in these very labels sit at `bar_in_session` 2–8 and read positive, up to +505, on
+bars whose CVD was negative.** 253 bars, 4.0%, and they were the month's extremes, so after
+`StandardScaler` they pulled a cluster centre. Re-running picks this up along with the feature drop:
+
+| | median run | flips | silhouette | 30min survival |
+| :--- | ---: | ---: | ---: | ---: |
+| these files | 2 bars | 29.1% | 0.256 | 18.9% |
+| after the fix | 4 bars | 13.7% | 0.305 | 46.2% |
+
+**`k` no longer needs settling.** These files committed `k=3` while the silhouette appeared to prefer
+`k=2`, which looked like an open question this morning. It was the bug: with the straddling bars out,
+k=3 wins on every measure (silhouette 0.305 vs 0.247, median run 4 bars vs 2). Keep `k=3` and write
+that reason into the artefact, which is what §6.2 wanted all along.
+
+What remains genuinely open is whether to add a **causal dwell penalty**, and it is a decision rather
+than a fix — see `plans/current.md` under Day 4 (evening). Do not add one without deciding it first;
+§6.2 exists so that this kind of choice is made before anyone looks at per-strategy performance.
 
 The walk-forward split was also fixed in `dcbde04` — it cuts on the session now, not the ET calendar
 date. That does not move *these* labels (2026-07-19 is a Sunday), but it would move any weekday

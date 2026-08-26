@@ -488,12 +488,31 @@ or `strategies.py`, and the docstring says it must never gain one. It routes thr
       with a new consequence: **every number in `analysis/regimes/` is currently unverifiable by
       anyone but Prathamesh.** `regimes.py` was smoke-tested end to end against the S1 fixture
       instead (77,532 trades → 276 bars at 5min, k=3, plot and JSON written).
-- [ ] **⚠️ The regimes do not persist, and Stage 2's premise needs them to.** Measured off the
-      committed labels: **1,806 runs over 6,243 bars, median run 2 bars — ten minutes — and the label
-      changes on 28.9% of bars.** Longest run in the month is 2.5 hours. `select.py` built on these
-      would switch strategies faster than most trades resolve. Either the features need a longer
-      window, or Stage 2 needs a dwell constraint (an HMM, a minimum run length) rather than per-bar
-      KMeans. **Not fixed — it is a design call, not a defect.**
+- [x] **✅ The persistence problem was half a defect — `0481809`.** The features barely move
+      (lag-1 autocorrelation 0.83–0.96) while the label flipped on 28.9% of bars, so the fault was
+      never in the market. **`window_features` let a trailing window straddle the session CVD reset**,
+      and since `cvd` restarts at ~0 each session, such a window reads the reset as a move: the eight
+      largest `cvd_slope` values in July 2026 all sit at `bar_in_session` 2–8 and read **positive, up
+      to +505, on bars whose CVD was negative**. Median `|cvd_slope|` 5.8× higher there than on clean
+      bars. Only 253 bars (4.0%) — but they were the month's extremes, so after `StandardScaler` they
+      pulled a centre and destabilised assignment everywhere. **Median run 2 → 4 bars, flips 29.1% →
+      13.7%, silhouette 0.256 → 0.305.**
+- [x] **✅ …and it closed the `k` question. 🔴 Correcting the bullet below and this morning's review:**
+      the silhouette that appeared to prefer k=2 was substantially that bug. With the straddling bars
+      out, **k=3 beats k=2 on every measure — silhouette 0.305 vs 0.247, median run 4 bars vs 2.**
+      The committed run's k=3 was right for a reason nobody had.
+- [ ] **⏭ What is left of it is a design call, and it is about the horizon, not the clustering.**
+      Flips concentrate near the cluster boundary (median relative margin 0.298 vs 0.440 for bars
+      that held) but are not knife-edge — 11.7% of bars sit within 10% of tied — so this is KMeans
+      being asked for a hard label on a space with no gaps, not noise to squash. Measured against
+      `backtest.py`'s `HORIZONS = (5, 15, 30)` minutes, the share of entries whose regime **survives
+      the trade** is now **86.1% / 66.5% / 46.2%**. A causal dwell penalty (λ per switch, forward pass
+      only — a Viterbi decode looks forward and must not be used here) buys **90.3% / 73.6% / 54.0%**
+      at λ=0.5 for a silhouette cost of 0.305 → 0.290, and little more after that. *Read: take λ=0.5
+      or nothing — but the sharper point is that **Stage 2 is defensible at the 5-minute horizon,
+      arguable at 15, and not really available at 30**, and that is an argument about which horizon
+      Stage 1's kill gate is judged on. Worth settling before `select.py` exists.* **Not implemented:**
+      it changes what a regime means, and §6.2 wants that decided and committed deliberately.
 - [ ] **⚠️ Two of the five features are the same feature.** `cvd_persistence` and
       `cvd_efficiency_specced` correlate at **r = 0.803** on the committed labels — both are
       `abs(CVD)` over a denominator — which double-weights CVD directionality in a Euclidean KMeans
@@ -518,10 +537,9 @@ or `strategies.py`, and the docstring says it must never gain one. It routes thr
       [`analysis/regimes/README.md`](../services/signal-data/analysis/regimes/README.md) marks them
       superseded and carries the exact re-run command. Two things to settle while re-running: the
       `k=3`-vs-silhouette question below, and whether these are regimes at all.
-- [ ] **The silhouette preferred k=2 and the committed run is k=3.** `regime_definitions.json`
-      records `k=2: 0.299, k=3: 0.239`. Independently reproduced on the fixture (0.395 vs 0.311), so
-      it is not an artefact of the month. k=3 may well be the right call, but under §6.2 the reason
-      belongs in the artefact and is not in it.
+- [x] ~~**The silhouette preferred k=2 and the committed run is k=3.**~~ **Resolved — see the two
+      bullets above.** It *was* an artefact after all, just not of the month: of the straddling-window
+      bug. The reason still belongs in the artefact under §6.2, and now there is one to write down.
 
 ---
 
