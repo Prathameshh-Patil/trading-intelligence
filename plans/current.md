@@ -75,19 +75,25 @@ Varad to Prathamesh for the same reason.
 - [x] **Existing side-panel UI copied in unmodified** — `SidePanel.tsx`, `lib/`, `ui/`,
       `views/` byte-for-byte identical to `apps/extension` (`diff -q` confirmed). `storage.ts`
       shimmed to `localStorage`, `capture.ts` shimmed to a placeholder — both marked temporary.
-- [ ] **Native Tauri window — not yet confirmed on-device.** `tsc`/`vite build` are clean and
-      the compiled bundle was screenshotted in headless Chromium at the target window size
-      (Home, Rules, Journal — zero console errors), but nobody has run `pnpm tauri dev` and
-      looked at a real window yet. Don't check this off until that happens.
+- [x] **Native Tauri window — confirmed on-device 25 Aug.** `pnpm tauri dev` compiles and
+      launches `target/debug/desktop`, and the window it opens is a real AppKit window, not a
+      headless render: the accessibility API reports **one window, title `Trading Intelligence`,
+      size 460×820** — the exact `tauri.conf.json` geometry — and Launch Services shows the
+      process registered `Foreground` with WebKit's `Networking` and `GPU` XPC children alive,
+      which only spawn for a real `WKWebView`. **What is still unchecked is what is *inside*
+      it:** no screenshot was taken (screen recording permission is not granted), so "a window
+      opens at the right size" is proven and "the UI renders correctly in it" is not — that
+      one is an eyeball, and the window is the place to do it.
 - [x] **GC/NQ pull script written, logic dry-run tested** —
       `services/signal-data/pull_futures_trades.py` against Databento's `GLBX.MDP3`, `trades`
       schema, parent symbology. Writes `gc_trades.parquet` / `nq_trades.parquet` with
       `timestamp, price, size, aggressor_side` (+ `symbol`/`instrument_id`). Cost-estimate-first
       flow; per-day active-contract cleanup verified against a synthetic 200k-row roll month
       (correctly split two contracts by day).
-- [ ] **Not yet run for real.** Script is written and syntax-checked, not executed against the
-      live API — no real row counts, cost, or aggressor split confirmed yet. That's the bar for
-      checking this off, not writing the script.
+- [x] **Run for real 24 Aug** (`8aece67`, Prathamesh) — **stale box, corrected 25 Aug.** The live
+      call returned **1,616,772 GC trades for $2.52**, aggressor split 48.32/47.79, and running it
+      is what surfaced the real-pull crash that same commit fixes. Row #6 in `Next` has carried
+      the numbers since; this checkbox simply never moved. NQ was never pulled and is now dropped.
 - [x] **API key handled safely** — `.env`/`.env.example`, matching this repo's existing
       convention; never hardcoded into the tracked script.
 - [x] **Extension side-panel rewrite pushed, and its build fixed** — the side-panel UI had been
@@ -298,11 +304,10 @@ run it, and that boundary was held.
 
 ## Next
 
-Ordered. Days 1–3 are complete except the items explicitly left unchecked above — a real
-`pnpm tauri dev` window and reloading the extension. Those are #7–#8 (the S1 fixture cut, #6,
-closed the evening of 25 Aug),
-below, not optional, and they are the same shape: code that type-checks and tests green but
-has never been run for real.
+Ordered. Days 1–3 are complete except the items explicitly left unchecked above — now just
+reloading the extension. That is #8 below (#6, the S1 fixture cut, and #7, the real Tauri
+window, both closed on 25 Aug), not optional, and it is the same shape as the two that closed:
+code that type-checks and tests green but has never been run for real.
 
 **#1 is no longer one of them.** The first live analysis was the fourth item on that list
 until 25 Aug, when the backend question was closed by deciding to build our own model. It is
@@ -317,7 +322,7 @@ not blocked-and-waiting; it is off this list until that model exists.
 | 4 | Decide **where the API lives** | Both | Popup hardcodes `http://localhost:8000`, matching `host_permissions`; a deployed URL changes both, and the CORS entries start mattering once `host_permissions` no longer covers the host. **Now also a secrets question:** the API holds an Anthropic key, so it needs somewhere that can hold an env var — and the key must never move into the extension, which is public |
 | 5 | **AMO / Web Store** submission prep | Undecided | See constraints below |
 | 6 | ~~Run the Databento pull for real~~ — **DONE 24 Aug, `8aece67`** | Prathamesh | 1,616,772 GC trades, $2.52, aggressor split 48.32/47.79 — inside the band. Exceeded the bar this row set. ~~**What's left: the S1 fixture cut — and it is blocked.**~~ **DONE 25 Aug, `14f5547`.** Blocked in the morning (the month lived only on Prathamesh's disk) and closed the same evening — he cut the session with `cut_s1_fixture.py` and pushed the fixture rather than the month, landing on the one path the `.gitignore` exception carved out hours earlier. **Verified independently after pulling:** 77,532 rows exactly, all six S1 columns with correct dtypes and no extras, `GCQ6` only, CME session window, and **session delta +1,842 — matching `DELTA_CVD_FINDINGS.md` §3 to the unit**, which is a number computed by a different script on a different machine. **Two things came out of it:** `aggressor_side` carries a real third value `'N'` (1,811 trades, 2.34%) that S1 does not admit — **a pending amendment, drafted in `contracts.md`, needs all three at Wednesday's standup** — and the fixture holds 421 genuine duplicate rows where `drop_duplicates()` would shift session delta by **8%**. Both recorded in S1. NQ dropped 25 Aug — the ~$11.42 stays unspent |
-| 7 | Confirm `pnpm tauri dev` opens a real window | Either | Headless-browser screenshot of the compiled bundle isn't the same as a real native window — nobody has looked at one yet |
+| 7 | ~~Confirm `pnpm tauri dev` opens a real window~~ — **DONE 25 Aug** | Varad | Ran on-device. Warm `cargo` rebuild in **4.27s**, vite on `:1420`, `target/debug/desktop` running. **Evidence, not a screenshot of a bundle:** the accessibility API reports the process owning **one window, title `Trading Intelligence`, 460×820 at (610, 80)** — the geometry is `tauri.conf.json`'s `width`/`height` to the pixel, so the config is what produced the window; and Launch Services lists it `Foreground` with `desktop Networking` (`com.apple.WebKit.Networking`) and `desktop Graphics and Media` (`com.apple.WebKit.GPU`) as children, which exist only when a real `WKWebView` is instantiated. **Deliberately not claimed:** nobody has looked at the pixels. No screenshot was taken — screen recording permission is not granted, and asking for it interactively was not worth it — so a blank or broken render inside a correctly-sized window would not have been caught by any of the above. Reviewing the UI is #3 and stays open |
 | 8 | Load the rebuilt extension in Chrome, confirm capture still works | Either | The `activeTab`/`scripting` rewrite (`955b374`) hasn't been checked in a real loaded extension. Fold #1's click-through into this if doing both at once |
 | A1 | Compute delta and CVD ~~from the tick data~~ **done** · ~~validate against a real footprint chart~~ — **SUBSTANTIALLY CLOSED 24 Aug, `c504e50`** | Prathamesh | Closed by an independent *method* rather than an independent platform, which sidesteps the Windows-only blocker entirely: `pull_tbbo_validate.py` reclassifies every trade in the 2026-07-16 session by the **quote rule** (price vs the bid/ask immediately before the trade), using the `side` field not at all. **99.65% agreement with `SIDE_MAP` across 75,578 comparable trades**, a near-symmetric confusion matrix (96 vs 165), **0 of 23 hours disagreeing in sign**, and a footprint cross-check at 980/980 common price levels with volume r=1.0000 and delta r=0.9870. Separately `verify_settlement_close.py` resolved the 12.2-point gap against TradingView's reported close as settlement-window-vs-last-trade, VWAP matching within 0.25 — that one **is** an external reference, so contract and timezone are checked too. **Residual, and it must be carried downstream:** session-total delta is method-dependent at the ~15–20% level (side field +1,842 vs quote rule +2,216). **Direction and shape are robust; absolute magnitude needs an error bar.** *(`DELTA_CVD_FINDINGS.md` §3 rewritten 25 Aug — it now records the gate as closed, carries the residual as the file's headline number, and inverts the debugging order so the aggressor mapping is checked **last**, since it has four independent confirmations)* |
 | A2 | ~~Pull spot XAUUSD, compute GC-vs-spot correlation and basis distribution~~ — **CUT 25 Aug** | — | Killed by the artifact's Fact Two, not deprioritised. It was scoping MT5 spot gold as a launch instrument; spot gold has no centralised volume — which is exactly why `real_volume` comes back empty — so there is no delta to compute and nothing to correlate against. Returns in the Week 12 quarter-two discussion as a **context-only** mode: rules, journal and capture work on MT5, delta does not, and we never claim it does. *(`DELTA_CVD_FINDINGS.md` §4 said "blocked on Dukascopy being unreachable" — true, and the wrong reason. Rewritten 25 Aug to lead with the real one: the blocker was never the download, it is that spot gold cannot carry the product's core number, so **nobody needs to find a working mirror**.)* |
