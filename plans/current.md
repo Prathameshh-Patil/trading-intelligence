@@ -501,18 +501,38 @@ or `strategies.py`, and the docstring says it must never gain one. It routes thr
       the silhouette that appeared to prefer k=2 was substantially that bug. With the straddling bars
       out, **k=3 beats k=2 on every measure — silhouette 0.305 vs 0.247, median run 4 bars vs 2.**
       The committed run's k=3 was right for a reason nobody had.
-- [ ] **⏭ What is left of it is a design call, and it is about the horizon, not the clustering.**
-      Flips concentrate near the cluster boundary (median relative margin 0.298 vs 0.440 for bars
-      that held) but are not knife-edge — 11.7% of bars sit within 10% of tied — so this is KMeans
-      being asked for a hard label on a space with no gaps, not noise to squash. Measured against
-      `backtest.py`'s `HORIZONS = (5, 15, 30)` minutes, the share of entries whose regime **survives
-      the trade** is now **86.1% / 66.5% / 46.2%**. A causal dwell penalty (λ per switch, forward pass
-      only — a Viterbi decode looks forward and must not be used here) buys **90.3% / 73.6% / 54.0%**
-      at λ=0.5 for a silhouette cost of 0.305 → 0.290, and little more after that. *Read: take λ=0.5
-      or nothing — but the sharper point is that **Stage 2 is defensible at the 5-minute horizon,
-      arguable at 15, and not really available at 30**, and that is an argument about which horizon
-      Stage 1's kill gate is judged on. Worth settling before `select.py` exists.* **Not implemented:**
-      it changes what a regime means, and §6.2 wants that decided and committed deliberately.
+- [x] **✅ The dwell penalty is in, at λ=0.5 — `83165d8`.** `--dwell-lambda` charges a cost for
+      changing regime between adjacent bars, **forward pass only**, so bar *t* is decided from bars
+      ≤ *t* and the labels stay usable live. A full Viterbi decode is stickier and is deliberately
+      not used — it reads bars after *t*, which is the one thing this module exists not to do;
+      `test_the_labels_are_causal` pins that, and **the test discriminates** (a Viterbi
+      implementation fails it). The running cost **restarts each session**: carried across the
+      overnight halt it suppressed real session-to-session change rather than noise (label changed
+      across a boundary 4.5% of the time against plain KMeans's 45.5%). `λ=0.0` reproduces plain
+      KMeans exactly, so the old behaviour is one flag away and testable against. `regimes.py` now
+      also **reports persistence next to every run** — median run, longest, flip rate — and records
+      it in `regime_definitions.json`. 70 tests, `ruff`/`mypy` clean.
+
+      | λ | median run | flips | silhouette | 30min survival |
+      | ---: | ---: | ---: | ---: | ---: |
+      | 0.0 | 4 bars | 13.7% | 0.305 | 46.2% |
+      | **0.5** | **7 bars** | **9.5%** | **0.290** | **54.0%** |
+      | 1.0 | 9 bars | 7.9% | 0.270 | 59.0% |
+
+      *Two things it does not claim.* The silhouette from `silhouette_preview` describes the
+      **clustering**, not the emitted labels — at λ > 0 the labels are deliberately less separated,
+      and the docstring says so. And **no λ rescues the 30-minute horizon.**
+- [ ] **⏭ The horizon question is the one still open, and it is not about clustering.**
+      Measured against `backtest.py`'s `HORIZONS = (5, 15, 30)` minutes, the share of entries whose
+      regime **survives the trade** is now **90.3% / 73.6% / 54.0%** at λ=0.5. Even at λ=1.0 the
+      thirty-minute figure only reaches 59.0% — **more than four entries in ten finish in a different
+      regime than the one that selected them**, and no setting of λ fixes that without dissolving the
+      clusters into the smoothing. **Stage 2 is defensible at the 5-minute horizon, arguable at 15,
+      and thin at 30.** That is an argument about which horizon Stage 1's kill gate is judged on, and
+      it wants settling **before `select.py` exists** rather than after. *(The residual flipping is
+      not noise, for what it is worth: flips concentrate near the cluster boundary — median relative
+      margin 0.298 against 0.440 for bars that held — but only 11.7% of bars sit within 10% of tied.
+      It is KMeans being asked for a hard label on a space with no gaps in it.)*
 - [ ] **⚠️ Two of the five features are the same feature.** `cvd_persistence` and
       `cvd_efficiency_specced` correlate at **r = 0.803** on the committed labels — both are
       `abs(CVD)` over a denominator — which double-weights CVD directionality in a Euclidean KMeans
