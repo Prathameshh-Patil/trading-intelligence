@@ -120,25 +120,51 @@ ON THE S1 FIXTURE (data/fixtures/gc_ticks_1session.parquet)
     own for k=2/3 clustering to mean anything. Fine for an import/plumbing
     smoke test; use --parquet data/gc_trades.parquet for anything real.
 
-TESTED (2026-08-26, against data/gc_trades.parquet, GC July 2026, 23
-sessions, walk-forward split at 2026-07-19):
-    - window level, bar_size=5min, window=12 bars, k=3, session-phase
-      dummies INCLUDED in clustering: recovers almost exactly "which
-      session" (regimes were 100.0/0/0, 0/100.0/0, 0/0/100.0 percent
-      asia/london/ny) rather than a volatility/flow distinction -- the
-      one-hot dummies dominate a Euclidean KMeans after standardization.
-    - Same run with --no-session-phase-in-clustering: regimes split roughly
-      evenly across sessions instead (34-41% each) and separate on
-      cvd_persistence (0.22 / 0.25 / 0.67 median) and cvd_slope (-0.6 / +0.2
-      / -12.9 median) -- i.e. one persistent/trending regime versus two
-      churnier ones. This looks like the more useful split; --no-session-
-      phase-in-clustering is worth defaulting to once Varad has eyeballed
-      both, but it is left an explicit flag rather than silently decided
-      here.
-    - level=session, k=2: runs, correctly hits the n<30 guardrail warning
-      (23 sessions total) -- confirms §9 Q3's own prediction that
-      session-level regimes are too thin to trust, without having to take
-      that on faith.
+TESTED -- READ THE DATE ON EACH BLOCK, THEY ARE NOT THE SAME CODE
+
+  Against the ORIGINAL five-feature version (Prathamesh, 26 Aug am), on
+  data/gc_trades.parquet, GC July 2026, 23 sessions, split 2026-07-19.
+  These predate the straddle fix, the feature drop and --dwell-lambda, so
+  the cluster statistics below no longer describe what this file emits --
+  the FINDINGS still hold, which is why they are kept:
+    - window level, 5min, window=12, k=3, session-phase dummies INCLUDED:
+      recovers almost exactly "which session" (100.0/0/0, 0/100.0/0,
+      0/0/100.0 percent asia/london/ny) rather than a volatility/flow
+      distinction -- one-hot dummies at {0,1} separate at distance sqrt(2)
+      after standardization and dominate a Euclidean KMeans. This is why
+      --no-session-phase-in-clustering exists.
+    - level=session, k=2: runs, and correctly hits the n<30 guardrail
+      (23 sessions) -- confirms §9 Q3's own prediction that session-level
+      regimes are too thin to trust, rather than assuming it.
+
+  Against THIS version (Varad, 26 Aug pm), k=3, four features,
+  --no-session-phase-in-clustering, split 2026-07-19. Re-measured by
+  replaying the committed July feature columns through fit_regimes() and
+  run_lengths() -- data/gc_trades.parquet is on Prathamesh's machine, not
+  in this working copy, so the raw pull was NOT re-read:
+
+      lambda   median run   flips   silhouette   30min survival
+        0.0      4 bars     13.7%      0.305         46.2%
+        0.5      7 bars      9.5%      0.290         54.0%
+        1.0      9 bars      7.9%      0.270         59.0%
+
+    - The straddle fix alone moved median run 2 -> 4 bars, flips 29.1% ->
+      13.7%, silhouette 0.256 -> 0.305, 30min survival 18.9% -> 46.2%.
+    - It also settles k: with the straddling bars out, k=3 beats k=2 on
+      every measure (silhouette 0.305 vs 0.247, median run 4 vs 2). The
+      silhouette that appeared to prefer k=2 was the bug.
+    - Full pipeline smoke-tested end to end on data/fixtures/
+      gc_ticks_1session.parquet -- 77,532 trades -> 276 bars at 5min, k=3,
+      labels + JSON + plot written.
+
+  NOT re-measured against this version, both needing the parquet: the
+  session-phase-INCLUDED variant, and level=session. Neither has changed in
+  a way that should alter the two findings above, but nobody has checked.
+
+  STILL OPEN: whether --no-session-phase-in-clustering should be the
+  default. Every run that matters has passed it, and the reason it exists is
+  a finding rather than a preference -- but it is a §6.2 change to the
+  definitions, so it stays an explicit flag until it is decided out loud.
 
 Requires: pandas, numpy, scikit-learn, pyarrow, matplotlib. scikit-learn is
 used only here; it was added to pyproject.toml/uv.lock on 2026-08-26, after

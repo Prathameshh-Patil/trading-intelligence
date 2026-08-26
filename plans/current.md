@@ -488,7 +488,7 @@ or `strategies.py`, and the docstring says it must never gain one. It routes thr
       with a new consequence: **every number in `analysis/regimes/` is currently unverifiable by
       anyone but Prathamesh.** `regimes.py` was smoke-tested end to end against the S1 fixture
       instead (77,532 trades → 276 bars at 5min, k=3, plot and JSON written).
-- [x] **✅ The persistence problem was half a defect — `0481809`.** The features barely move
+- [x] **✅ The persistence problem was half a defect — `d3c896f`.** The features barely move
       (lag-1 autocorrelation 0.83–0.96) while the label flipped on 28.9% of bars, so the fault was
       never in the market. **`window_features` let a trailing window straddle the session CVD reset**,
       and since `cvd` restarts at ~0 each session, such a window reads the reset as a move: the eight
@@ -522,6 +522,12 @@ or `strategies.py`, and the docstring says it must never gain one. It routes thr
       *Two things it does not claim.* The silhouette from `silhouette_preview` describes the
       **clustering**, not the emitted labels — at λ > 0 the labels are deliberately less separated,
       and the docstring says so. And **no λ rescues the 30-minute horizon.**
+- [ ] **One small Stage 2 decision nobody has taken out loud: should
+      `--no-session-phase-in-clustering` be the default?** Every run that matters has passed it, and
+      the reason it exists is a *finding* — session one-hots at {0,1} separate at distance √2 after
+      standardization and make KMeans recover "which session" — not a preference. But flipping the
+      default is a §6.2 change to the definitions, so it stays an explicit flag until it is said out
+      loud. Two minutes at Wednesday's standup.
 - [ ] **⏭ The horizon question is the one still open, and it is not about clustering.**
       Measured against `backtest.py`'s `HORIZONS = (5, 15, 30)` minutes, the share of entries whose
       regime **survives the trade** is now **90.3% / 73.6% / 54.0%** at λ=0.5. Even at λ=1.0 the
@@ -533,10 +539,12 @@ or `strategies.py`, and the docstring says it must never gain one. It routes thr
       not noise, for what it is worth: flips concentrate near the cluster boundary — median relative
       margin 0.298 against 0.440 for bars that held — but only 11.7% of bars sit within 10% of tied.
       It is KMeans being asked for a hard label on a space with no gaps in it.)*
-- [ ] **⚠️ Two of the five features are the same feature.** `cvd_persistence` and
-      `cvd_efficiency_specced` correlate at **r = 0.803** on the committed labels — both are
-      `abs(CVD)` over a denominator — which double-weights CVD directionality in a Euclidean KMeans
-      and is exactly the axis regime 2 separates on (standardized centres 1.27 and 1.19).
+- [x] **✅ Two of the five features were the same feature — closed by `871690f`, below.**
+      `cvd_persistence` and `cvd_efficiency_specced` correlated at **r = 0.803** on the committed
+      labels — both are `abs(CVD)` over a denominator — which double-weighted CVD directionality in a
+      Euclidean KMeans, and was exactly the axis regime 2 separated on (standardized centres 1.27 and
+      1.19). This measurement *is* the argument the efficiency decision was made on; the two bullets
+      are one item.
 - [x] **✅ The efficiency ambiguity is closed — `871690f`.** §2 defines directional efficiency as
       `abs(CVD)/range`; the 0.90 cited as validating it came from `abs(close-open)/range` on price
       alone. Prathamesh computed both rather than guess, which was right, and the file's own

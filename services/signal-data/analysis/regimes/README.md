@@ -35,7 +35,7 @@ python regimes.py --parquet data/gc_trades.parquet \
 
 ## There is a second reason these are stale, and it is a bug
 
-`0481809` fixed `window_features` letting a trailing window straddle the session CVD reset. `cvd`
+`d3c896f` fixed `window_features` letting a trailing window straddle the session CVD reset. `cvd`
 restarts at ~0 each session, so such a window reads the reset as a move — **the eight largest
 `cvd_slope` values in these very labels sit at `bar_in_session` 2–8 and read positive, up to +505, on
 bars whose CVD was negative.** 253 bars, 4.0%, and they were the month's extremes, so after
