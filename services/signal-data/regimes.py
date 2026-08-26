@@ -53,21 +53,25 @@ GUARDRAIL §6.4 -- WALK-FORWARD, NEVER IN-SAMPLE
     session runs 18:00 -> 17:00 ET, so calendar-dating it would hand six hours
     of the split session's own bars to the fit set.
 
-A KNOWN SPEC DISCREPANCY -- FLAGGED, NOT SILENTLY RESOLVED
+A DELIBERATE DEVIATION FROM §2 -- DECIDED 2026-08-26
     §2's feature table defines "Directional efficiency" as
     `abs(CVD) / price range` and cites 2026-07-16's 0.90 as the number that
-    validates the feature. But that 0.90 was actually produced by
-    compute_delta_cvd.py's session auto-select using
-    `abs(close - open) / range` on PRICE ALONE -- no CVD anywhere in it. The
-    two formulas are not the same quantity: abs(CVD)/range mixes contracts
-    against price units and is unbounded; abs(close-open)/range is
-    dimensionless and bounded in [0, 1] (a Kaufman-style efficiency ratio).
-    Rather than guess which one was meant, both are computed as separate
-    features -- `cvd_efficiency_specced` (literal §2 formula) and
-    `price_efficiency_asused` (what actually produced the cited number) --
-    and this needs a decision from Varad before regime definitions using
-    either one get pre-committed for real. See regime_definitions.json's
-    "known_spec_ambiguity" field.
+    validates it. That 0.90 was actually produced by compute_delta_cvd.py's
+    session auto-select using `abs(close - open) / range` on PRICE ALONE --
+    no CVD anywhere in it. Both formulas shipped side by side for a day,
+    as `cvd_efficiency_specced` and `price_efficiency_asused`, pending a call.
+
+    Varad's call: keep the price ratio, drop the spec's formula. It is the
+    Kaufman efficiency ratio -- dimensionless, bounded in [0, 1], and the
+    thing actually named "directional efficiency". `abs(CVD)/range` divides
+    contracts by dollars, is unbounded, and scales with volume. Its honest
+    order-flow counterpart, `abs(sum delta) / sum(abs delta)`, is ALREADY in
+    this feature set as `cvd_persistence` -- which is why the two correlated
+    at r = 0.803 across the committed July labels. It was a redundancy, and
+    in a Euclidean KMeans a redundancy is a feature counted twice.
+
+    The survivor is now just `price_efficiency`. The "_asused" suffix only
+    ever named a contrast, and the contrast is gone.
 
 USAGE
     python regimes.py --parquet data/gc_trades.parquet \
@@ -138,14 +142,13 @@ from s1 import SESSION_SHIFT, load_ticks, minute_bars
 
 SPEC = "docs/superpowers/specs/2026-08-25-gc-strategy-selector-design.md"
 
-KNOWN_SPEC_AMBIGUITY = (
+SPEC_DEVIATION = (
     "§2's feature table defines directional efficiency as abs(CVD)/price "
-    "range and cites 2026-07-16's 0.90 as validating it, but that 0.90 was "
-    "actually produced by compute_delta_cvd.py's session auto-select using "
-    "abs(close-open)/range on price alone, no CVD. Both are computed here "
-    "as separate features (cvd_efficiency_specced, price_efficiency_asused) "
-    "pending a decision on which was intended -- do not pre-commit regime "
-    "definitions built on either one without resolving this first."
+    "range, citing a 0.90 that was in fact produced by abs(close-open)/range "
+    "on price alone. Resolved 2026-08-26: price_efficiency is the Kaufman "
+    "ratio, dimensionless and bounded in [0, 1]. The spec's formula was "
+    "dropped as a redundancy -- its order-flow counterpart is cvd_persistence, "
+    "with which it correlated at r = 0.803 over the July labels."
 )
 
 # Regime palette -- categorical, not diverging (regimes aren't a signed
@@ -163,8 +166,7 @@ FEATURE_COLS = [
     "realized_vol",
     "cvd_slope",
     "cvd_persistence",
-    "cvd_efficiency_specced",
-    "price_efficiency_asused",
+    "price_efficiency",
 ]
 
 
@@ -232,14 +234,16 @@ def _cvd_persistence(delta: np.ndarray) -> float:
     return float(abs(delta.sum()) / abs_sum)
 
 
-def _efficiency_pair(delta: np.ndarray, close: np.ndarray, high: np.ndarray,
-                      low: np.ndarray) -> tuple[float, float]:
+def _efficiency(close: np.ndarray, high: np.ndarray, low: np.ndarray) -> float:
+    """Kaufman efficiency ratio -- how much of the bar's range the move kept.
+
+    Dimensionless, in [0, 1]. See the §2 deviation note in the module
+    docstring for why this is not the spec's abs(CVD)/range.
+    """
     price_range = float(high.max() - low.min())
     if price_range <= 0:
-        return np.nan, np.nan
-    cvd_eff = float(abs(delta.sum()) / price_range)          # §2, literal
-    price_eff = float(abs(close[-1] - close[0]) / price_range)  # as actually used
-    return cvd_eff, price_eff
+        return np.nan
+    return float(abs(close[-1] - close[0]) / price_range)
 
 
 def realized_vol_1min(bars_1min: pd.DataFrame, window_minutes: int) -> pd.Series:
@@ -265,8 +269,7 @@ def window_features(bars_1min: pd.DataFrame, regime_bars: pd.DataFrame,
 
     slope = np.full(n, np.nan)
     persistence = np.full(n, np.nan)
-    cvd_eff = np.full(n, np.nan)
-    price_eff = np.full(n, np.nan)
+    efficiency = np.full(n, np.nan)
 
     for i in range(n):
         if i + 1 < window:
@@ -274,15 +277,12 @@ def window_features(bars_1min: pd.DataFrame, regime_bars: pd.DataFrame,
         lo = i + 1 - window
         slope[i] = _slope(cvd[lo:i + 1])
         persistence[i] = _cvd_persistence(delta[lo:i + 1])
-        cvd_eff[i], price_eff[i] = _efficiency_pair(
-            delta[lo:i + 1], close[lo:i + 1], high[lo:i + 1], low[lo:i + 1]
-        )
+        efficiency[i] = _efficiency(close[lo:i + 1], high[lo:i + 1], low[lo:i + 1])
 
     feat = regime_bars.copy()
     feat["cvd_slope"] = slope
     feat["cvd_persistence"] = persistence
-    feat["cvd_efficiency_specced"] = cvd_eff
-    feat["price_efficiency_asused"] = price_eff
+    feat["price_efficiency"] = efficiency
     feat["session_phase"] = session_phase(pd.DatetimeIndex(feat.index))
 
     vol = realized_vol_1min(bars_1min, vol_window_min)
@@ -306,15 +306,13 @@ def session_features(bars_1min: pd.DataFrame, regime_bars: pd.DataFrame) -> pd.D
         close = g["close"].to_numpy()
         high = g["high"].to_numpy()
         low = g["low"].to_numpy()
-        cvd_eff, price_eff = _efficiency_pair(delta, close, high, low)
         phases = session_phase(pd.DatetimeIndex(g.index))
         rows.append({
             "session": session,
             "n_bars": len(g),
             "cvd_slope": _slope(g["cvd"].to_numpy()),
             "cvd_persistence": _cvd_persistence(delta),
-            "cvd_efficiency_specced": cvd_eff,
-            "price_efficiency_asused": price_eff,
+            "price_efficiency": _efficiency(close, high, low),
             "pct_asia": float((phases == "asia").mean() * 100),
             "pct_london": float((phases == "london").mean() * 100),
             "pct_ny": float((phases == "ny").mean() * 100),
@@ -448,8 +446,7 @@ def summarize_regimes(feat: pd.DataFrame, labels: pd.Series, valid: pd.Series,
             "realized_vol_med": round(sub["realized_vol"].median(), 6),
             "cvd_slope_med": round(sub["cvd_slope"].median(), 3),
             "cvd_persistence_med": round(sub["cvd_persistence"].median(), 3),
-            "cvd_eff_specced_med": round(sub["cvd_efficiency_specced"].median(), 3),
-            "price_eff_asused_med": round(sub["price_efficiency_asused"].median(), 3),
+            "price_efficiency_med": round(sub["price_efficiency"].median(), 3),
         }
         if level == "window":
             phases = sub["session_phase"]
@@ -629,7 +626,7 @@ def main() -> None:
         "scaler_scale": result["scaler"].scale_.tolist(),
         "cluster_centers_standardized": result["km"].cluster_centers_.tolist(),
         "regime_summary": summary.to_dict(orient="records"),
-        "known_spec_ambiguity": KNOWN_SPEC_AMBIGUITY,
+        "spec_deviation": SPEC_DEVIATION,
     }
     defs_path = out_dir / f"regime_definitions_{tag}.json"
     defs_path.write_text(json.dumps(definitions, indent=2))

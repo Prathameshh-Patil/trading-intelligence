@@ -157,20 +157,35 @@ def test_persistence_is_nan_rather_than_zero_when_nothing_traded() -> None:
 
 def test_efficiency_is_nan_on_a_bar_with_no_range() -> None:
     flat = np.array([4000.0, 4000.0])
-    cvd_eff, price_eff = regimes._efficiency_pair(np.array([1, 1]), flat, flat, flat)
-    assert np.isnan(cvd_eff) and np.isnan(price_eff)
+    assert np.isnan(regimes._efficiency(flat, flat, flat))
 
 
-def test_price_efficiency_is_bounded_and_cvd_efficiency_is_not() -> None:
-    # The §2-vs-as-used discrepancy the module flags, as arithmetic: one is a
-    # dimensionless ratio in [0, 1], the other divides contracts by dollars.
-    delta = np.array([1000, 1000])
+def test_efficiency_is_one_when_the_move_kept_the_whole_range() -> None:
+    straight = np.array([4000.0, 4001.0, 4002.0])
+    assert regimes._efficiency(straight, straight, straight) == pytest.approx(1.0)
+
+
+def test_efficiency_is_zero_when_price_came_back() -> None:
+    trip = np.array([4000.0, 4002.0, 4000.0])
+    assert regimes._efficiency(trip, trip, trip) == pytest.approx(0.0)
+
+
+def test_efficiency_is_the_move_over_the_range_it_travelled() -> None:
     close = np.array([4000.0, 4001.0])
-    cvd_eff, price_eff = regimes._efficiency_pair(
-        delta, close, np.array([4000.0, 4002.0]), np.array([4000.0, 4001.0])
-    )
-    assert 0.0 <= price_eff <= 1.0
-    assert cvd_eff == pytest.approx(1000.0)
+    high, low = np.array([4000.0, 4002.0]), np.array([4000.0, 4001.0])
+    assert regimes._efficiency(close, high, low) == pytest.approx(0.5)
+
+
+def test_the_spec_formula_is_not_a_feature() -> None:
+    """Pins Varad's 26 Aug call, not just its consequence.
+
+    abs(CVD)/range was dropped as a redundancy: its order-flow counterpart is
+    cvd_persistence, with which it correlated at r = 0.803 over the July
+    labels. It does not come back without that being revisited.
+    """
+    assert regimes.FEATURE_COLS == [
+        "realized_vol", "cvd_slope", "cvd_persistence", "price_efficiency",
+    ]
 
 
 def test_slope_needs_two_points() -> None:
