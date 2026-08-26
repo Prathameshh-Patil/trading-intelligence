@@ -10,6 +10,7 @@ dependencies = [
     "pandas>=2.2.0",
     "pyarrow>=18.0.0",
     "python-dotenv>=1.0.0",
+    "scikit-learn>=1.6.0",
 ]
 
 [dependency-groups]
