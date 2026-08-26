@@ -33,8 +33,7 @@ The atom. Everything else is derived from this.
 timestamp        datetime64[ns, UTC]   exchange timestamp, not receipt time
 price            float64
 size             int64
-aggressor_side   category  'B' | 'A' | 'N'   B = buyer lifted the ask, A = seller hit the bid,
-                                           N = no aggressor disseminated (see amendment below)
+aggressor_side   category  'B' | 'A'   B = buyer lifted the ask, A = seller hit the bid
 symbol           string                'GCQ6', 'GCZ6' — resolved contract, not the parent
 instrument_id    int64
 ```
@@ -59,53 +58,91 @@ services/signal-data/data/fixtures/gc_ticks_1session.parquet   TRACKED
 Checked with `git check-ignore`, not by reading the patterns. Nothing else under `data/` can be
 committed by accident, so the month of billed binary stays out of history.
 
-**~~Still blocked on the file itself~~ — unblocked 25 Aug, `14f5547`.** The fixture is committed
-(746 KB) and `cut_s1_fixture.py` is committed beside it, so it is reproducible rather than a binary
-someone once made. The month it was cut from still lives only on Prathamesh's disk and still is not
-pushed — correctly — but **nothing is waiting on that any more.** Varad can clone and run.
+### ✅ LANDED 25 Aug — `14f5547`, cut by Prathamesh with `cut_s1_fixture.py`
 
-Verified by reading the committed file, not the commit message: 77,532 rows (matching this
-contract's stated count exactly), 110,817 contracts, `GCQ6` only, window
-`2026-07-15T22:00:00Z → 2026-07-16T20:59:57Z`, and all six dtypes conforming — including
-`timestamp` surviving the parquet round-trip as `datetime64[ns, UTC]` rather than being silently
-downgraded to `[us]`.
+746 KB, in git, on `main`. The blocker recorded earlier the same day (the source parquet living only
+on Prathamesh's disk) was closed by him pushing the cut rather than the month.
 
-### Amendment · `'N'` is a real value — proposed 25 Aug, for Friday's gate
+**Verified independently after pulling, against this contract rather than against the filename:**
 
-Cutting the fixture surfaced a contradiction inside this section: `aggressor_side` was pinned to
-`'B' | 'A'`, but the row count stated above (77,532) **includes trades that have neither.** Both
-could not hold. The committed fixture resolves it by keeping every row and emitting a third
-category:
+| Check | Result |
+| :--- | :--- |
+| Rows | **77,532** — this contract's number, exactly |
+| Columns | all six, correct dtypes, **no extras**, zero nulls, timestamps monotonic |
+| Contract | `GCQ6` only, one `instrument_id` — no roll contamination |
+| Session window | `18:00:00.5 ET` → `16:59:57.8 ET` — the CME trading day |
+| **Session delta** | **+1,842** — matches `DELTA_CVD_FINDINGS.md` §3's side-field figure to the unit |
+| `size` dtype | `int64`, so the `uint32` negation trap below is already avoided |
 
-| | count | share |
-| :--- | ---: | ---: |
-| `B` buyer lifted the ask | 38,321 | 49.43% |
-| `A` seller hit the bid | 37,400 | 48.24% |
-| **`N` no aggressor disseminated** | **1,811** | **2.34%** |
+That delta match is the strongest confirmation available that this is the right session, cut
+correctly, with the aggressor mapping intact — it reproduces a number computed by a different script
+on a different machine from the full month.
 
-`N` is auction, implied and off-book trades — the exchange never published an initiating side.
+### ⚠️ PENDING AMENDMENT — `'N'` is real and this contract does not admit it
 
-**What consumers must do: exclude `N` from delta, never guess it.** It carries real volume, so
-`volume` and `delta` legitimately disagree on those rows; a consumer that treats the split as
-exhaustive will either crash on an unexpected category or, worse, quietly bucket 2.34% of trades to
-one side and bias every CVD in the product. Dropping the rows at the cut instead was rejected
-deliberately: it would mean nobody discovers `N` exists until live data, in Week 3, with a feed
-running.
+**Not applied. This is a frozen contract and it changes only by all three agreeing in standup.**
+Found by Prathamesh while cutting, documented in `cut_s1_fixture.py`, and deliberately left for
+Wednesday rather than taken unilaterally.
 
-**Freeze status:** S1 is *not yet frozen* — `week-00.md`'s entry checklist still carries
-"S1 frozen (the column contract)" open, and W0D3 gives Varad the job of committing it as the frozen
-record. So this amendment lands **before** the freeze, not against it, and needs no contract-change
-ceremony. **Read it out at Friday's 16:00 gate and freeze S1 with `'N'` in it.** If it is missed
-there, the frozen contract and the fixture every test asserts against disagree from day one.
+`aggressor_side` is declared `'B' | 'A'`. The real data carries a third value — **`'N'`, 1,811
+trades, 2.34%, 2,271 contracts of volume** — where no aggressor was disseminated (auction, implied,
+off-book). **This contract's own row count of 77,532 already includes them**, so the count and the
+type as written cannot both be true.
+
+Consequences if a consumer takes `'B' | 'A'` literally:
+
+```
+df["aggressor_side"].map({"B": 1, "A": -1})   ->  1,811 silent NaN
+df.groupby("aggressor_side")                  ->  3 groups, not 2
+```
+
+**Drafted wording, so standup is a yes/no and not a discussion:**
+
+> `aggressor_side   category  'B' | 'A' | 'N'` — `N` means no aggressor was disseminated (auction,
+> implied, off-book). It is ~2.3% of trades and **contributes 0 to delta**. Consumers must handle
+> it explicitly; it is never silently dropped.
+
+Keeping the rows is the right resolution: dropping them would make volume stop reconciling and would
+mean consumers never learn `N` exists until they hit live data.
+
+### Three traps already found here, worth not re-discovering
+
+The first two come from `8aece67`; the third was found verifying the fixture on 25 Aug.
+
+1. **`to_df()` attaches its own `symbol` column** with `map_symbols=True`, so a definitions merge
+   produces a 2-D `df["symbol"]` and `groupby` dies. Databento's copy is now `symbol_mapped` and
+   agrees with the resolved symbol on 100.0000% of 1,769,563 rows.
+2. **`size` is `uint32`, so `-df["size"]` wraps to ~4.29e9** instead of going negative. Cast to
+   `int64` first. The fixture is already `int64`.
+3. **The fixture contains 421 duplicate rows, and they are real.** 788 rows in 367 groups, up to 6
+   identical copies, every one sharing an exact timestamp — the signature of one aggressor order
+   sweeping several resting orders and being reported as separate trades with identical fields.
+   **They are not errors and must not be cleaned.**
+
+   ```
+   session delta as-is         +1,842
+   after df.drop_duplicates()  +1,989      <-  +8.0% drift, 453 contracts deleted
+   ```
+
+   A one-line `drop_duplicates()` that looks like hygiene moves session delta by **8%** — half the
+   size of the ~15–20% method-dependence residual, introduced silently by a habit. Any code touching
+   this fixture inherits all three.
+
+**Two more things `cut_s1_fixture.py` establishes**, both worth knowing before writing a consumer:
+
+- `pull_futures_trades.py` writes `buy_initiated` / `sell_initiated` / `unknown`, **not** `B`/`A` —
+  so this contract's encoding was never what the pipeline emitted. The cut script reverses
+  `SIDE_MAP` to produce the raw exchange encoding specified here.
+- The parquet is written with `version="2.6"`. **Parquet 1.0 tops out at microseconds**, so writing
+  under it silently downgrades the `datetime64[ns, UTC]` this contract pins. The script re-reads the
+  written file and asserts dtypes on the file rather than on the in-memory frame — a dtype that only
+  survives until the write is not a contract.
 
 **Frozen:** W0D2. **Already real** — the full month (1,616,772 GC trades) was pulled on 24 Aug and
 `pull_futures_trades.py` writes exactly these columns.
 
-**Two traps already found and fixed here, worth not re-discovering:** `to_df()` attaches its own
-`symbol` column with `map_symbols=True`, so a definitions merge produces a 2-D `df["symbol"]` and
-`groupby` dies — Databento's copy is now `symbol_mapped` and agrees with the resolved symbol on
-100.0000% of 1,769,563 rows. And **`size` is `uint32`, so `-df["size"]` wraps to ~4.29e9** instead
-of going negative; cast to `int64` first. Any future code touching this column inherits both.
+**Traps here are listed once, above** — see *"Three traps already found here"*. All three are
+inherited by any code touching this fixture.
 
 **Why it matters:** `aggressor_side` is the field a screenshot cannot contain. If its mapping is
 inverted, every delta sign in the product is wrong and every chart still looks plausible. Validate

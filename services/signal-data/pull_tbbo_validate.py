@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 Independent aggressor-side validation for GC, via Databento's TBBO schema.
 
@@ -165,7 +164,10 @@ def classify_quote_rule(df: pd.DataFrame) -> pd.DataFrame:
     mid = (bid + ask) / 2.0
 
     df = df.copy()
-    df["quote_label"] = np.select(
+    # default=None is deliberate — trades exactly at the midpoint stay NA and
+    # are excluded from the agreement statistic. numpy's stubs have no overload
+    # for a None fill, so the call is correct and untypeable.
+    df["quote_label"] = np.select(  # type: ignore[call-overload]
         [
             have_quote & (price >= ask),
             have_quote & (price <= bid),
@@ -370,7 +372,7 @@ def build_footprint(df: pd.DataFrame, out_path: Path) -> None:
     fp = fp.sort_values("price", ascending=False)
 
     fp.to_csv(out_path, index=False)
-    print(f"\n--- Footprint (quote-rule) ---")
+    print("\n--- Footprint (quote-rule) ---")
     print(f"  {len(fp):,} price levels -> {out_path}")
     print(f"  strongest buy level:  {fp.loc[fp['delta'].idxmax(), 'price']:.1f} "
           f"({int(fp['delta'].max()):+,})")

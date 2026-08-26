@@ -1,6 +1,6 @@
 # Trading Intelligence — Current Plan
 
-Live tracker: who owns what, what is done, what is next. **Last updated: 2026-08-25.**
+Live tracker: who owns what, what is done, what is next. **Last updated: 2026-08-26.**
 
 > **The twelve-week schedule lives in [`plans/team/`](team/README.md).** This file stays the live
 > status tracker — what is done, what is open, who owns it. `plans/team/` is the day-by-day
@@ -75,19 +75,25 @@ Varad to Prathamesh for the same reason.
 - [x] **Existing side-panel UI copied in unmodified** — `SidePanel.tsx`, `lib/`, `ui/`,
       `views/` byte-for-byte identical to `apps/extension` (`diff -q` confirmed). `storage.ts`
       shimmed to `localStorage`, `capture.ts` shimmed to a placeholder — both marked temporary.
-- [ ] **Native Tauri window — not yet confirmed on-device.** `tsc`/`vite build` are clean and
-      the compiled bundle was screenshotted in headless Chromium at the target window size
-      (Home, Rules, Journal — zero console errors), but nobody has run `pnpm tauri dev` and
-      looked at a real window yet. Don't check this off until that happens.
+- [x] **Native Tauri window — confirmed on-device 25 Aug.** `pnpm tauri dev` compiles and
+      launches `target/debug/desktop`, and the window it opens is a real AppKit window, not a
+      headless render: the accessibility API reports **one window, title `Trading Intelligence`,
+      size 460×820** — the exact `tauri.conf.json` geometry — and Launch Services shows the
+      process registered `Foreground` with WebKit's `Networking` and `GPU` XPC children alive,
+      which only spawn for a real `WKWebView`. **What is still unchecked is what is *inside*
+      it:** no screenshot was taken (screen recording permission is not granted), so "a window
+      opens at the right size" is proven and "the UI renders correctly in it" is not — that
+      one is an eyeball, and the window is the place to do it.
 - [x] **GC/NQ pull script written, logic dry-run tested** —
       `services/signal-data/pull_futures_trades.py` against Databento's `GLBX.MDP3`, `trades`
       schema, parent symbology. Writes `gc_trades.parquet` / `nq_trades.parquet` with
       `timestamp, price, size, aggressor_side` (+ `symbol`/`instrument_id`). Cost-estimate-first
       flow; per-day active-contract cleanup verified against a synthetic 200k-row roll month
       (correctly split two contracts by day).
-- [ ] **Not yet run for real.** Script is written and syntax-checked, not executed against the
-      live API — no real row counts, cost, or aggressor split confirmed yet. That's the bar for
-      checking this off, not writing the script.
+- [x] **Run for real 24 Aug** (`8aece67`, Prathamesh) — **stale box, corrected 25 Aug.** The live
+      call returned **1,616,772 GC trades for $2.52**, aggressor split 48.32/47.79, and running it
+      is what surfaced the real-pull crash that same commit fixes. Row #6 in `Next` has carried
+      the numbers since; this checkbox simply never moved. NQ was never pulled and is now dropped.
 - [x] **API key handled safely** — `.env`/`.env.example`, matching this repo's existing
       convention; never hardcoded into the tracked script.
 - [x] **Extension side-panel rewrite pushed, and its build fixed** — the side-panel UI had been
@@ -257,6 +263,11 @@ needed neither.
       freeze is Friday's gate and the amendment goes into it, which is the right order.
       Consumers must exclude `N` from delta and never guess it: it carries real volume, so
       treating the split as exhaustive biases every CVD in the product by 2.34%.
+      🔴 **Corrected 26 Aug at merge:** this bullet said `contracts.md` now carries the
+      amendment. It did on this branch — but the shared `contracts.md` carries it as **drafted
+      and NOT applied**, because S1 changes only by all three agreeing in standup. The finding
+      and the consumer rule are unchanged; only its status is. It is a yes/no for Wednesday's
+      standup, not a Friday freeze formality.
 - [x] **Fresh-clone build check — passes, done early** (W0D3). `pnpm install` clean,
       `pnpm build:all` green across extension/desktop/web, `cargo build` clean in 35.66s cold.
       Run against a scratch `git clone`, **not** `git clean -xdf` in place — see the new standing
@@ -277,15 +288,165 @@ needed neither.
       proposes Databento → quantfeed and says plainly that nothing about it is confirmed.
       Guessing now means freezing a wrong guess. **Blocks nothing before Week 3** — `mock.ts`
       ignores creds — but it must be closed before the W3D3 integration day.
+### Day 3 (night) — 2026-08-25 · Stage 1's machinery · [`daily_updates/2026-08-25.md`](../daily_updates/2026-08-25.md)
+
+The part of the selector design the S1 fixture unblocks. **No strategy is evaluated and no result
+is claimed** — §8 of the design says one session builds and tests Stage 1's machinery and cannot
+run it, and that boundary was held.
+
+- [x] **`services/signal-data` has an environment, pinned to 3.12.** It had no `pyproject.toml`,
+      so its scripts ran against ambient `python3` — **3.14.6 on this machine**, against a repo
+      whose standing constraint is 3.12-only. Now `requires-python = ">=3.12,<3.13"`, the same
+      load-bearing upper bound `services/api` carries, with `uv.lock` committed and `.venv` on
+      **3.12.12**.
+- [x] **`s1.py` — the S1 contract read once**, 100 lines. All three `contracts.md` traps encoded
+      rather than commented: `SIDES` covers `B`/`A`/`N` and **raises** on an unknown code instead
+      of defaulting to zero, `size` is cast before negation, nothing deduplicates. Reproduces the
+      contract's own numbers on the fixture — 77,532 rows, **session delta +1,842**, `N`
+      contributing 0, bar volume reconciling to 110,817 contracts.
+- [x] **A real bug, found by pointing the old script at the new fixture.**
+      `compute_delta_cvd.py` matched on `buy_initiated`/`sell_initiated` — what the pull script
+      writes — while the S1 parquet carries `B`/`A`/`N`. `np.select` returned its default, so the
+      project's main analysis script read **the file every test asserts against for twelve weeks
+      as zero delta on every row, silently**, and printed a clean plausible empty result. Same
+      class of failure as the `'N'` NaN: a mapping that does not cover its input.
+- [x] **Fixed by deletion, not by patching.** `compute_delta_cvd.py`'s `load_trades`, `add_delta`,
+      `session_cvd`, `minute_bars` and `SESSION_SHIFT` are gone and imported from `s1.py` —
+      **439 → 376 lines**, one definition of a session and a bar. **Proof it changed nothing
+      else:** the script re-run end to end on the fixture produces a footprint identical to the
+      committed `analysis/gc_footprint_2026-07-16.csv` — cut from the *full month* through the
+      *old* code — at **980 of 980 price levels, max abs diff 0**.
+- [x] **`backtest.py` — design §4's metric set**, 108 lines. Horizons measured on the **clock, not
+      row offsets** (empty minutes are dropped, so `iloc[i+5]` can be an hour later); no window
+      crosses a session boundary; MFE/MAE per horizon; every summary carries `n` and a `thin` flag
+      that fires under 30 samples, which is §6.5 made mechanical. `random_entries` is §6.3's null
+      with matched count, holding period **and side mix**.
+- [x] **16 tests, `ruff` and `mypy` clean on the new files.** 7 assert the contract's own numbers
+      against the real fixture — including one that runs `drop_duplicates()` and asserts the
+      **+1,842 → +1,989** drift, so the trap is executable rather than a paragraph. 9 run on
+      hand-built bars where the answer is known by construction. One of them corrected a wrong
+      comment of mine: MAE is the *least favourable* excursion and is **positive** when a trade
+      never goes adverse.
+- [x] **`ruff` and `mypy` clean across the whole module, not just the new files.** The four older
+      scripts' 7 lint findings and 6 type errors — recorded that afternoon as cosmetic and left
+      alone rather than folded into an unrelated change — are now their own change. **One was not
+      cosmetic:** `pull_futures_trades.py` chose its default month with `date.today()`, and from
+      IST the calendar flips 2.5h *before* August's last CME session ends, so a no-`--month` pull
+      between 00:00 and 02:30 IST on 1 September would have bought an unfinished August and
+      returned a truncated file that looks complete. Now on the exchange clock, matching the `ET`
+      convention already in two sibling scripts. The rest are stub-precision casts and one
+      `type: ignore` that carries its reason; the five shebangs were **deleted rather than
+      `chmod +x`**, because they advertised a `./script.py` invocation that dies on the first
+      import outside the `uv` venv. **16 tests still pass and `compute_delta_cvd.py` re-run on the
+      fixture is identical to the committed footprint at 980/980 levels, max abs diff 0.** The two
+      pull scripts were not re-run — both bill a live Databento call
+- [ ] **Nothing is backtested, on purpose.** The harness was driven with a throwaway z-score rule
+      (N=60, one session) to exercise the code; those numbers are a mechanism check, not evidence
+      about GC, and are recorded as a finding nowhere.
+- [x] **`thresholds_selector.md` written — Part A binding, Parts B and C empty on purpose.**
+      §6.1's instrument, same mechanism as [`team/varad/thresholds.md`](team/varad/thresholds.md):
+      a git timestamp earlier than the results. Part A restates what the design already committed
+      to — walk-forward, both nulls, the sub-30 floor (which `backtest.py` now flags mechanically),
+      ±20% threshold perturbation, pre-filter/post-filter side by side — so the committed file is
+      the whole commitment rather than a pointer to one. **Parts B and C are the numbers, and they
+      are Varad's**, for the same reason §3's `decision_filter.py` is: a threshold picked by an
+      assistant looks like the mechanism working while doing none of what it is for.
+- [ ] **⛔ Blocked on Varad, and this is now the only thing between here and a first backtest.**
+      Part B needs the 3–4 candidate strategies stated precisely enough to implement, each with
+      its committed median/hit-rate/margin-over-null/minimum-N — and the line the sibling file
+      calls the most important one: *what result would make me say no.*
+
+---
+
+### Day 4 — 2026-08-26 · the candidates, as machinery · [`daily_updates/2026-08-26.md`](../daily_updates/2026-08-26.md)
+
+The file the rules get written into, built so it **cannot be run before Part B exists**. Same
+boundary as Day 3 and held the same way: no backtest, no result claimed about GC.
+
+- [x] **`strategies.py` — 191 lines, 11 tests.** Four state features (`delta_z`, `cvd_slope`,
+      `absorption`, `bar_imbalance`) that §2's `regimes.py` will read rather than re-derive, and
+      four candidates (`delta_outlier`, `cvd_divergence`, `absorption_fade`, `footprint_stack`),
+      each `(bars, *, thresholds) -> Series of +1/-1/0` — what `backtest.evaluate` already
+      consumes. **`s1.py` and `backtest.py` untouched.**
+- [x] **Built flat as `strategies.py`, not §7's `strategies/gc.py`.** A package directory for one
+      module while GC is the only instrument buys nothing; `NQ` was dropped and the rest of the
+      folder is flat. Rule of three — no package until a second instrument exists. Departure from
+      the spec, agreed before writing.
+- [x] **Entry-only; the horizon is the exit.** `backtest.evaluate` has no exit mechanism, and
+      MFE/MAE already say what a stop or target would have done without committing to one. A stop
+      and a target per strategy would be two more Part B numbers and a multiplied search space
+      §6 exists to guard. If a candidate survives its bar, the exit engine gets built then.
+- [x] **§6.1 enforced by the signature, not by memory.** No threshold has a default, so calling a
+      strategy without its numbers raises `TypeError` — and `mypy` rejects the same calls
+      independently. The gate holds even for someone who has not read the file.
+- [x] **Three lookahead traps, one test each**, all of which produce plausible-looking output:
+      session-scoped statistics (a 09:30 bar scored against the day's own σ has read the
+      afternoon); rows-not-minutes (`minute_bars` drops empty minutes, so `.rolling(30)` is thirty
+      *bars* — the trap `backtest.py` already solved for horizons); and reading a later bar,
+      tested by mutating the future and asserting the past did not move. Plus two that turn the
+      *strongest* case into a dropped row: `high == low` must not divide by zero, and a lone print
+      with nothing opposite is not an infinite imbalance.
+- [x] **28 tests pass, `ruff` and `mypy` clean** — `mypy` over `tests/` too, matching Day 3.
+- [x] **A real defect in `absorption`, found by printing the distribution Varad asked for.** The
+      ratio `|delta| / range_ticks` is **scale-free**, so a 5-lot bar in a one-tick range scores
+      exactly what a 294-lot bar in a 21-tick range does. On the real session, half the top-eight
+      bars were 5-, 6-, 16- and 32-lot prints in the Globex-open dead zone — the rule was
+      selecting for **illiquidity**, the opposite of absorption. It would have entered Stage 1
+      firing on an empty overnight market and produced a perfectly plausible distribution.
+      **Fixed:** `absorption_fade` now requires `min_delta` alongside `min_ratio`, with a test
+      that a 5-lot tight bar does not fire and a 900-lot one does. The scale, for the record:
+      p50 **0.61**, p99 **4.35**, max **10.67** — the placeholder had been 500.
+- [ ] **A rule question for Part B that is not a threshold.** Absorption is classically a
+      *price-level* phenomenon — size stacking at one price and failing to break it — and
+      `compute_delta_cvd.py`'s `footprint()` already aggregates by price level. `|delta| / bar
+      range` is a proxy, and with a median bar range of **15 ticks** it is a loose one. Whether
+      absorption should be measured at the price level instead is Varad's call, and it comes
+      before any number does.
+- [x] **Smoke run on the fixture — counts only, no forward returns computed.** 77,532 trades →
+      1,379 bars. `delta_outlier` 19 signals, `cvd_divergence` 24, `absorption_fade` **0** (off-scale placeholder, see the defect above),
+      `footprint_stack` 64. The zero is an off-scale placeholder, not a dead rule; **the ratio's
+      distribution was deliberately not printed**, because knowing the p99 of what you are about
+      to threshold is the contamination §6 exists to prevent. Three of four candidates land under
+      A4's sub-30 floor from one session, which is §8's point made mechanical.
+- [ ] **The prose in each docstring is a proposal, not a transcription.** It is a literal reading
+      of each family, and the likeliest one to be wrong says so in the file: `absorption_fade`
+      assumes the aggressor was trapped, where the same bar reads as *continuation* if you think
+      the aggressor is early. One sign change either way, but it is a decision.
+- [x] **`stage1.py` — the runner, 118 lines, 6 tests.** Every candidate through `backtest.py`
+      with its null and A5's perturbation: one row per strategy × variant × horizon, N on all of
+      them. Holds **no thresholds of its own** — the caller binds bars (and ticks) with
+      `functools.partial` and supplies the committed numbers, which is what lets candidates of
+      different arities share one loop. `decision_filter` is a parameter, not a stub module, and
+      the `filtered` variant appears only when one is given; its absence is the honest report that
+      none has been applied. **No walk-forward split, deliberately** — A1's split is about regimes,
+      regimes are Stage 2, and nothing here fits anything. `tests/conftest.py` added because
+      `bars_at` was about to become its third copy. **34 tests, `ruff` and `mypy` clean on 9 files.**
+- [x] **A5 does not mean what it looks like for two of the four candidates.** It exists for the
+      ~15–20% delta method-dependence, and that reasoning holds for a threshold in **contracts**.
+      A z-score divides by the standard deviation of the same series, so a uniform 20% rescale of
+      delta cancels exactly — asserted in a test: `delta_outlier`'s signals are *identical* on a
+      frame whose delta reads 20% larger, `absorption_fade`'s are not. `footprint_stack`'s `ratio`
+      is invariant for the same reason. **So `cvd_divergence` and `absorption_fade` carry the
+      inherited error; `delta_outlier` and `footprint_stack` are structurally immune.** Reporting
+      `delta_outlier`'s ±20% threshold swing as if it were the inherited error would *overstate*
+      its uncertainty. `PERTURB` in `stage1.py` records which keys move and why.
+- [x] **`bar_imbalance` benchmarked, and the concern is closed.** Flagged as the expensive
+      candidate and worth timing before it went inside any loop: **0.02s on all 77,532 ticks**,
+      extrapolating to roughly **0.4s for a 1.6M-trade month**. A full `stage1.run` over the
+      session is 0.35s. Measured, not assumed.
+- [ ] **⛔ Still blocked on Varad, unchanged.** Part B is still the only thing between here and a
+      first backtest. Four rule-shaped functions now exist to be corrected rather than four blank
+      blocks — a smaller ask, the same ask. **Part B must be committed before the first backtest
+      runs, not before it is presented**; the git timestamp is the entire mechanism.
 
 ---
 
 ## Next
 
-Ordered. Days 1–3 are complete except the items explicitly left unchecked above — a real
-`pnpm tauri dev` window, reloading the extension, and the S1 fixture cut. Those are #6–#8
-below, not optional, and they are the same shape: code that type-checks and tests green but
-has never been run for real.
+Ordered. Days 1–3 are complete except the items explicitly left unchecked above — now just
+reloading the extension. That is #8 below (#6, the S1 fixture cut, and #7, the real Tauri
+window, both closed on 25 Aug), not optional, and it is the same shape as the two that closed:
+code that type-checks and tests green but has never been run for real.
 
 **#1 is no longer one of them.** The first live analysis was the fourth item on that list
 until 25 Aug, when the backend question was closed by deciding to build our own model. It is
@@ -294,17 +455,17 @@ not blocked-and-waiting; it is off this list until that model exists.
 | # | Item | Owner | Notes |
 | :--- | :--- | :--- | :--- |
 | 0 | 🔑 **Revoke the Anthropic key** | Varad | It was in the tracked `.env.example` (uncommitted, absent from history, placeholder restored) **and in a chat transcript.** Ten minutes, at console.anthropic.com. *Revoke*, not rotate: the own-model decision means nothing depends on it and there is no replacement to issue, so this got easier — the suite stays green on a placeholder because the tests only need the key **present**, not valid |
-| 1 | ~~Pick the analysis backend, then run the live analysis once~~ — **PARKED 25 Aug: we build our own model** | Varad | No hosted backend is bought, so no live analysis runs and the 5 `LIVE_API_TESTS=1` tests stay skipped. Claude stays in as the interim implementation; the four-key contract stays frozen, so the own model is a drop-in behind the same `analyze()` — the Day 3 lexicon→Claude swap already proved that seam holds. **Scoped 25 Aug — and it does not need a week.** The "own model" turned out not to be a replacement for `analyze()` at all: it is a **GC strategy selector**, and it is a *personal research tool*, not a product feature. Design in [`docs/superpowers/specs/2026-08-25-gc-strategy-selector-design.md`](../docs/superpowers/specs/2026-08-25-gc-strategy-selector-design.md). It takes no week from `plans/team/`, so the "unscheduled model eats Week 6" risk is closed by the thing not being scheduled rather than by scheduling it. **`analyze()` keeps Claude as its interim implementation and stays `503` indefinitely** — that is unchanged and still unverified end to end |
+| 1 | ~~Pick the analysis backend, then run the live analysis once~~ — **PARKED 25 Aug: we build our own model** | Varad | No hosted backend is bought, so no live analysis runs and the 5 `LIVE_API_TESTS=1` tests stay skipped. Claude stays in as the interim implementation; the four-key contract stays frozen, so the own model is a drop-in behind the same `analyze()` — the Day 3 lexicon→Claude swap already proved that seam holds. **Scoped 25 Aug — and it does not need a week.** The "own model" turned out not to be a replacement for `analyze()` at all: it is a **GC strategy selector**, and it is a *personal research tool*, not a product feature. Design in [`docs/superpowers/specs/2026-08-25-gc-strategy-selector-design.md`](../docs/superpowers/specs/2026-08-25-gc-strategy-selector-design.md). It takes no week from `plans/team/`, so the "unscheduled model eats Week 6" risk is closed by the thing not being scheduled rather than by scheduling it. **`analyze()` keeps Claude as its interim implementation and stays `503` indefinitely** — that is unchanged and still unverified end to end. **Stage 1's machinery landed the night of 25 Aug** — `s1.py`, `backtest.py`, 16 tests, and a 3.12-pinned environment for `services/signal-data`, which had none. **Still not started: any actual backtest.** `thresholds_selector.md` now exists with §6.1's Part A binding, but **Parts B and C are empty and only Varad can fill them** — the candidate strategies are his to author (§9 Q1), and a threshold picked by an assistant is not a commitment by the person with the bias. One session cannot support §6 regardless; the full month is still only on Prathamesh's disk. **Stage 1's candidates landed 26 Aug** — `strategies.py`, 191 lines, four features and four entry-only rules, 27 tests green. **No threshold in it has a default**, so §6.1 is enforced by the function signature: the file raises `TypeError` (and fails `mypy`) until Part B exists. The four rules are now shaped functions to be *corrected* rather than blank blocks to be *authored*, which is a smaller ask — but Part B is still the only thing between here and a first backtest |
 | 2 | Click the demo through in **Firefox** | Either | Installs cleanly and CORS accepts it; only Chrome has rendered a verdict |
 | 3 | Review the **popup UI** | Prathamesh | Written from scratch to unbreak the build — a starting point, not a design |
 | 4 | Decide **where the API lives** | Both | Popup hardcodes `http://localhost:8000`, matching `host_permissions`; a deployed URL changes both, and the CORS entries start mattering once `host_permissions` no longer covers the host. **Now also a secrets question:** the API holds an Anthropic key, so it needs somewhere that can hold an env var — and the key must never move into the extension, which is public |
 | 5 | **AMO / Web Store** submission prep | Undecided | See constraints below |
-| 6 | ~~Run the Databento pull for real~~ — **DONE 24 Aug, `8aece67`** | Prathamesh | 1,616,772 GC trades, $2.52, aggressor split 48.32/47.79 — inside the band. Exceeded the bar this row set. **The S1 fixture cut is also done — 25 Aug, `14f5547`, and this row is now closed.** 77,532 rows, 110,817 contracts, GCQ6 only, committed through the `.gitignore` exception with `cut_s1_fixture.py` beside it so it is reproducible rather than a binary someone once made. Verified by reading the file back (dtypes conform; `timestamp` survives the round-trip as `datetime64[ns, UTC]`, not a silent `[us]` downgrade). **Nobody needs to ask for the parquet at Wednesday's standup and nobody re-pulls** — the ~$2.52 fallback stays unspent. *(NQ's ~$11.42 did **not** — see the corrected NQ bullet above; it was pulled on 25 Aug and the record was wrong.)* **It did change S1:** `aggressor_side` is `'B' \| 'A' \| 'N'`, N = 1,811 trades (2.34%) with no aggressor disseminated. Amendment written into `contracts.md` S1, **pending Friday's freeze gate** |
-| 7 | Confirm `pnpm tauri dev` opens a real window | Either | Headless-browser screenshot of the compiled bundle isn't the same as a real native window — nobody has looked at one yet |
+| 6 | ~~Run the Databento pull for real~~ — **DONE 24 Aug, `8aece67`** | Prathamesh | 1,616,772 GC trades, $2.52, aggressor split 48.32/47.79 — inside the band. Exceeded the bar this row set. ~~**What's left: the S1 fixture cut — and it is blocked.**~~ **DONE 25 Aug, `14f5547`.** Blocked in the morning (the month lived only on Prathamesh's disk) and closed the same evening — he cut the session with `cut_s1_fixture.py` and pushed the fixture rather than the month, landing on the one path the `.gitignore` exception carved out hours earlier. **Verified independently after pulling:** 77,532 rows exactly, all six S1 columns with correct dtypes and no extras, `GCQ6` only, CME session window, and **session delta +1,842 — matching `DELTA_CVD_FINDINGS.md` §3 to the unit**, which is a number computed by a different script on a different machine. **Two things came out of it:** `aggressor_side` carries a real third value `'N'` (1,811 trades, 2.34%) that S1 does not admit — **a pending amendment, drafted in `contracts.md`, needs all three at Wednesday's standup** — and the fixture holds 421 genuine duplicate rows where `drop_duplicates()` would shift session delta by **8%**. Both recorded in S1. NQ dropped 25 Aug — the ~$11.42 stays unspent |
+| 7 | ~~Confirm `pnpm tauri dev` opens a real window~~ — **DONE 25 Aug** | Varad | Ran on-device. Warm `cargo` rebuild in **4.27s**, vite on `:1420`, `target/debug/desktop` running. **Evidence, not a screenshot of a bundle:** the accessibility API reports the process owning **one window, title `Trading Intelligence`, 460×820 at (610, 80)** — the geometry is `tauri.conf.json`'s `width`/`height` to the pixel, so the config is what produced the window; and Launch Services lists it `Foreground` with `desktop Networking` (`com.apple.WebKit.Networking`) and `desktop Graphics and Media` (`com.apple.WebKit.GPU`) as children, which exist only when a real `WKWebView` is instantiated. **Deliberately not claimed:** nobody has looked at the pixels. No screenshot was taken — screen recording permission is not granted, and asking for it interactively was not worth it — so a blank or broken render inside a correctly-sized window would not have been caught by any of the above. Reviewing the UI is #3 and stays open |
 | 8 | Load the rebuilt extension in Chrome, confirm capture still works | Either | The `activeTab`/`scripting` rewrite (`955b374`) hasn't been checked in a real loaded extension. Fold #1's click-through into this if doing both at once |
 | A1 | Compute delta and CVD ~~from the tick data~~ **done** · ~~validate against a real footprint chart~~ — **SUBSTANTIALLY CLOSED 24 Aug, `c504e50`** | Prathamesh | Closed by an independent *method* rather than an independent platform, which sidesteps the Windows-only blocker entirely: `pull_tbbo_validate.py` reclassifies every trade in the 2026-07-16 session by the **quote rule** (price vs the bid/ask immediately before the trade), using the `side` field not at all. **99.65% agreement with `SIDE_MAP` across 75,578 comparable trades**, a near-symmetric confusion matrix (96 vs 165), **0 of 23 hours disagreeing in sign**, and a footprint cross-check at 980/980 common price levels with volume r=1.0000 and delta r=0.9870. Separately `verify_settlement_close.py` resolved the 12.2-point gap against TradingView's reported close as settlement-window-vs-last-trade, VWAP matching within 0.25 — that one **is** an external reference, so contract and timezone are checked too. **Residual, and it must be carried downstream:** session-total delta is method-dependent at the ~15–20% level (side field +1,842 vs quote rule +2,216). **Direction and shape are robust; absolute magnitude needs an error bar.** *(`DELTA_CVD_FINDINGS.md` §3 rewritten 25 Aug — it now records the gate as closed, carries the residual as the file's headline number, and inverts the debugging order so the aggressor mapping is checked **last**, since it has four independent confirmations)* |
 | A2 | ~~Pull spot XAUUSD, compute GC-vs-spot correlation and basis distribution~~ — **CUT 25 Aug** | — | Killed by the artifact's Fact Two, not deprioritised. It was scoping MT5 spot gold as a launch instrument; spot gold has no centralised volume — which is exactly why `real_volume` comes back empty — so there is no delta to compute and nothing to correlate against. Returns in the Week 12 quarter-two discussion as a **context-only** mode: rules, journal and capture work on MT5, delta does not, and we never claim it does. *(`DELTA_CVD_FINDINGS.md` §4 said "blocked on Dukascopy being unreachable" — true, and the wrong reason. Rewritten 25 Aug to lead with the real one: the blocker was never the download, it is that spot gold cannot carry the product's core number, so **nobody needs to find a working mirror**.)* |
-| C1 | 🚚 **Feed vendor change — Databento → quantfeed** | Varad, **raise Wed 26** | Decided 25 Aug. Cheaper, and offers L1/L2/L3. **Contained:** Databento appears in exactly two files, both pull scripts; `compute_delta_cvd.py` reads the parquet through the S1 column contract and does not know who produced it, so the migration is "emit the same six columns" and nothing downstream moves. **What does not transfer is the load-bearing part:** the 99.65% quote-rule agreement validated *Databento's* `side` semantics (`A` = seller-initiated, which reads backwards in English). quantfeed's convention must be re-validated from scratch or every delta sign is a coin flip — `pull_tbbo_validate.py` is that harness and is reusable. **With L3 the quote rule becomes unnecessary**, since order-by-order data gives the aggressor exactly — strictly stronger than what closed the Week 3 gate. **Nothing about this vendor is confirmed yet**; §5 of the selector spec has the checklist. ⚠️ **Shreyas sends three distribution-licence emails Monday 31 Aug** (Databento, Rithmic, Tradovate) — if the vendor is changing, that list is wrong before it is sent. **Do not delete the Databento path** until quantfeed reconciles against the existing validated month; it is the only ground truth for checking the new vendor |
+| C1 | 🚚 **Feed vendor change — Databento → quantfeed** | Varad, **call booked Wed 26** | **Direction chosen 25 Aug; the decision itself is made Wed 26 Aug, on a call with quantfeed.** Until that call nothing about the vendor is confirmed, so the row stays open and no code is written against it. §5 of the selector spec is the agenda: aggressor-side convention, L1/L2/L3 for **GC on COMEX specifically**, history depth and price, symbology and rolls, exchange-vs-receipt timestamps, **distribution licensing** (Databento's external rights start at $1,750/mo — a cheaper vendor may be cheap because it does not grant them), and the cost of one GC month against Databento's measured $2.52. The Monday licence-email dependency is why the call lands before the weekend rather than after it. Cheaper, and offers L1/L2/L3. **Contained:** Databento appears in exactly two files, both pull scripts; `compute_delta_cvd.py` reads the parquet through the S1 column contract and does not know who produced it, so the migration is "emit the same six columns" and nothing downstream moves. **What does not transfer is the load-bearing part:** the 99.65% quote-rule agreement validated *Databento's* `side` semantics (`A` = seller-initiated, which reads backwards in English). quantfeed's convention must be re-validated from scratch or every delta sign is a coin flip — `pull_tbbo_validate.py` is that harness and is reusable. **With L3 the quote rule becomes unnecessary**, since order-by-order data gives the aggressor exactly — strictly stronger than what closed the Week 3 gate. **Nothing about this vendor is confirmed yet**; §5 of the selector spec has the checklist. ⚠️ **Shreyas sends three distribution-licence emails Monday 31 Aug** (Databento, Rithmic, Tradovate) — if the vendor is changing, that list is wrong before it is sent. **Do not delete the Databento path** until quantfeed reconciles against the existing validated month; it is the only ground truth for checking the new vendor |
 | B | Make `apps/desktop` behave like a real overlay — transparent, borderless, always-on-top, click-through toggle. Prove it floats over a live MT5 demo and that click-through reaches MT5 underneath | **Prathamesh**, W1D2–W2 | No longer gated on A1/A2 — it is Week 1 Day 2 and Week 2 in [`team/phase-1-kill-week.md`](team/phase-1-kill-week.md). Install the MT5 demo terminal first if nobody has it |
 
 ---

@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 Pull one month of GC (COMEX gold futures) and NQ (CME Nasdaq futures) trade
 prints from Databento, collapse to the volume-dominant ("active") contract
@@ -30,8 +29,10 @@ from __future__ import annotations
 import argparse
 import os
 import sys
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
+from typing import cast
+from zoneinfo import ZoneInfo
 
 import databento as db
 import pandas as pd
@@ -41,6 +42,8 @@ from dotenv import load_dotenv
 # if one exists. Real values live in .env (gitignored, never committed);
 # .env.example is the tracked template showing the expected shape.
 load_dotenv(Path(__file__).resolve().parent / ".env")
+
+ET = ZoneInfo("America/New_York")   # the exchange clock, not the machine's
 
 DATASET = "GLBX.MDP3"
 SCHEMA_TRADES = "trades"
@@ -324,8 +327,9 @@ def validate(df: pd.DataFrame, root: str) -> None:
         print("  Largest gaps (review manually — some daily-halt gaps are expected):")
         top = big_gaps.sort_values(ascending=False).head(10)
         for idx, gap in top.items():
-            prior_ts = ts_sorted.iloc[idx - 1]
-            curr_ts = ts_sorted.iloc[idx]
+            pos = cast(int, idx)
+            prior_ts = ts_sorted.iloc[pos - 1]
+            curr_ts = ts_sorted.iloc[pos]
             print(f"    {prior_ts} -> {curr_ts}  (gap: {gap})")
 
 
@@ -372,7 +376,10 @@ def main() -> None:
         label = args.month
         start, end = start_date.isoformat(), end_date.isoformat()
     else:
-        label, start, end = previous_full_month(date.today())
+        # Exchange clock, not the machine's. From here (IST) the calendar
+        # flips ~2.5h before August's last CME session ends, and a naive
+        # date.today() would buy an incomplete month.
+        label, start, end = previous_full_month(datetime.now(ET).date())
 
     print(f"Target month: {label}  ({start} -> {end}, exclusive)")
 

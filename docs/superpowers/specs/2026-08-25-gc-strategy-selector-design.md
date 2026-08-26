@@ -1,6 +1,6 @@
 # GC strategy selector — design
 
-**Date:** 2026-08-25 · **Owner:** Varad · **Status:** design, nothing built
+**Date:** 2026-08-25 · **Owner:** Varad · **Status:** §7's `s1.py` and `backtest.py` built and tested (25 Aug, night); **no strategy defined and no backtest run**
 **Scope:** personal research tool. **Not a product feature.** See §1.
 
 ---
@@ -239,12 +239,13 @@ beyond what the analysis scripts already use.
 
 | File | Purpose |
 | :--- | :--- |
+| `s1.py` | ✅ **landed 25 Aug.** The S1 contract read once — load, delta, minute bars. Not in this table when it was written; the traps have to live somewhere and every file below reads through it. `compute_delta_cvd.py` was folded onto it, which is how it was found that that script read the S1 fixture as zero delta, silently |
 | `strategies/gc.py` | the candidates as data — entry, exit, nothing else |
-| `backtest.py` | one strategy over the month → §4's full metric set |
+| `backtest.py` | ✅ **landed 25 Aug.** One strategy over the month → §4's full metric set. Clock-based horizons, session-bounded windows, `n` and a sub-30 `thin` flag on every summary, and §6.3's side-matched null. **Never yet run on a real strategy** — §6.1 comes first |
 | `regimes.py` | features, clustering, labels |
 | `select.py` | regime→strategy map, plus both nulls |
 | `decision_filter.py` | **§3's seam. Varad authors it. Empty stub until then** |
-| `thresholds_selector.md` | pre-committed, before the first backtest runs |
+| `thresholds_selector.md` | ⚠️ **Part A landed 25 Aug; Parts B and C are empty on purpose.** Part A restates the commitments this document already made (walk-forward, both nulls, the sub-30 floor, ±20% perturbation, pre-filter/post-filter side by side) so the committed file is the whole commitment. **B is the per-strategy thresholds and C is the regime ones — the trader's to write, for the same reason as §3, and nothing may be backtested until B is committed** |
 
 `backtest.py` is **Week 4's harness arriving early and scoped down.** If it earns its keep here, it
 *is* the Week 4 harness rather than a second one — the only place this research tool is allowed to
@@ -256,10 +257,18 @@ Style follows the repo: plain functions over frames, no class hierarchy, no fram
 
 ## 8. Blocked on
 
-- **`services/signal-data/data/` does not exist on this machine.** The 1.6M-trade parquet is on
-  Prathamesh's disk and correctly gitignored. Stage 1 cannot start without it. **Ask at Wednesday's
-  standup** — the same ask that unblocks the S1 fixture, so it is one request covering two items.
-  The `.gitignore` exception for the S1 fixture landed 25 Aug (`fdb96c8`), so the plumbing is ready.
+- ~~`services/signal-data/data/` does not exist on this machine.~~ **Partly unblocked the same
+  evening.** Prathamesh pushed the **S1 fixture** in `14f5547` — the 2026-07-16 GCQ6 session, 77,532
+  trades, verified against the contract. So there is now one real session on disk.
+
+  **That is enough to build and test Stage 1's machinery, and not enough to run it.** One session
+  cannot produce a backtest — §6 needs months. The full month (1.6M trades) is still only on
+  Prathamesh's disk, correctly gitignored, and remains an ask.
+
+  **Two data facts from that fixture bind any strategy code written here** (both now in
+  `contracts.md` S1): `aggressor_side` carries a real `'N'` value on 2.34% of trades, so
+  `map({"B": 1, "A": -1})` silently yields NaN; and 421 duplicate rows are genuine multi-fills,
+  where a reflexive `drop_duplicates()` moves session delta by **8%**.
 - **quantfeed's §5 checklist** — unanswered, and it determines whether Stage 1 runs against the
   existing Databento month or waits.
 
@@ -283,7 +292,12 @@ Style follows the repo: plain functions over frames, no class hierarchy, no fram
 
 ## 10. Not verified
 
-Nothing in this document has been built or run. What is verified is the repo state it was fitted to:
+**Updated 25 Aug (night): §7's `s1.py` and `backtest.py` are built, tested and clean, and `thresholds_selector.md` exists with Part A binding and Parts B/C deliberately unfilled.** Nothing
+else here has been. In particular **no backtest has been run on any strategy**, so every
+expectation in §2, §4 and §6 — including §6's recorded prediction of *inconclusive* — remains
+exactly as unverified as when it was written.
+
+Originally, and true of everything not listed above: nothing in this document has been built or run. What is verified is the repo state it was fitted to:
 the Databento coupling surface (two files, checked by grep), the S1 column contract, what
 `compute_delta_cvd.py` actually computes (delta, session CVD, minute bars, footprint — read from its
 signatures), the ~15–20% magnitude residual, the existence and emptiness of the `Strategy` type, and
