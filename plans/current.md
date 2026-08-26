@@ -447,6 +447,82 @@ boundary as Day 3 and held the same way: no backtest, no result claimed about GC
       blocks — a smaller ask, the same ask. **Part B must be committed before the first backtest
       runs, not before it is presented**; the git timestamp is the entire mechanism.
 
+
+### Day 4 (evening) — 2026-08-26 · Stage 2 arrived, and did not run · `f7e411e`, `dcbde04`
+
+`regimes.py` (642 lines) and a committed k=3 run — `regime_labels_window_5min_k3.csv` (6,277 rows),
+`regime_definitions_window_5min_k3.json`, and a plot — came in with the afternoon pull, on
+`56bbf73` / `70b5ac4` / `477dee3`. **Neither this file nor `daily_updates/` moved with them**, which
+is the one rule at the top of this document. Recorded here after the fact; the entry is late, not
+the work.
+
+The module itself is careful. The state-only boundary is structural — no import of `backtest.py`
+or `strategies.py`, and the docstring says it must never gain one. It routes through `s1.py` after
+`477dee3`, so the `'N'` encoding reads correctly. And the finding it was written to produce is real:
+**one-hot session dummies dominate a standardized Euclidean KMeans**, recovering "which session" at
+100/100/100 percent instead of a flow distinction. That was found by running it, not assumed.
+
+- [x] **`scikit-learn` was never a dependency** — `f7e411e`. `regimes.py` imports `KMeans`,
+      `StandardScaler` and `silhouette_score` at module level; scikit-learn was in neither
+      `pyproject.toml` nor `uv.lock` nor the venv, so the script died on the import on this machine.
+      The docstring's "all already used elsewhere in this directory" was true of matplotlib, numpy,
+      pandas and pyarrow and false of the one that matters. Added with `joblib`, `scipy`,
+      `threadpoolctl` and `narwhals` as transitives, in its own commit per the standing rule.
+- [x] **The walk-forward split cut on the wrong date** — `dcbde04`. It read
+      `feat.index.tz_convert(ET).date`, but a Globex session runs 18:00 → 17:00 ET, so 18:00–23:59
+      already belongs to the *next* session. Calendar-dating it hands **72 five-minute bars** of the
+      split session to the set KMeans fits its boundaries on. **The committed run is unaffected —
+      its split date, 2026-07-19, is a Sunday**, so both rules select the same 3,516 bars and the
+      labels do not move. Verified against the committed labels CSV rather than assumed. Any weekday
+      split would have leaked. The frame already carried the `session` column every other feature
+      groups by; it now uses it.
+- [x] **Lint, types and tests** — `dcbde04`. 2 `ruff` errors and 9 `mypy` errors on arrival, against
+      a directory that was otherwise clean. Added `tests/test_regimes.py`, 24 tests; **58 pass**
+      across the service, `ruff` and `mypy` clean over all 16 files. The two tests that matter assert
+      the session split and that **no feature can see a later bar** — truncate the frame and every
+      surviving row must be identical, which is the leakage rule as an executable claim rather than
+      a docstring promise.
+- [ ] **The committed Stage 2 outputs cannot be reproduced here, and were not.** `data/` in this
+      working copy holds `fixtures/` and nothing else — no `gc_trades.parquet`, no `nq_trades.parquet`,
+      no `data/raw/`. That is the same fact `daily_updates/2026-08-26.md` already carries as an ask,
+      with a new consequence: **every number in `analysis/regimes/` is currently unverifiable by
+      anyone but Prathamesh.** `regimes.py` was smoke-tested end to end against the S1 fixture
+      instead (77,532 trades → 276 bars at 5min, k=3, plot and JSON written).
+- [ ] **⚠️ The regimes do not persist, and Stage 2's premise needs them to.** Measured off the
+      committed labels: **1,806 runs over 6,243 bars, median run 2 bars — ten minutes — and the label
+      changes on 28.9% of bars.** Longest run in the month is 2.5 hours. `select.py` built on these
+      would switch strategies faster than most trades resolve. Either the features need a longer
+      window, or Stage 2 needs a dwell constraint (an HMM, a minimum run length) rather than per-bar
+      KMeans. **Not fixed — it is a design call, not a defect.**
+- [ ] **⚠️ Two of the five features are the same feature.** `cvd_persistence` and
+      `cvd_efficiency_specced` correlate at **r = 0.803** on the committed labels — both are
+      `abs(CVD)` over a denominator — which double-weights CVD directionality in a Euclidean KMeans
+      and is exactly the axis regime 2 separates on (standardized centres 1.27 and 1.19).
+- [x] **✅ The efficiency ambiguity is closed — `871690f`.** §2 defines directional efficiency as
+      `abs(CVD)/range`; the 0.90 cited as validating it came from `abs(close-open)/range` on price
+      alone. Prathamesh computed both rather than guess, which was right, and the file's own
+      `KNOWN_SPEC_AMBIGUITY` said not to pre-commit definitions built on either until it was resolved —
+      **`70b5ac4` pre-committed definitions built on both.** *(The §6.2 artefact was premature, not
+      wrong.)* **Varad's call, 26 Aug: keep the price ratio, drop the spec's formula.** It is the
+      Kaufman efficiency ratio, dimensionless and bounded in [0, 1]; `abs(CVD)/range` divides
+      contracts by dollars, is unbounded, and its honest order-flow counterpart —
+      `abs(sum delta)/sum(abs delta)` — was already in the feature set as `cvd_persistence`, which is
+      what the r = 0.803 was. **Five features become four**, and `price_efficiency_asused` became
+      `price_efficiency` — the suffix only ever named a contrast. `regime_definitions.json` now
+      carries `spec_deviation` (the resolution) in place of `known_spec_ambiguity` (the open
+      question). Verified end to end on the S1 fixture; 61 tests, `ruff`/`mypy` clean.
+- [ ] **⏭ `analysis/regimes/` is now stale and must be regenerated — Prathamesh's, since only he has
+      the month.** Its cluster centres, scaler and `regime_summary` are all five-dimensional, and the
+      labels themselves move under four features. **Not deleted:** those files are the §6.2
+      pre-commitment and quietly rewriting them is the thing §6.2 exists to prevent, so
+      [`analysis/regimes/README.md`](../services/signal-data/analysis/regimes/README.md) marks them
+      superseded and carries the exact re-run command. Two things to settle while re-running: the
+      `k=3`-vs-silhouette question below, and whether these are regimes at all.
+- [ ] **The silhouette preferred k=2 and the committed run is k=3.** `regime_definitions.json`
+      records `k=2: 0.299, k=3: 0.239`. Independently reproduced on the fixture (0.395 vs 0.311), so
+      it is not an artefact of the month. k=3 may well be the right call, but under §6.2 the reason
+      belongs in the artefact and is not in it.
+
 ---
 
 ## Next
