@@ -616,6 +616,51 @@ Stage 1 needs an edge 2.45× larger in ticks than at 5 to reach the same signifi
       attached at last: at 5 minutes six months puts a 3-tick edge inside reach, **at 30 minutes six
       would not be enough and neither would twelve.**
 
+### Day 6 — 2026-08-28 · the week moves, and the metric was break-even · [`daily_updates/2026-08-28.md`](../daily_updates/2026-08-28.md)
+
+**No code. Two schedule facts and one arithmetic finding**, all in `3f1d158`.
+
+- [x] **Week 1 is 5–11 Sep, not 31 Aug – 4 Sep, and everything downstream shifts one week right.**
+      Neither engineer works 29 Aug – 4 Sep. Week 12 ends **27 Nov**. Gates are unchanged in content;
+      only their dates moved — which is a week lost deliberately with everyone knowing, and the
+      opposite of what `gates.md` warns about. [`plans/team/week-01.md`](team/week-01.md) carries the
+      rescheduled week day by day for both engineers and is authoritative on dates until the four
+      phase files are rewritten; `plans/team/README.md` says so at the top, because every date in
+      them is now a week early.
+- [x] **The two lanes are made independent by discharging both seams before the week starts, not
+      during it.** Varad in `services/signal-data/`, Prathamesh in `apps/desktop/` — no shared file,
+      so a merge conflict is structurally impossible. The S2 type freeze (30 minutes, joint) and the
+      regenerated month bar table both move to **Fri 28 Aug**. After tonight the lanes touch in one
+      place, the gate room on 11 Sep, and that is a meeting rather than a handoff.
+- [x] **`planfortoday.md`'s success metric is the break-even line, not a pass.** For a driftless
+      random walk `P(hit +70 before −20) = b/(a+b) = 22.22%`, and break-even at 3.5:1 is
+      `1/(1+3.5) = 22.22%` — **the same number, and necessarily so: a fixed target/stop pair on a
+      driftless walk always lands exactly on its own break-even.** Day 5 measured this month to *be*
+      that walk. Add ~$25 round-turn cost on a $700/$200 pair and break-even is **25.0% exactly** —
+      the target as written. Worse, at the 50–150 signals the file plans for, the smallest rate
+      separable from that null at 2σ is **34.0% / 29.0%**: a true 25% edge could not be shown on one
+      month however real it was. **This is the *more months* argument arriving a third time** — Day 5
+      reached it from variance, §6 from cell counts, this from binomial power.
+- [ ] **⏭ So the pre-written threshold is a margin over a measured null**, `N ≥ 100`, with
+      *inconclusive* kept as a first-class outcome. Drafted wording in `week-01.md` §2. **Varad's to
+      commit on Fri 28 Aug, before Part B and before anything runs** — the mechanism is the git
+      timestamp and nothing else. `backtest.random_entries` already measures the null; a second one
+      must not be written.
+- [ ] **⏭ Six corrections to `planfortoday.md` carried into the week** (§5, and the file is now
+      tracked so they can be checked against it): Polars → **pandas**, which the service actually
+      uses · the regime labels are **stale**, not a done prerequisite · "30 bars" is **150 minutes**
+      at 5-minute bars and should be 6 · Part B is derived on the **training half only**, the only
+      reading that satisfies both §6.1 and "not guessed" · the month parquet **is** needed, for
+      Layers 4–5 · and **`strategy.md` does not exist in this repo** while `phase-1-kill-week.md` and
+      `roles.md` both schedule work against it. That phantom should be retired rather than chased;
+      `planfortoday.md`'s four conditions are its live replacement.
+- [ ] **⏭ The regenerated regime labels are the one thing that can strand Varad for a week.** Every
+      one of his seven days reads that CSV, the committed one is stale twice over, and only
+      Prathamesh has `data/gc_trades.parquet`. Ten minutes of compute — **and it has to happen Friday,
+      not on the 5th.** Land the new run *alongside* the old files, never over them: they are the
+      §6.2 pre-commitment. ⚠️ **Same trip: that parquet is still the only copy on any disk** and is
+      about to sit through seven unattended days.
+
 ---
 
 ## Next
