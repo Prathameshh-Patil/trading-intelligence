@@ -4,7 +4,13 @@ Source: the **Twelve Weeks to Ten Subscribers** artifact. That document says *wh
 *why*. This folder says **who does what on which day**, arranged so that no one is ever waiting
 on anyone else to finish.
 
-**Week 1 starts Monday 31 Aug 2026. Week 12 ends Friday 20 Nov 2026.**
+~~**Week 1 starts Monday 31 Aug 2026. Week 12 ends Friday 20 Nov 2026.**~~
+
+⚠️ **The calendar moved one week right on 28 Aug: nobody works 29 Aug – 4 Sep.** Week 1 now runs
+**Sat 5 – Fri 11 Sep** and Week 12 ends **Fri 27 Nov**. **Every date in the phase files below is one
+week early.** [`week-01.md`](week-01.md) carries the rescheduled Week 1 in full and the shift table
+for the rest; it is authoritative on dates until the phase files are rewritten. The gates themselves
+are unchanged in content — only when they are held moved.
 
 ## The files
 
@@ -14,7 +20,8 @@ on anyone else to finish.
 | [`contracts.md`](contracts.md) | **Before you write any code.** The six frozen seams. This is the file that makes the parallelism work |
 | [`gates.md`](gates.md) | Every Friday, 16:00 |
 | [`week-00.md`](week-00.md) | Now — 26–30 Aug. Clearing the debt so Week 1 starts from zero |
-| [`phase-1-kill-week.md`](phase-1-kill-week.md) | Week 1 · 31 Aug – 4 Sep · *does this project deserve to exist* |
+| [`week-01.md`](week-01.md) | **Fri 28 Aug, before the gap, and again on 5 Sep.** The rescheduled kill week, day by day for both engineers, and the four things Friday has to close so seven idle days cost nothing |
+| [`phase-1-kill-week.md`](phase-1-kill-week.md) | Week 1 · ~~31 Aug – 4 Sep~~ **5 – 11 Sep** · *does this project deserve to exist* |
 | [`phase-2-month-one.md`](phase-2-month-one.md) | Weeks 2–4 · 7 Sep – 25 Sep · *make it real, locally* |
 | [`phase-3-month-two.md`](phase-3-month-two.md) | Weeks 5–8 · 28 Sep – 23 Oct · *make it sellable* |
 | [`phase-4-month-three.md`](phase-4-month-three.md) | Weeks 9–12 · 26 Oct – 20 Nov · *ten people who pay* |
