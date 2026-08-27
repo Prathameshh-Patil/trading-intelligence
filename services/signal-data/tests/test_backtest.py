@@ -1,8 +1,9 @@
 """Mechanics of the harness, on bars built by hand so the answer is known.
 
-The two failure modes worth a test each: measuring a horizon in rows when the
-bar frame has gaps, and letting a window run past the session it started in.
-Both produce numbers that look completely reasonable.
+The three failure modes worth a test each: measuring a horizon in rows when the
+bar frame has gaps, letting a window run past the session it started in, and
+reporting a leg the session cut short as though it had run the full horizon.
+All three produce numbers that look completely reasonable.
 """
 
 import numpy as np
@@ -23,10 +24,33 @@ def test_horizon_is_measured_on_the_clock_not_on_row_offsets() -> None:
 
 
 def test_a_horizon_never_runs_past_its_session() -> None:
+    # The horizon completes at minute 5, inside its own session. The next
+    # session opening at 500 is four bars away and must not reach the numbers.
+    bars = bars_at([0, 1, 2, 3, 4, 5, 6, 7], [100.0] + [101.0] * 5 + [500.0, 500.0],
+                   session=[SESSION] * 6 + ["next", "next"])
+    tr = bt.evaluate(bars, entries_at(bars, {0: 1}), horizons=(5,))
+    assert tr["move_5m"].iloc[0] == pytest.approx((101.0 - 100.0) / TICK)
+    assert tr["mfe_5m"].iloc[0] == pytest.approx((101.0 - 100.0) / TICK)
+
+
+def test_a_horizon_whose_session_ends_inside_it_is_nan_not_a_short_leg() -> None:
+    # Two minutes of session left against a five-minute horizon. Scoring the
+    # two-minute move as the 5m return is the silent version of this bug: it
+    # reads as a real observation and drags the horizon's mean toward zero.
     bars = bars_at([0, 1, 2, 3], [100.0, 101.0, 500.0, 500.0],
                    session=[SESSION, SESSION, "next", "next"])
     tr = bt.evaluate(bars, entries_at(bars, {0: 1}), horizons=(5,))
+    assert np.isnan(tr["move_5m"].iloc[0])
+
+
+def test_a_short_horizon_survives_where_a_long_one_is_cut_off() -> None:
+    # July 2026 in miniature: 5m completes, 30m does not. The row is kept and
+    # only the horizon that could not run is NaN -- dropping the whole entry
+    # would throw away a measurement that is perfectly good at 5m.
+    bars = bars_at(list(range(11)), [100.0] + [101.0] * 10)
+    tr = bt.evaluate(bars, entries_at(bars, {0: 1}), horizons=(5, 30))
     assert tr["move_5m"].iloc[0] == pytest.approx((101.0 - 100.0) / TICK)
+    assert np.isnan(tr["move_30m"].iloc[0])
 
 
 def test_an_entry_on_the_last_bar_of_a_session_is_dropped_not_scored() -> None:
@@ -35,7 +59,7 @@ def test_an_entry_on_the_last_bar_of_a_session_is_dropped_not_scored() -> None:
 
 
 def test_a_short_profits_when_price_falls() -> None:
-    bars = bars_at([0, 1, 2], [100.0, 99.0, 98.0])
+    bars = bars_at([0, 1, 2, 3, 4, 5], [100.0, 99.0, 98.0, 98.0, 98.0, 98.0])
     tr = bt.evaluate(bars, entries_at(bars, {0: -1}), horizons=(5,))
     assert tr["move_5m"].iloc[0] == pytest.approx(20.0)      # 2.00 down / 0.10
     assert tr["mfe_5m"].iloc[0] == pytest.approx(20.0)
@@ -44,7 +68,7 @@ def test_a_short_profits_when_price_falls() -> None:
 
 
 def test_adverse_excursion_is_negative_when_the_trade_goes_against_you() -> None:
-    bars = bars_at([0, 1, 2], [100.0, 98.0, 103.0])
+    bars = bars_at([0, 1, 2, 3, 4, 5], [100.0, 98.0, 103.0, 103.0, 103.0, 103.0])
     tr = bt.evaluate(bars, entries_at(bars, {0: 1}), horizons=(5,))
     assert tr["mae_5m"].iloc[0] == pytest.approx(-20.0)
     assert tr["mfe_5m"].iloc[0] == pytest.approx(30.0)

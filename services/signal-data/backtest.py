@@ -34,11 +34,21 @@ def evaluate(
     `entries` is aligned to `bars.index` and carries the side: +1 long, -1
     short, 0 no trade. Horizons never cross a session boundary -- a position
     held through the overnight break is a different trade than the one tested.
+
+    A horizon whose session ends before it does is NaN, not a short leg. The
+    difference is invisible and it matters: a trade entered ten minutes before
+    the close would otherwise contribute its ten-minute move to the 30m column
+    and be averaged in as though it had run the full half hour. On July 2026
+    that is 2.2% of bars at 30m against 0.4% at 5m, so it biases the long
+    horizon toward zero -- exactly where the horizon question is decided.
     """
     if not entries.index.isin(bars.index).all():
         raise ValueError("entries carry timestamps that are not bars")
 
     span = max(horizons)
+    # Last bar of each session, so a horizon can be told "ran out of session"
+    # apart from "ran out of bars" -- a gap in the tape is not a short leg.
+    ends = pd.Series(bars.index, index=bars.index).groupby(bars["session"], sort=False).last()
     rows = []
     fired = entries[entries != 0]
     for t, side in zip(pd.DatetimeIndex(fired.index), fired.to_numpy(), strict=True):
@@ -50,8 +60,9 @@ def evaluate(
 
         row = {"t": t, "side": int(side), "entry": entry, "bars_seen": len(window)}
         for h in horizons:
-            leg = window.loc[: t + pd.Timedelta(minutes=h)]
-            if leg.empty:  # session ended inside this horizon
+            mark = t + pd.Timedelta(minutes=h)
+            leg = window.loc[:mark]
+            if leg.empty or ends[bars.at[t, "session"]] < mark:
                 row[f"move_{h}m"] = row[f"mfe_{h}m"] = row[f"mae_{h}m"] = np.nan
                 continue
             row[f"move_{h}m"] = side * (leg["close"].iloc[-1] - entry) / TICK
