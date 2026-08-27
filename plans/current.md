@@ -661,6 +661,47 @@ Stage 1 needs an edge 2.45× larger in ticks than at 5 to reach the same signifi
       §6.2 pre-commitment. ⚠️ **Same trip: that parquet is still the only copy on any disk** and is
       about to sit through seven unattended days.
 
+### Day 6 (night) — 2026-08-28 · the literature, triaged · [`docs/research/2026-08-28-gold-literature-triage.md`](../docs/research/2026-08-28-gold-literature-triage.md)
+
+**No code. A reading list, and one correction to a number committed earlier the same day.**
+
+- [x] **`Gold Quant Trading Research Papers.pdf` triaged against this repo, not against gold in
+      general.** It is an **AI-generated survey, not research**: entry #23's ORB claim rests on a
+      studocu bachelor thesis, three citations are Scribd re-uploads, one is a broken viewer URL to a
+      price-forecast page, and Pillar 5's headline returns trace to preprints with no described
+      out-of-sample discipline. **The 53 URLs on pp.21–23 are the load-bearing part; the tables are a
+      lossy index.** Same posture as the version-lock PDF. Verdict per pillar, with pages, is §0 of
+      the note.
+- [x] **Three things in it are worth acting on.** Realized semivariance (`RS⁺`/`RS⁻`) is a fifth
+      Stage 1 candidate computable from the parquet we already own and shaped like the four in
+      `strategies.py` · `PMC9759686` is free, peer-reviewed and the only cited paper at our horizon
+      (1–15 min) · and **entries clustering on CPI/NFP bars would make a 5-minute edge an event
+      artifact** — cheap to check by tagging entries with distance to the nearest release, and worth
+      checking *before* Part B is judged, given Day 5 measured the month as a random walk at 5m.
+- [x] **The costs paragraph on p.20 is the same finding as this morning's, arriving from a second
+      direction.** `backtest.py` reports ticks gross. The correct fix for a threshold-triggered rule
+      is to **widen the threshold to cover the round trip**, not to subtract cost at the end — the
+      second leaves the entry population unchanged and reports trades that were never worth taking.
+      The ~$25 round turn that moved break-even to 25.0% in `daily_updates/2026-08-28.md` is the same
+      number and belongs in the entry rule, not the report.
+- [x] **The larger finding is what the PDF does not contain: our own literature.** It has five
+      pillars and none is market microstructure. `absorption` is **Kyle's lambda** inverted,
+      `delta_z` is a coarse **order-flow imbalance**, `absorption_fade` is **flow toxicity / VPIN**,
+      `backtest.evaluate` is the **triple-barrier method** with the vertical barrier only, and
+      `pull_tbbo_validate.py` is **Lee–Ready** — which means the 99.65% agreement has a published
+      comparison set to be judged against. §4 of the note carries the primary sources.
+- [ ] **⏭ One live defect, and it corrects a number already committed today.** 30-minute horizons on
+      5-minute bars produce **heavily overlapping labels**; those observations are not independent,
+      so the **effective N is below the nominal N** and this morning's separable hit rates
+      (34.0% / 30.5% / 29.0% at N = 50/100/150) are **optimistic, not conservative**. That is a
+      fourth independent argument for more months, and the correction is mechanical — sample
+      uniqueness weighting, AFML Ch. 4, with purged-and-embargoed splits (Ch. 7) for the §6.4
+      half-split, which currently leaks across its boundary for the same reason. **Not implemented,
+      not benchmarked.**
+- [ ] **⏭ §4 is cited from knowledge and nothing in it was fetched or verified in-session.** Titles,
+      authors and years are search terms. **Verify each DOI before any of it is quoted to Shreyas or
+      a vendor**, and do not let a name in that table become a claim about a feature until it has.
+
 ---
 
 ## Next
