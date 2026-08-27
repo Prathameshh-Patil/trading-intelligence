@@ -719,12 +719,32 @@ Stage 1 needs an edge 2.45× larger in ticks than at 5 to reach the same signifi
       Jun $2.82, against $125 of unspent free credit. **Above the ~$15 the gate note assumed**; the
       heavier months are GC's active-month cycle, not an error. Jan–Jun makes **Jan–Jul contiguous**
       with the month already held.
-- [ ] **⏭ The pull itself is running as this is written and nothing about it is claimed yet.** Row
-      counts, the billed total against the estimate, and — the one genuinely unverified thing —
-      **`collapse_to_active_contract` across six real roll cycles.** It has been checked against one
-      synthetic roll month and one real month (July, which collapsed cleanly to `GCQ6`). Six months
-      crossing several rolls is a different test. **Check the per-month symbol split before any of
-      this data is used.**
+- [x] **The pull ran. Six months, `exit=0` each, 14,108,072 rows over 131 sessions**, into
+      `data/2026-01/` … `data/2026-06/`, 422 MB on disk (112 MB parquet, ~310 MB raw DBN cache).
+      Jan 3,531,687 · Feb 2,146,721 · Mar 2,739,204 · Apr 1,958,866 · May 1,721,952 · Jun 2,009,642.
+      **With July's 1,616,772 that is 15.7M trades over 154 sessions, Jan–Jul contiguous** — against
+      the 22 sessions every power argument today was computed on.
+- [x] **`collapse_to_active_contract` survived six real roll cycles, and this is the result that
+      mattered.** The symbol sequence is `GCG6 → GCJ6 → GCM6 → GCQ6`, which is GC's Feb/Apr/Jun/Aug
+      cycle exactly. **The roll months carry two contracts and the mid-cycle months carry one** —
+      Jan `G6`+`J6`, Feb `J6` only, Mar `J6`+`M6`, Apr `M6` only, May `M6`+`Q6`, Jun `Q6` only — and
+      each month's closing contract is the next month's opening one, with **no gap, no interleaving
+      and no orphan contract anywhere in the chain.** June ends on `GCQ6` and July, pulled a month
+      ago on a different machine, is `GCQ6` throughout. That is an independent join.
+- [ ] **⏭ `'unknown'` aggressor side is a bigger problem than the pending amendment assumes.** The
+      `contracts.md` amendment for `'N'` was drafted against July's **2.34%**. The seven-month range
+      is **1.70% – 5.23%** (Jan 5.23%, Mar 5.02%, both of which trip the script's own warning). Those
+      rows cannot be signed, so they contribute nothing to delta or CVD — **at 5.23% that is more
+      than double the unsigned volume the amendment was written for.** It needs the real range at
+      Wednesday's standup, not July's number.
+- [ ] **⏭ Six degraded sessions, and only two of them matter.** Databento flagged `2026-01-31`,
+      `2026-03-15`, `2026-03-16`, `2026-03-21`, `2026-04-10`, `2026-05-24` as reduced quality. Four
+      are Sat/Sun — near-empty or a thin Sunday open. **`2026-03-16` (Mon) and `2026-04-10` (Fri) are
+      full sessions**, and `03-15`/`03-16` are one contiguous degraded stretch from the Sunday open
+      through Monday. July carried no such flag, so this is a grade of data the validated month never
+      had. **Decide whether they are excluded before they enter a backtest, not after.**
+- [ ] **⏭ The billed total is unconfirmed.** $21.12 is the sum of six *estimates*; the script prints
+      estimates, not charges. Check the Databento portal against $125 of credit.
 - [ ] **⏭ A second Databento key is now in a chat transcript.** Same failure as #0, five days later
       and with the first one still open. **Rotate it**, and note that `.env` was written at mode
       `600` and `git check-ignore` confirms `.gitignore:1` covers it — the file is not the leak, the
