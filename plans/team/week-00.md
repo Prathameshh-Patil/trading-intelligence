@@ -107,7 +107,9 @@ the repo and it will save you a day. Then three real jobs:
    > **(a)** `aggressor_side` carries a real third value, **`'N'` — 1,811 trades, 2.34%** — that S1
    > declares as `'B' | 'A'`. S1's own row count already includes them, so the count and the type
    > cannot both be true. **This is a frozen contract: the amendment is drafted in `contracts.md`
-   > and NOT applied. It needs all three of you.** Take it to Wednesday's standup as a yes/no.
+   > and NOT applied. It needs all three of you.** ⚠️ **Wednesday 26 Aug passed without this being
+   > put.** It is item 1 of [`varad/2026-08-28-gate-note.md`](varad/2026-08-28-gate-note.md), drafted
+   > as a yes/no for Friday's Week 0 gate, along with the duplicate rows.
    > **(b)** The fixture holds **421 genuine duplicate rows** — identical timestamps, up to 6
    > copies, the signature of one aggressor sweeping several resting orders. They are not errors.
    > A `drop_duplicates()` that looks like hygiene moves session delta from **+1,842 to +1,989, an
@@ -183,6 +185,11 @@ need a soft commitment to test in Week 7, which is seven weeks out, so start war
 **ABC · 16:00 — Week 0 gate.** Every open checkbox in `current.md` is closed or explicitly killed.
 Then, in the same sitting, five minutes on `contracts.md` — all three read S1 through S6 out loud
 and agree they are frozen. That five minutes is what buys the next eleven weeks of independence.
+
+📋 **Varad brings four votes, drafted so the gate is a vote and not a design session:**
+[`varad/2026-08-28-gate-note.md`](varad/2026-08-28-gate-note.md) — the S1 `'N'` amendment and the
+duplicate-row line (both carried since 25 Aug and both belonging to the five minutes above), the
+5-minute kill-gate horizon, and the more-months spend. **Read before the room.**
 
 *Float:* update `plans/current.md` to reflect the reassignment and the killed A2 — whoever is free.
 

@@ -82,7 +82,10 @@ on a different machine from the full month.
 
 **Not applied. This is a frozen contract and it changes only by all three agreeing in standup.**
 Found by Prathamesh while cutting, documented in `cut_s1_fixture.py`, and deliberately left for
-Wednesday rather than taken unilaterally.
+the room rather than taken unilaterally. **Queued for Wednesday 26 Aug, which passed without it
+being put; it goes to the Week 0 gate on Fri 28 Aug** — see
+[`varad/2026-08-28-gate-note.md`](varad/2026-08-28-gate-note.md), where the vote is item 1 and the
+421 duplicate rows below are item 2.
 
 `aggressor_side` is declared `'B' | 'A'`. The real data carries a third value — **`'N'`, 1,811
 trades, 2.34%, 2,271 contracts of volume** — where no aggressor was disseminated (auction, implied,

@@ -569,6 +569,53 @@ or `strategies.py`, and the docstring says it must never gain one. It routes thr
       bullets above.** It *was* an artefact after all, just not of the month: of the straddling-window
       bug. The reason still belongs in the artefact under §6.2, and now there is one to write down.
 
+### Day 5 — 2026-08-27 · which horizon the kill gate is judged on · [`daily_updates/2026-08-27.md`](../daily_updates/2026-08-27.md)
+
+The question Day 4 refused to answer with a smoother. `horizon.py` (177 lines) measures what each of
+`backtest.py`'s `HORIZONS` could *prove*, taking no threshold and reading no strategy — §6.1 intact,
+Part B still empty, no backtest run.
+
+**GC July 2026 is a random walk at 5, 15 and 30 minutes, and two independent measurements say so.**
+Dispersion grows as √h to within 0.1% (σ = 34.53 / 59.86 / 84.68 ticks), and the overlap correlation
+between adjacent bars' legs lands at 0.659 and 0.831 against a random walk's predicted (h−5)/h =
+0.667 and 0.833. Neither was fitted to the other. A longer horizon therefore buys variance at exactly
+the rate that makes an edge harder to prove and returns no structure for it: **judged at 30 minutes,
+Stage 1 needs an edge 2.45× larger in ticks than at 5 to reach the same significance.**
+
+- [x] **The month's bars were already committed and nobody had noticed.**
+      `analysis/regimes/regime_labels_window_5min_k3.csv` carries OHLC, delta, volume, cvd and
+      session for all 6,276 five-minute bars of July, not just labels. Its *derived* columns are
+      stale twice over; OHLC and session are resampled off the ticks and neither `871690f` nor
+      `d3c896f` touched them. **This question did not need `data/gc_trades.parquet`.** The next one
+      will — 1-minute resolution, and no strategy can be backtested on 5-minute grid entries.
+- [x] **A real defect in `backtest.py`, found by the measurement and fixed.** `evaluate` NaN'd a leg
+      only when it was *entirely* empty, so a leg the session cut short was reported as a full-horizon
+      move — **2.2% of bars at 30m against 0.4% at 5m, every one biased toward zero, at exactly the
+      horizon under question.** The fix made the result *cleaner* (σ ÷ √h 0.993 → 1.001 at 30m), which
+      is the corroboration worth having; nothing was tuned to produce it. Three tests asserted the old
+      behaviour and were rewritten rather than bent. 72 tests, `ruff`/`mypy` clean.
+- [x] **Robustness, since one month and one instrument is not much.** Both walk-forward halves scale
+      identically (0.992–1.016) while their volatility *levels* differ by 19% — the level moves, the
+      exponent does not. The 2026-07-16 session rebuilt at 1-minute resolution through a different
+      code path gives 1.000 / 1.011 / 1.019. The 5-minute grid costs 1.1% on σ.
+- [ ] **⏭ The decision: judge the kill gate at 5 minutes, 15 and 30 descriptive only.** Not because 5
+      is good — because 15 and 30 are not decidable on any data budget this project will have. Stage
+      2's regime survival agreed independently (92% / 78% / 54%), and the two arguments are unrelated:
+      one is whether a regime outlives the trade it selected, the other whether the tape's noise leaves
+      anything to measure. **Not Varad's alone to take** — it changes what Part B's thresholds are
+      written against. **Drafted as item 3 of [`plans/team/varad/2026-08-28-gate-note.md`](team/varad/2026-08-28-gate-note.md)
+      for Friday's Week 0 gate**, next to the `'N'` amendment and the duplicate-row line — both of
+      which were queued for a Wednesday standup that passed without them being put. `contracts.md`
+      and `week-00.md` repointed accordingly.
+- [ ] **⏭ The uncomfortable half: the kill gate is underpowered at every horizon, 5 included.** At a
+      plausible 100–250 signals the smallest separable edge is 8.65–13.68 ticks ($87–$137 a trade);
+      a real order-flow edge is one to three. Proving a 3-tick edge at 5m needs **2,081 signals**
+      against a month holding 6,253 bars. **§6's recorded prediction of *inconclusive* is confirmed
+      quantitatively and is worse than written** — it expected Stage 2's cells to be thin; Stage 1 is
+      thin on its own, before any regime split. This is the *more months* argument with a number
+      attached at last: at 5 minutes six months puts a 3-tick edge inside reach, **at 30 minutes six
+      would not be enough and neither would twelve.**
+
 ---
 
 ## Next

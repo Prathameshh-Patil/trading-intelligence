@@ -241,7 +241,8 @@ beyond what the analysis scripts already use.
 | :--- | :--- |
 | `s1.py` | ✅ **landed 25 Aug.** The S1 contract read once — load, delta, minute bars. Not in this table when it was written; the traps have to live somewhere and every file below reads through it. `compute_delta_cvd.py` was folded onto it, which is how it was found that that script read the S1 fixture as zero delta, silently |
 | `strategies/gc.py` | the candidates as data — entry, exit, nothing else |
-| `backtest.py` | ✅ **landed 25 Aug.** One strategy over the month → §4's full metric set. Clock-based horizons, session-bounded windows, `n` and a sub-30 `thin` flag on every summary, and §6.3's side-matched null. **Never yet run on a real strategy** — §6.1 comes first |
+| `backtest.py` | ✅ **landed 25 Aug.** One strategy over the month → §4's full metric set. Clock-based horizons, session-bounded windows, `n` and a sub-30 `thin` flag on every summary, and §6.3's side-matched null. **Never yet run on a real strategy** — §6.1 comes first. **Corrected 27 Aug:** a leg the session cut short was reported as a full-horizon move (2.2% of bars at 30m, all biased toward zero); it is NaN now |
+| `horizon.py` | ✅ **landed 27 Aug.** Not in this table when it was written. Measures what each horizon could *prove* — the kill gate's power, taking no threshold and reading no strategy, which is why it could run before Part B. **Answer: judge Stage 1 at 5 minutes.** GC July is a random walk (σ ∝ √h to 0.1%, overlap ρ matching (h−5)/h), so 30m needs a 2.45× larger edge in ticks for the same significance and returns no structure for it |
 | `regimes.py` | features, clustering, labels |
 | `select.py` | regime→strategy map, plus both nulls |
 | `decision_filter.py` | **§3's seam. Varad authors it. Empty stub until then** |
