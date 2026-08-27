@@ -1,7 +1,12 @@
 """
-Pull one month of GC (COMEX gold futures) and NQ (CME Nasdaq futures) trade
-prints from Databento, collapse to the volume-dominant ("active") contract
-per day, and write two clean Parquet files.
+Pull one month of trade prints from Databento for the roots named by
+--instrument (GC by default), collapse to the volume-dominant ("active")
+contract per day, and write one clean Parquet file per root.
+
+Each root is billed separately, so the flag is what keeps a GC pull from
+also buying NQ -- which the project dropped on 25 Aug 2026. A GC+NQ month
+costs ~$14 and stays under the $30 per-run guard below, so that guard does
+not catch the mistake.
 
 This is a data-acquisition script only: no delta/CVD, no aggregation, no
 charts. That's tomorrow's task.
@@ -12,6 +17,10 @@ USAGE
 
     # 2. Review the printed cost, then actually pull + write parquet.
     python pull_futures_trades.py --run
+
+    # A specific month, into its own directory. out_file is a fixed name
+    # per root, so month-after-month into one --out-dir overwrites.
+    python pull_futures_trades.py --month 2026-01 --out-dir ./data/2026-01 --run
 
 Requires:
     pip install databento pandas pyarrow python-dotenv
@@ -87,10 +96,13 @@ def get_client() -> db.Historical:
     return db.Historical(key)
 
 
-def estimate_cost(client: db.Historical, start: str, end: str) -> float:
+def estimate_cost(
+    client: db.Historical, start: str, end: str, roots: list[str]
+) -> float:
     total = 0.0
     print(f"\nCost estimate for {start} -> {end} (exclusive):")
-    for root, cfg in INSTRUMENTS.items():
+    for root in roots:
+        cfg = INSTRUMENTS[root]
         trades_cost = client.metadata.get_cost(
             dataset=DATASET,
             symbols=[cfg["parent_symbol"]],
@@ -345,6 +357,15 @@ def main() -> None:
         "--out-dir", default="./data", help="Directory to write parquet files into."
     )
     parser.add_argument(
+        "--instrument",
+        nargs="+",
+        choices=list(INSTRUMENTS),
+        default=["GC"],
+        help="Roots to pull. Defaults to GC alone: NQ was dropped from the "
+        "project on 25 Aug 2026, and every root named here is billed "
+        "separately.",
+    )
+    parser.add_argument(
         "--raw-dir",
         default=None,
         help="Directory for the raw DBN cache. Defaults to <out-dir>/raw. "
@@ -384,7 +405,7 @@ def main() -> None:
     print(f"Target month: {label}  ({start} -> {end}, exclusive)")
 
     client = get_client()
-    total_cost = estimate_cost(client, start, end)
+    total_cost = estimate_cost(client, start, end, args.instrument)
 
     if not args.run:
         print(
@@ -405,7 +426,8 @@ def main() -> None:
     raw_dir = Path(args.raw_dir) if args.raw_dir else out_dir / "raw"
     print(f"Raw DBN cache dir: {raw_dir}")
 
-    for root, cfg in INSTRUMENTS.items():
+    for root in args.instrument:
+        cfg = INSTRUMENTS[root]
         raw_df = pull_one_instrument(
             client, root, cfg["parent_symbol"], start, end, raw_dir, label
         )

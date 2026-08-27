@@ -702,6 +702,34 @@ Stage 1 needs an edge 2.45× larger in ticks than at 5 to reach the same signifi
       authors and years are search terms. **Verify each DOI before any of it is quoted to Shreyas or
       a vendor**, and do not let a name in that table become a claim about a feature until it has.
 
+### Day 6 (night, later) — 2026-08-28 · the pull that would also have bought NQ
+
+- [x] **`pull_futures_trades.py` had no instrument filter, and the $30 guard does not catch it.**
+      `estimate_cost` and the run loop both iterated `INSTRUMENTS.items()` — **GC and NQ** — so the
+      six-month pull would have cost **~$83 instead of ~$21**, buying an instrument the project
+      dropped on 25 Aug with "the ~$11.42 stays unspent". The per-run guard is $30 and a GC+NQ month
+      lands near $14, so it passes the check and the money goes quietly. **The docstring still
+      claimed the script always pulls both**, which is what made it look intended.
+- [x] **Fixed: `--instrument`, `nargs="+"`, `choices={GC,NQ}`, default `["GC"]`.** +29/−7.
+      `estimate_cost` now takes the roots it was asked for rather than every root it knows.
+      **72 tests, `ruff` and `mypy` clean, and verified against the live API** — six
+      `--estimate-only` calls printed one `GC` line each and **no `NQ` line**, which is the
+      behaviour the flag exists for. The billed path is exercised by the pull below, not by this.
+- [x] **Six months estimated: $21.12** — Jan $5.51, Feb $3.10, Mar $4.32, Apr $2.73, May $2.65,
+      Jun $2.82, against $125 of unspent free credit. **Above the ~$15 the gate note assumed**; the
+      heavier months are GC's active-month cycle, not an error. Jan–Jun makes **Jan–Jul contiguous**
+      with the month already held.
+- [ ] **⏭ The pull itself is running as this is written and nothing about it is claimed yet.** Row
+      counts, the billed total against the estimate, and — the one genuinely unverified thing —
+      **`collapse_to_active_contract` across six real roll cycles.** It has been checked against one
+      synthetic roll month and one real month (July, which collapsed cleanly to `GCQ6`). Six months
+      crossing several rolls is a different test. **Check the per-month symbol split before any of
+      this data is used.**
+- [ ] **⏭ A second Databento key is now in a chat transcript.** Same failure as #0, five days later
+      and with the first one still open. **Rotate it**, and note that `.env` was written at mode
+      `600` and `git check-ignore` confirms `.gitignore:1` covers it — the file is not the leak, the
+      transcript is.
+
 ---
 
 ## Next
