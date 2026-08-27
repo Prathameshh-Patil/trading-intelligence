@@ -750,6 +750,48 @@ Stage 1 needs an edge 2.45× larger in ticks than at 5 to reach the same signifi
       `600` and `git check-ignore` confirms `.gitignore:1` covers it — the file is not the leak, the
       transcript is.
 
+### Day 6 (night, last) — 2026-08-28 · twelve more months, and the roll chain holds across all of them · [`analysis/gc_data_manifest.md`](../services/signal-data/analysis/gc_data_manifest.md)
+
+- [x] **Jan–Dec 2025 pulled, `exit=0` each, 30,309,969 rows.** $43.08 estimated; running total
+      **$64.20 against $125 of free credit**, ~$61 left. **The local set is now 18 months,
+      44,418,041 trades, 396 sessions, Jan 2025 – Jun 2026 contiguous** — against the 22 sessions
+      every power argument written this morning was computed on.
+- [x] **The roll chain is unbroken across all 17 handoffs, including the year boundary.**
+      `GCG5 → GCJ5 → GCM5 → GCQ5 → GCZ5 → GCG6 → GCJ6 → GCM6 → GCQ6`, roll months carrying two
+      contracts and mid-cycle months one, every month's closing contract opening the next.
+      **`GCZ5` spans four months (Jul–Nov 2025)** — GC's cycle skips V and X, so the long-dated
+      December contract is the least-exercised path in `collapse_to_active_contract`, and it held.
+- [x] **The backup is done and verified.** All 18 parquets copied to
+      `~/Library/Mobile Documents/.../trading-intelligence-data/gc-parquet/`, **351 MB, every file
+      `sha256`-matched against source**. Raw DBN (~1 GB) deliberately not copied: it exists only to
+      avoid re-billing, and the data is re-purchasable. **`analysis/gc_data_manifest.md` is the
+      tracked record** — `data/` is gitignored, so that file is the only committed proof that a
+      result came from a particular month's bytes.
+- [ ] **⏭ `'unknown'` side is a roll-month artifact, and that is a better problem than a drifting
+      one.** Across 18 months the rate is **1.15–5.23%**. Split by month type: **roll months mean
+      3.73%, single-contract months 1.92%** — roughly double. The ranges overlap (2025-08 at 3.63%
+      and 2026-02 at 3.00% both exceed the roll minimum of 2.68%), so this is a strong tendency, not
+      a clean separation. **The plausible mechanism is calendar-spread legs carrying no aggressor
+      side**, which is testable and nobody has tested it. What it means for the `contracts.md`
+      amendment: `'N'` is not noise to be tolerated at a flat rate — **it concentrates exactly in
+      the months where the active contract switches**, so delta is systematically most incomplete
+      when the instrument underneath it is changing.
+- [ ] **⏭ Aggregate power is now fine; per-cell power is not.** 18 months at 50–150 signals/month is
+      ~900–2,700 signals, test half ~450–1,350, which puts the aggregate separable rate at
+      **24.5–26.1%**. But split across 4 strategies × 3 regimes that is **37–112 signals per cell**,
+      and at the pessimistic end a single cell's own separable rate is **~36%**. **The kill gate is
+      now decidable and the selector still is not.** That is a different sentence from this
+      morning's and it should be said out loud on 11 Sep.
+- [ ] **⏭ Three degraded sessions in 2025** — `2025-09-17` (Wed), `2025-09-24` (Wed), `2025-11-28`
+      (Fri, the half session after Thanksgiving). Far fewer than 2026's six. Same decision as those:
+      ruled in or out before they enter a backtest.
+- [ ] **⏭ July 2026 is the one gap in the local set** and it is the month every validated delta
+      number references. $2.52 to pull here, and doing so would **independently reproduce the
+      1,616,772 row count from different hardware** — which is a real check, not just convenience.
+- [ ] **⏭ The iCloud upload is copied but not confirmed landed.** `brctl` reports nothing usable and
+      there are no `.icloud` placeholders. Until Finder shows the upload complete, 351 MB sits on the
+      same `disk3s5` as the original. **Eyeball it before the lid closes.**
+
 ---
 
 ## Next
