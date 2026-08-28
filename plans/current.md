@@ -785,9 +785,18 @@ Stage 1 needs an edge 2.45× larger in ticks than at 5 to reach the same signifi
 - [ ] **⏭ Three degraded sessions in 2025** — `2025-09-17` (Wed), `2025-09-24` (Wed), `2025-11-28`
       (Fri, the half session after Thanksgiving). Far fewer than 2026's six. Same decision as those:
       ruled in or out before they enter a backtest.
-- [ ] **⏭ July 2026 is the one gap in the local set** and it is the month every validated delta
-      number references. $2.52 to pull here, and doing so would **independently reproduce the
-      1,616,772 row count from different hardware** — which is a real check, not just convenience.
+- [x] **July 2026 pulled here, and it reproduced exactly.** **1,616,772 rows and a 48.32 / 47.79
+      aggressor split** — identical to the 24 Aug pull on Prathamesh's machine, four days later on
+      different hardware. 23 sessions. **The local set is now 19 months, 46,034,813 trades, 419
+      sessions, Jan 2025 – Jul 2026 contiguous**, and the chain extends to `… GCM6 → GCQ6 → GCZ6`.
+- [ ] **⏭ The `'N'` amendment is drafted against the wrong number, and it is off by scope not by a
+      little.** `contracts.md` uses **2.34% / 1,811 trades** — that is the **S1 fixture**: one
+      session, 2026-07-16, 77,532 rows. **The full July month is 3.89%.** Worse for the amendment
+      and better for the theory: July is itself a roll month (`GCQ6`→`GCZ6`), and 3.89% lands on the
+      roll-month mean of 3.75% — **an out-of-sample confirmation, since July was not in the 18
+      months that produced that statistic.** The amendment needs a month-scale figure and a
+      roll/non-roll split. Wednesday's standup.
+- [x] **All 19 parquets backed up and `sha256`-verified**, 364 MB in iCloud. Manifest regenerated.
 - [ ] **⏭ The iCloud upload is copied but not confirmed landed.** `brctl` reports nothing usable and
       there are no `.icloud` placeholders. Until Finder shows the upload complete, 351 MB sits on the
       same `disk3s5` as the original. **Eyeball it before the lid closes.**

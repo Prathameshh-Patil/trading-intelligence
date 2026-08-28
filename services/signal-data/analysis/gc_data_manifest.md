@@ -1,8 +1,9 @@
 # GC parquet manifest — what the numbers were computed on
 
-Generated 2026-08-28. `data/` is gitignored, so this file is the only
-tracked record that a given month's parquet is the one a result came from. **Re-pulling from
-Databento and getting a different `sha256` means the data moved, not the code.** Verify with:
+Generated 2026-08-28. **19 months, 46,034,813 trades, 419 sessions,
+Jan 2025 – Jul 2026 contiguous.** `data/` is gitignored, so this file is the only tracked record that
+a given month's parquet is the one a result came from. **Re-pulling from Databento and getting a
+different `sha256` means the data moved, not the code.**
 
 ```sh
 cd services/signal-data
@@ -10,7 +11,7 @@ shasum -a 256 data/2026-01/gc_trades.parquet   # compare against the table below
 ```
 
 Backup: parquets only, `~/Library/Mobile Documents/com~apple~CloudDocs/trading-intelligence-data/gc-parquet/`,
-all 18 verified by `sha256` against source on 2026-08-28. The raw DBN cache is **not** backed up —
+all 19 verified by `sha256` against source on 2026-08-28. The raw DBN cache is **not** backed up —
 it exists only to avoid re-billing, and the data is re-purchasable.
 
 | month | rows | sessions | `unknown` | contracts | bytes | sha256 (first 16) |
@@ -33,34 +34,36 @@ it exists only to avoid re-billing, and the data is re-purchasable.
 | 2026-04 | 1,958,866 | 22 | 1.70% | `GCM6` | 16,037,939 | `88316030271c759d` |
 | 2026-05 | 1,721,952 | 22 | 3.40% | `GCM6·GCQ6` | 14,318,823 | `9f936b97febdecd6` |
 | 2026-06 | 2,009,642 | 23 | 1.74% | `GCQ6` | 16,845,857 | `45601f125a3722f8` |
-| **total** | **44,418,041** | **396** | | | | |
+| 2026-07 | 1,616,772 | 23 | 3.89% | `GCQ6·GCZ6` | 13,574,092 | `45947e88eb20f414` |
+| **total** | **46,034,813** | **419** | | | | |
 
-## Full digests
+## The roll chain
+
+Unbroken across every handoff. GC's active cycle is Feb/Apr/Jun/Aug/Dec — it skips V and X, which is
+why `GCZ5` spans four months and is the least-exercised path through `collapse_to_active_contract`.
 
 ```
-1d84c0b8c7ab884d5b4ff1fd2c89c86982ac5ac1caa5751d790a925752ccd413  data/2025-01/gc_trades.parquet
-01bbd6aa7872234113f031d977611750b4e6bc6cffa1bd795bb5ce7e868734ee  data/2025-02/gc_trades.parquet
-7f4b7330067fd051ce74dcfa0761f526b13bee1ea26e5a02fc6356c08feb5e37  data/2025-03/gc_trades.parquet
-88c0edb86d59a461f00150b23d27570cc8c967488adf065bd8a557c1f5fd84c1  data/2025-04/gc_trades.parquet
-12db1e02f6767c9970e5b203bc70c2b3ca5f95d7d3112c77a5fabab80dc3b76c  data/2025-05/gc_trades.parquet
-dc21ffb308001ef491115d86e3dbc59cfcc92369bcd9653767b56c5a653eb81d  data/2025-06/gc_trades.parquet
-47cda468ef5e4510e84b63d33acb198a7de93635f5f73243c99adcfae58879d3  data/2025-07/gc_trades.parquet
-10c3b831d0f87eec8a21e3f47773abc4196b950ac2bf4831101289719d0764ef  data/2025-08/gc_trades.parquet
-2848652fc56e2cacb8171d2523b8618cbfe5fb7423ecfff6465f877ed4105687  data/2025-09/gc_trades.parquet
-d4aa690ce55640f92f2ead4cc8ed65cb3c97721d28e3a7ec3363598bf4da891e  data/2025-10/gc_trades.parquet
-8d0f5dc2f2985db0a60602a486cbb99410f81773158c3ec23e8b3184bf2b6b8b  data/2025-11/gc_trades.parquet
-9e501ec49fdd7b40d30cf64547d45e504087726f1f540d721a647362bd137051  data/2025-12/gc_trades.parquet
-620d0f2fd6f318698724969d24c39dd66276c7608565bed04dc56dabeb217c80  data/2026-01/gc_trades.parquet
-d442ba7d228f61ef0b667924be89c466a418c591547588b98e9befb71db8e015  data/2026-02/gc_trades.parquet
-b13aca31e813628ce4b6b6d6a75079f21b9225a903860392ffd71604807990c7  data/2026-03/gc_trades.parquet
-88316030271c759d6f311228fd875dbc120f4c2e42199062551e3a8b636f523c  data/2026-04/gc_trades.parquet
-9f936b97febdecd698a720a13679faf93378962aa77755559de856556c7567fd  data/2026-05/gc_trades.parquet
-45601f125a3722f877f36c461875809563cf8f9b9fb14503ac0729a0ed481d8e  data/2026-06/gc_trades.parquet
+GCG5 → GCJ5 → GCM5 → GCQ5 → GCZ5 → GCG6 → GCJ6 → GCM6 → GCQ6 → GCZ6
 ```
 
-## Not in this table
+Roll months carry two contracts, mid-cycle months one, and each month's closing contract opens the
+next.
 
-**July 2026** — 1,616,772 rows, pulled 24 Aug on Prathamesh's machine and never copied here. It is
-the month every validated delta number references, and it is the one gap in an otherwise contiguous
-Jan 2025 – Jun 2026 local set. Re-pulling it here costs $2.52 and would independently reproduce a
-row count computed on different hardware.
+## `unknown` aggressor side is a roll-month artifact
+
+Roll months (n=9) mean **3.75%**; single-contract months (n=10) mean **1.92%**.
+Full range 1.15–5.23%. The ranges overlap, so this is a tendency, not a
+separation. Plausible mechanism: **calendar-spread legs carry no aggressor side** — testable, untested.
+Those rows cannot be signed and contribute nothing to delta or CVD, so **delta is least complete
+exactly when the active contract is switching.**
+
+**The `contracts.md` amendment for `'N'` is drafted against the wrong number.** Its 2.34% / 1,811
+trades is the *S1 fixture* — one session, 2026-07-16, 77,532 rows. The full July 2026 month is
+**3.89%**, and July is itself a roll month (`GCQ6`→`GCZ6`), landing on the roll-month mean. The
+amendment needs a month-scale figure and a roll/non-roll split, not a single session's.
+
+## Provenance note
+
+July 2026 was pulled twice: 24 Aug on Prathamesh's machine, and 28 Aug here. **Both produced
+1,616,772 rows with a 48.32 / 47.79 aggressor split** — identical on different hardware, days apart.
+That is an independent reproduction of the month every validated delta number references.
