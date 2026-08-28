@@ -92,6 +92,30 @@ trades, 2.34%, 2,271 contracts of volume** — where no aggressor was disseminat
 off-book). **This contract's own row count of 77,532 already includes them**, so the count and the
 type as written cannot both be true.
 
+**Those three numbers describe this fixture — one session, 2026-07-16 — and nothing wider.** The
+rate is not a constant, and the first draft of the wording below generalised it to "~2.3% of
+trades", which is false at month scale. Measured across **19 months, Jan 2025 – Jul 2026,
+46,034,813 trades** (`services/signal-data/analysis/gc_data_manifest.md`):
+
+| scope | `'N'` rate |
+| :--- | ---: |
+| this fixture, 2026-07-16 | 2.34% |
+| July 2026, full month | **3.89%** |
+| 19-month range | **1.15% – 5.23%** |
+| roll months (two contracts), n=9 | mean **3.75%** |
+| single-contract months, n=10 | mean **1.92%** |
+
+**`'N'` concentrates in roll months at roughly double the mid-cycle rate.** The ranges overlap —
+2025-08 at 3.63% and 2026-02 at 3.00% both clear the roll minimum of 2.68% — so this is a strong
+tendency, not a separation. The plausible mechanism is **calendar-spread legs carrying no aggressor
+side**, which is testable and has not been tested. July 2026 is itself a roll month (`GCQ6`→`GCZ6`)
+and its 3.89% lands on the roll-month mean; it was not among the months that produced that mean, so
+that is an out-of-sample fit rather than a fitted one.
+
+**Why this matters more than the number:** unsigned rows contribute nothing to delta or CVD, so
+**delta is least complete exactly when the active contract underneath it is switching.** A flat
+"~2.3%, tolerable" reading hides that entirely.
+
 Consequences if a consumer takes `'B' | 'A'` literally:
 
 ```
@@ -102,11 +126,19 @@ df.groupby("aggressor_side")                  ->  3 groups, not 2
 **Drafted wording, so standup is a yes/no and not a discussion:**
 
 > `aggressor_side   category  'B' | 'A' | 'N'` — `N` means no aggressor was disseminated (auction,
-> implied, off-book). It is ~2.3% of trades and **contributes 0 to delta**. Consumers must handle
-> it explicitly; it is never silently dropped.
+> implied, off-book). It **contributes 0 to delta** and its share is **not constant**: 1.15–5.23%
+> across Jan 2025 – Jul 2026, averaging **3.75% in roll months against 1.92% in mid-cycle months**.
+> Consumers must handle it explicitly; it is never silently dropped. **Any consumer reporting delta
+> must report the `'N'` share alongside it**, because the months where delta is least complete are
+> the months where the active contract changes.
 
 Keeping the rows is the right resolution: dropping them would make volume stop reconciling and would
 mean consumers never learn `N` exists until they hit live data.
+
+**Still not applied — this remains a proposal, and the vote is unchanged.** What changed on 28 Aug is
+the evidence behind it: the wording now carries a 19-month distribution instead of one session's
+rate, and one sentence was added requiring consumers to report the `'N'` share next to delta. The
+amendment itself is still Wednesday's yes/no.
 
 ### Three traps already found here, worth not re-discovering
 

@@ -789,9 +789,10 @@ Stage 1 needs an edge 2.45× larger in ticks than at 5 to reach the same signifi
       aggressor split** — identical to the 24 Aug pull on Prathamesh's machine, four days later on
       different hardware. 23 sessions. **The local set is now 19 months, 46,034,813 trades, 419
       sessions, Jan 2025 – Jul 2026 contiguous**, and the chain extends to `… GCM6 → GCQ6 → GCZ6`.
-- [ ] **⏭ The `'N'` amendment is drafted against the wrong number, and it is off by scope not by a
-      little.** `contracts.md` uses **2.34% / 1,811 trades** — that is the **S1 fixture**: one
-      session, 2026-07-16, 77,532 rows. **The full July month is 3.89%.** Worse for the amendment
+- [x] **`contracts.md`'s `'N'` wording fixed — the defect was the generalisation, not the figure.**
+      Its **2.34% / 1,811 trades** is correct *for the S1 fixture*: one session, 2026-07-16, 77,532
+      rows. The drafted amendment then generalised it to "~2.3% of trades", **and that is false at
+      month scale — the full July month is 3.89%.** Worse for the amendment
       and better for the theory: July is itself a roll month (`GCQ6`→`GCZ6`), and 3.89% lands on the
       roll-month mean of 3.75% — **an out-of-sample confirmation, since July was not in the 18
       months that produced that statistic.** The amendment needs a month-scale figure and a
