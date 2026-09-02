@@ -802,6 +802,33 @@ Stage 1 needs an edge 2.45× larger in ticks than at 5 to reach the same signifi
       there are no `.icloud` placeholders. Until Finder shows the upload complete, 351 MB sits on the
       same `disk3s5` as the original. **Eyeball it before the lid closes.**
 
+### Gap — 2026-09-02 · three of the four Friday prep items, done three days into the gap · [`daily_updates/2026-09-02.md`](../daily_updates/2026-09-02.md)
+
+**Not a Week 1 day.** 5–11 Sep is still the plan; this is Claude picking up part of Prathamesh's
+28 Aug prep list from `week-01.md` §1, which had not actually been started. **The Week 0 gate itself
+did not happen** — the S1 `'N'` amendment is still an unvoted proposal, the Anthropic key is still
+live, Part B is still empty, and no human checked Firefox, took the Tauri screenshot, sent the vendor
+emails, or booked the CA call. None of that is closed by anything below.
+
+- [x] **`analysis/regimes_2026-09-02/` regenerated** — the four-feature, straddle-fixed rerun that
+      `week-01.md` D1 needs and calls "the hard blocker." Landed under a new directory, `analysis/
+      regimes/` untouched, per §6.2. Split 15.4% / 21.5% / 63.0% across 3 regimes, median run 7 bars
+      (35 min), 9.5% flip rate. **Not reviewed against the plot by a second person** — that's still
+      Varad's/the room's call, including whether to promote it over the stale directory.
+- [x] **`export_fixture_json.py` written and run** — `apps/desktop/public/fixtures/
+      gc_ticks_1session.json`, 77,532 raw ticks, 4.8 MB, fetchable by `engine/mock.ts` on W1D2.
+      Deliberately left `aggressor_side` as `'B'/'A'/'N'` rather than mapping it into S2's `Side`
+      type — that mapping is mock.ts's decision, not this script's.
+- [x] **Fresh-clone check re-run** — scratch clone, `pnpm install` → `pnpm build:all` (3/3 projects
+      clean) → `cargo build` (clean, 38s cold). `pytest`: 72/72. Nothing regressed since 28 Aug.
+- [x] **`FeedCreds` checked, not changed** — already defined in `types.ts` (`10ed7c5`, 25 Aug) as a
+      `{ vendor: string; [field]: string }` bag. The file's own comment says "left open," which reads
+      as a contradiction until you notice it means *no vendor-specific fields pinned yet*, not
+      *undefined*. Good enough to freeze; no edit made.
+- [ ] **Not touched, deliberately:** the S1 vote, the Anthropic key, and `thresholds_selector.md`
+      Part B. A prior Claude session already declined to fill Part B in — "a threshold picked by an
+      assistant is not a commitment by the person with the bias" — and that reasoning held here too.
+
 ---
 
 ## Next

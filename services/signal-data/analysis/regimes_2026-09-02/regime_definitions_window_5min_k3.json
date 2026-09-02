@@ -1,0 +1,104 @@
+{
+  "generated_at": "2026-09-02T06:15:02.289500+00:00",
+  "spec": "docs/superpowers/specs/2026-08-25-gc-strategy-selector-design.md",
+  "parquet": "data/gc_trades.parquet",
+  "bar_size": "5min",
+  "window_bars": 12,
+  "vol_window_minutes": 30,
+  "level": "window",
+  "k": 3,
+  "split_date": "2026-07-19",
+  "walk_forward_safe": true,
+  "include_session_phase_in_clustering": false,
+  "random_state": 0,
+  "dwell_lambda": 0.5,
+  "feature_cols": [
+    "realized_vol",
+    "cvd_slope",
+    "cvd_persistence",
+    "price_efficiency"
+  ],
+  "n_labelled": 6023,
+  "n_fit": 3373,
+  "silhouette": {
+    "2": 0.23922261878059847,
+    "3": 0.2970794593587957
+  },
+  "scaler_mean": [
+    0.00035690864957598753,
+    -0.9751751361594244,
+    0.3694211494201458,
+    0.4083968508644191
+  ],
+  "scaler_scale": [
+    0.0002118295779486853,
+    27.38412970599786,
+    0.24758669974013636,
+    0.2423735042183373
+  ],
+  "cluster_centers_standardized": [
+    [
+      0.5514231767680531,
+      1.3372013033772965,
+      0.977852264309997,
+      0.40362972302892874
+    ],
+    [
+      0.1483137487223703,
+      -1.1712995694751764,
+      0.9212575789370491,
+      0.539036682131339
+    ],
+    [
+      -0.1954098158053853,
+      0.03596782034729521,
+      -0.5657335356428396,
+      -0.286391190294411
+    ]
+  ],
+  "regime_summary": [
+    {
+      "regime": 0,
+      "n": 930,
+      "pct": 15.4,
+      "realized_vol_med": 0.000357,
+      "cvd_slope_med": 27.566,
+      "cvd_persistence_med": 0.612,
+      "price_efficiency_med": 0.54,
+      "pct_asia": 39.4,
+      "pct_london": 16.8,
+      "pct_ny": 43.9
+    },
+    {
+      "regime": 1,
+      "n": 1296,
+      "pct": 21.5,
+      "realized_vol_med": 0.000316,
+      "cvd_slope_med": -26.668,
+      "cvd_persistence_med": 0.613,
+      "price_efficiency_med": 0.539,
+      "pct_asia": 32.6,
+      "pct_london": 23.2,
+      "pct_ny": 44.2
+    },
+    {
+      "regime": 2,
+      "n": 3797,
+      "pct": 63.0,
+      "realized_vol_med": 0.000275,
+      "cvd_slope_med": -0.199,
+      "cvd_persistence_med": 0.206,
+      "price_efficiency_med": 0.341,
+      "pct_asia": 37.4,
+      "pct_london": 24.3,
+      "pct_ny": 38.3
+    }
+  ],
+  "persistence": {
+    "n_runs": 574,
+    "median_bars": 7.0,
+    "longest_bars": 68,
+    "flip_pct": 9.5
+  },
+  "spec_deviation": "\u00a72's feature table defines directional efficiency as abs(CVD)/price range, citing a 0.90 that was in fact produced by abs(close-open)/range on price alone. Resolved 2026-08-26: price_efficiency is the Kaufman ratio, dimensionless and bounded in [0, 1]. The spec's formula was dropped as a redundancy -- its order-flow counterpart is cvd_persistence, with which it correlated at r = 0.803 over the July labels."
+}
