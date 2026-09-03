@@ -2,13 +2,21 @@
 
 Week 1 D1, `plans/team/week-01.md` §3. Four gates, ANDed:
 
-  * the bar's regime survives the horizon it would be traded over,
+  * the bar's regime is persistent ABOVE ITS OWN BASE RATE (kappa),
   * there is enough range to pay for a stop (ATR),
   * the bar is not in the opening or closing minutes of its session,
   * price and its own trend agree.
 
 **No threshold here has a default**, for the reason `strategies.py` has none:
 a number chosen while looking at the answer is not a filter, it is a fit.
+
+**The regime gate is kappa, not raw survival, and that is a correction.** D1
+specified `survival >= 0.92`. Reviewed against the plot on 2026-09-04, raw
+survival turned out to select on *prevalence*: a regime holding 63% of bars
+scores 0.63 by shuffling alone, so the threshold kept the one regime with no
+directional flow and dropped both that had it. Normalised for base rate the
+ranking inverts -- the two flow regimes are the MORE persistent ones. The 0.92
+number is retired; see `analysis/regimes_2026-09-02/README.md`.
 
 The survival table is an *argument*, not something this module computes for
 itself. It is the only quantity here that reads forward, so fitting it belongs
@@ -83,11 +91,28 @@ def session_interior(bars: pd.DataFrame, *, edge_minutes: int) -> pd.Series:
     return (t >= g.transform("min") + edge) & (t <= g.transform("max") - edge)
 
 
+def regime_kappa(bars: pd.DataFrame, *, horizon_bars: int) -> pd.Series:
+    """Persistence above what the regime's own base rate already buys.
+
+    `(P(stay) - share) / (1 - share)`, which is Cohen's kappa against a
+    shuffled-label null. Raw survival is not comparable across regimes of
+    different size: a state occupying 63% of bars scores 0.63 by chance and a
+    state occupying 15% scores 0.15, so an absolute threshold on survival is a
+    threshold on prevalence wearing a different name.
+
+    A single-regime frame has no base rate to beat and comes back NaN rather
+    than dividing by zero -- which fails closed at the gate, correctly.
+    """
+    surv = regime_survival(bars, horizon_bars=horizon_bars)
+    share = bars["regime"].value_counts(normalize=True).reindex(surv.index)
+    return (surv - share) / (1 - share).where(share < 1)
+
+
 def passes(
     bars: pd.DataFrame,
     *,
-    survival: pd.Series,
-    survival_min: float,
+    kappa: pd.Series,
+    kappa_min: float,
     atr_window: str,
     atr_min_bars: int,
     atr_min: float,
@@ -97,11 +122,11 @@ def passes(
     """The four gates, ANDed. True means the bar is worth signalling on.
 
     Every gate fails closed. NaN compares False throughout, so a bar with no
-    trailing context, no regime label, or a regime missing from the survival
+    trailing context, no regime label, or a regime missing from the kappa
     table is dropped rather than passed on a missing value.
     """
     return (
-        (bars["regime"].map(survival) >= survival_min)
+        (bars["regime"].map(kappa) >= kappa_min)
         & (atr(bars, window=atr_window, min_bars=atr_min_bars) >= atr_min)
         & trend_aligned(bars, span=ema_span)
         & session_interior(bars, edge_minutes=edge_minutes)

@@ -56,6 +56,29 @@ def test_an_unlabelled_bar_never_passes() -> None:
     assert not gate.any()
 
 
+def test_kappa_does_not_reward_a_regime_for_being_common() -> None:
+    # The correction of 2026-09-04, in miniature: a common regime interleaved
+    # with two rare ones that never transition into each other -- the real
+    # structure of regimes_2026-09-02. Raw survival ranks the common regime
+    # above rare regime 0 purely on prevalence. Kappa reverses that.
+    #
+    # A two-regime example cannot show this: for a two-state chain kappa is
+    # symmetric by identity, so it takes three.
+    labels = ([2.0] * 8 + [0.0] * 6 + [2.0] * 8 + [1.0] * 6) * 2
+    bars = with_regime(bars_at(list(range(len(labels))), [100.0] * len(labels)), labels)
+    surv = rf.regime_survival(bars, horizon_bars=1)
+    kap = rf.regime_kappa(bars, horizon_bars=1)
+    assert surv.loc[2.0] > surv.loc[0.0], "raw survival favours the common regime"
+    assert kap.loc[0.0] > kap.loc[2.0], "kappa reverses it once base rate is removed"
+
+
+def test_kappa_is_nan_when_there_is_no_base_rate_to_beat() -> None:
+    # One regime over the whole frame: share is 1.0, there is nothing to beat,
+    # and 1 - share is zero. NaN, not inf -- and NaN fails closed at the gate.
+    bars = with_regime(bars_at(list(range(6)), [100.0] * 6), [0.0] * 6)
+    assert rf.regime_kappa(bars, horizon_bars=1).isna().all()
+
+
 # --------------------------------------------------------------------------
 # Gate 3 -- EMA trend alignment
 # --------------------------------------------------------------------------
@@ -128,8 +151,8 @@ def test_every_gate_can_veto_alone() -> None:
         [0.0] * n,
     )
     kw = {
-        "survival": pd.Series({0.0: 0.95}),
-        "survival_min": 0.92,
+        "kappa": pd.Series({0.0: 0.85}),
+        "kappa_min": 0.75,
         "atr_window": "10min",
         "atr_min_bars": 5,
         "atr_min": 10.0,
@@ -139,7 +162,7 @@ def test_every_gate_can_veto_alone() -> None:
     base = rf.passes(bars, **kw)  # type: ignore[arg-type]
     assert base.iloc[10:25].all(), "a rising, wide, mid-session, surviving bar passes"
 
-    assert not rf.passes(bars, **{**kw, "survival_min": 0.99}).any()  # type: ignore[arg-type]
+    assert not rf.passes(bars, **{**kw, "kappa_min": 0.99}).any()  # type: ignore[arg-type]
     assert not rf.passes(bars, **{**kw, "atr_min": 999.0}).any()  # type: ignore[arg-type]
     assert not rf.passes(bars, **{**kw, "edge_minutes": 60}).any()  # type: ignore[arg-type]
 
@@ -158,7 +181,7 @@ def test_every_gate_can_veto_alone() -> None:
     assert rf.passes(falling, **kw).iloc[10:25].all()  # type: ignore[arg-type]
 
 
-def test_a_regime_missing_from_the_survival_table_fails_closed() -> None:
+def test_a_regime_missing_from_the_kappa_table_fails_closed() -> None:
     n = 30
     bars = with_regime(
         bars_at(list(range(n)), [100.0 + i for i in range(n)], ranges=[2.0] * n),
@@ -166,8 +189,8 @@ def test_a_regime_missing_from_the_survival_table_fails_closed() -> None:
     )
     keep = rf.passes(
         bars,
-        survival=pd.Series({0.0: 0.95}),
-        survival_min=0.92,
+        kappa=pd.Series({0.0: 0.85}),
+        kappa_min=0.75,
         atr_window="10min",
         atr_min_bars=5,
         atr_min=10.0,

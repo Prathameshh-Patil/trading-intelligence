@@ -1099,6 +1099,36 @@ across 24 files.
       might assume it is.** If D3 wants the mean-reversion reading, it needs a shorter anchor (RTH, or
       a rolling window) and that is a decision, not a parameter tweak.
 
+### Review — 2026-09-04 · the regime plot, and `survival >= 0.92` was measuring prevalence · [`regimes_2026-09-02/README.md`](../services/signal-data/analysis/regimes_2026-09-02/README.md)
+
+D1's gate was accepted on its face this morning and flagged as "Varad's call". Reviewed against the
+plot before D3 consumes it, which was the right order and had been skipped. **99 tests green** (97
+before), `ruff` and `mypy` clean.
+
+- [x] **The finding: raw survival selects on base rate, not stability.** A regime holding 63% of bars
+      scores 0.63 by shuffling alone. Normalised — `kappa = (P(stay) − share) / (1 − share)` — the
+      ranking **inverts**: r0 **0.842**, r1 **0.833**, r2 **0.798**. The two flow regimes are the
+      *more* persistent ones.
+- [x] **Regimes 0 and 1 are not unstable, and the transition matrix proves it.** `0→1` is **0.0043**
+      and `1→0` is **0.0023** — the directional regimes essentially never flip into each other. They
+      decay into 2 and return. No churn between opposite flows, which is the one thing that would have
+      justified excluding them.
+- [x] **Nor are they high-variance.** `price_efficiency` sd is **0.243 / 0.233 / 0.230** — identical
+      across all three. `cvd_persistence` sd 0.200 / 0.191 / 0.153. Regime 2 is the residual bucket:
+      `cvd_persistence` 0.206 against 0.61, `cvd_slope` −0.199 ± 11.4, which is noise around zero.
+- [x] **`survival >= 0.92` is retired**, recorded in `regimes_2026-09-02/README.md`. The gate is now
+      **kappa**, with `regime_survival()` kept as the raw input and reportable diagnostic.
+- [ ] **⚠️ D1's number changes, and this is the honest version.** All three regimes clear
+      `kappa >= 0.75`, so **on this labelling the regime dimension carries no filtering information at
+      all.** At the same `atr_min = 40` the filter now passes **2,409 of 6,276 bars — 38.4%**, above
+      D1's 15–25% band. The previously logged 19.9% is superseded.
+- [ ] **⚠️ The filter is now three gates, and ATR carries nearly all of it.** Reaching the band needs
+      `atr_min ≈ 50` (22.4%), which is the "threshold chosen with the answer in view" problem again and
+      now with nothing else sharing the load. **Whether to raise `atr_min`, accept 38.4%, or find a
+      fourth gate that is not ATR is open, and it is a threshold decision.**
+- [ ] **The labels are still not hand-checked per §6.2 and still not promoted** over `analysis/regimes/`.
+      This review covered the plot and the transition structure only.
+
 ---
 
 ## Next
