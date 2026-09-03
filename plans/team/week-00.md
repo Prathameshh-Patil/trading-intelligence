@@ -278,8 +278,13 @@ nothing). Nothing to do; noting it so nobody goes looking.
 - [x] **Reference validation closed** — `c504e50`, quote-rule cross-check, not a charting platform.
       *Residual: session-total delta is method-dependent at ~15–20%; direction and shape are robust*
 - [ ] **The Anthropic key revoked** — it was in a chat transcript, and nothing depends on it now
-- [ ] A real Tauri window, seen with human eyes, screenshotted
-- [ ] The extension confirmed working in Chrome **and** Firefox
+- [x] A real Tauri window, seen with human eyes, screenshotted — **done 3 Sep**, see
+      [`daily_updates/2026-09-03.md`](../../daily_updates/2026-09-03.md). Only the home view was
+      checked; the other five and console errors are still unverified
+- [x] The extension confirmed working in Chrome **and** Firefox — **reported done ~28 Aug or
+      before** (Prathamesh), capture verified end-to-end in both real profiles with the rebuilt
+      `955b374` code. Not contemporaneously logged — no commit, daily update, or screenshot from
+      the time backs this, so treat it as reported rather than independently verified
 - [x] **The analysis backend decided** — our own model (25 Aug). *No live analysis returns; that
       moves to whenever the model lands, and the four-key contract is what makes the wait safe*
 - [ ] The own model scoped, and given a week in this schedule
