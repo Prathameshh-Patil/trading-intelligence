@@ -913,12 +913,17 @@ finding two bugs**, both of which would have survived into `real.ts`.
       the fixture, so overlapping connects each started a chain; the orphaned one kept emitting and
       reset the state to `live`. **That is why `goStale()`/`drop()` appeared to do nothing through
       three rounds of investigation.** Fixed with a generation counter and a memoised load.
-- [ ] **The 7-digit CVD mode is implemented but unphotographed** — four capture attempts lost to
-      display sleep and Space switching. The field carries `tabular-nums`/`nowrap`/ellipsis so it is
-      guarded by construction, but that is not the same as seen.
-- [ ] **Nothing was clicked, again.** The five mock controls were fired programmatically; the
-      buttons themselves are unproven. One Accessibility grant closes this and W1D1's navigation gap
-      together.
+- [x] **The 7-digit CVD mode — closed on Prathamesh's account, tapped on-device.** Four of Claude's
+      own capture attempts were lost to display sleep and Space switching; Prathamesh then tapped the
+      button directly and reported it rendered without breaking the layout, for the ~1s before the
+      next replayed bar overwrote it (designed behaviour, not a bug). Not independently
+      screenshotted — same treatment as row #2/#8, closed on account rather than a logged artefact.
+      **First button in either app anyone has actually clicked**, since Claude's own testing is all
+      programmatic (Accessibility ungranted).
+- [ ] **The other four mock controls, and the rest of the UI, remain unclicked.** The six home
+      tiles, back button, drag region and `goStale`/`drop`/`resume`/`40-char symbol` were all fired
+      programmatically by Claude. One Accessibility grant on Claude's environment — or Prathamesh
+      working through the rest by hand — closes this and W1D1's navigation gap together.
 - [ ] **⚠️ There is still no JS test runner in this workspace.** The reconciliation was verified by
       compiling `barTicks` standalone under Node — real and repeatable, but not committed and not in
       any CI. Adding `vitest` is a lockfile change, which the standing constraints say earns its own
