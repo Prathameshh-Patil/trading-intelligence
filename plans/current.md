@@ -930,6 +930,35 @@ finding two bugs**, both of which would have survived into `real.ts`.
       reviewed commit, so it was not smuggled in. **Weeks 1–3 are all UI work against this fake and
       it has no tests** — a decision, not a silent gap.
 
+### Day 7 (evening) — 2026-09-03 · Part B's factual fields, and a bar-range number that moves D4 · [`daily_updates/2026-09-03.md`](../daily_updates/2026-09-03.md)
+
+Asked for the **factual** half of `thresholds_selector.md` Part B only. **No threshold, hit rate,
+realized move, delta statistic, kill criterion or prediction was written** — third session in a row
+to stop at that line, on the file's own reasoning. Part B still gates every backtest; what changed is
+that filling it is now writing numbers, not also assembling provenance.
+
+- [x] **The four blocks' `Data:` lines are filled**, plus a shared provenance table: July 2026,
+      **23 sessions, 6,276 five-minute bars**, `data/2026-07/gc_trades.parquet` **re-hashed today**
+      and matching `gc_data_manifest.md` (`45947e88eb20f414…`). Roll month, so the `'N'` rate is the
+      month's **3.89%**, not the fixture session's 2.34%.
+- [x] **Label coverage and the walk-forward split written down** — `regimes_2026-09-02` labels
+      **6,023 of 6,276** bars (the 253 gaps are session openings with no trailing window). Split
+      **≤ 19 Jul → 13 sessions / 3,373 bars; after → 10 sessions / 2,650**. Stage 1 fits nothing, so
+      this is for D5 and Stage 2, and it is recorded rather than used.
+- [x] **`week-01.md` §2's power table sits next to the line it constrains**, so "minimum sample size
+      before I believe any of it" cannot be written as 30 next to a 26% hit-rate commitment.
+- [x] **Measured, because D1 was told to and it is scale rather than outcome: the median 5-minute bar
+      range is 38 ticks** (p25 27, p75 55). The file carried **15**, which is the *minute*-bar figure.
+      **The 20-tick stop is 0.53× a median bar** — inside the bar it is measured on. That answers D1's
+      "is Day 4 even well-posed" question with **not at bar resolution**, so D4's tick-resolution run
+      on the fixture is load-bearing, not a formality. It also loosens the `absorption_fade`
+      time-bar proxy the two-decisions note reasons about, rather than tightening it.
+- [ ] **Both regime READMEs print `--parquet data/gc_trades.parquet`, a path gone since the 28 Aug
+      reorg** to `data/<YYYY-MM>/`. The command as printed does not run. **Left uncorrected** — what
+      the 2 Sep run actually read is Prathamesh's to confirm, not something to assert on his behalf.
+- [ ] **Still Varad's, still blocking D3 (Mon 7 Sep):** every `<...>` in Part B, and
+      `plans/team/varad/thresholds.md`, whose own header made it due this morning.
+
 ---
 
 ## Next

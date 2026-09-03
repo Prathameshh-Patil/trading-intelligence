@@ -112,7 +112,8 @@ Two things to settle **before** any number, because both change what is being th
    classically size stacking at one price and failing to break it, and `compute_delta_cvd.py`'s
    `footprint()` already aggregates by price level. `|delta| / bar range` is a proxy, and at a
    median bar range of **15 ticks** it is a loose one. This one may delete the rule rather than
-   tune it.
+   tune it. *(Measured 3 Sep: 15 ticks is the **minute**-bar figure. The 5-minute median is
+   **38 ticks** — see "Scale" below, which makes the proxy looser here, not tighter.)*
 
 **Which candidates actually inherit the ±15–20% delta error** (measured 26 Aug, asserted in
 `tests/test_stage1.py`) — this decides how much A5's output means for each:
@@ -124,11 +125,86 @@ Two things to settle **before** any number, because both change what is being th
 | `absorption_fade` | `min_ratio`, `min_delta` | **Yes** — both are in contracts |
 | `footprint_stack` | `ratio`, `min_stack` | **No.** A volume ratio scales on both sides |
 
+---
+
+### The factual fields, filled — 2026-09-03
+
+**Every number in this section is provenance or scale.** Not one of them is a threshold, a hit
+rate, a realized move, or a delta statistic — those stay blank, because seeing them before you
+commit is the exact failure `plans/team/varad/thresholds.md` exists to prevent. What is filled is
+only what you need in order to *state* a commitment at all: which bytes it is a commitment about,
+how many independent observations they can carry, and how big a tick is next to a bar.
+
+#### Data — identical for all four blocks
+
+| | |
+| :--- | :--- |
+| Month | **2026-07-01 → 2026-07-31**, **23 sessions** |
+| Parquet | `data/2026-07/gc_trades.parquet` — 1,616,772 trades, `sha256` `45947e88eb20f414…`, **re-verified 3 Sep** against `analysis/gc_data_manifest.md` |
+| Contract | `GCQ6·GCZ6` — **July is a roll month**, so it carries the roll-month `'N'` rate, not the quiet-month one |
+| `'N'` aggressor | **3.89% of the month**, against 2.34% in the S1 fixture session. Roll months average 3.75%, single-contract months 1.92%. Delta is least complete exactly here |
+| Bars | **6,276** five-minute bars (`analysis/regimes_2026-09-02/regime_labels_window_5min_k3.csv`, 6,277 lines with header) |
+| Regime labels | `analysis/regimes_2026-09-02/` — the 4-feature, straddle-fixed run. **6,023 of 6,276 bars labelled**; the 253 unlabelled are session-opening bars with no trailing window yet |
+| Walk-forward | **n/a for Stage 1** — nothing is fitted, so all 23 sessions are one sample. The split exists for Stage 2 and Week 1 D5: **≤ 2026-07-19 → 13 sessions / 3,373 labelled bars; > 2026-07-19 → 10 sessions / 2,650**. `dcbde04` cuts it on the session, not the ET calendar date |
+| Tick | 0.10 = **$10.00 per contract**. Units are ticks with $/contract alongside, never pips (A7) |
+
+⚠️ **Both regime READMEs still print `--parquet data/gc_trades.parquet`.** That path has not existed
+since the 28 Aug 19-month reorg moved every month under `data/<YYYY-MM>/`. The command as written
+does not run; the file it means is the one in the table above, and its hash matches. Left uncorrected
+here on purpose — what the 2 Sep run actually read is Prathamesh's to confirm, not mine to assert.
+
+#### Scale — and it changes whether Day 4 is well-posed
+
+**The median 5-minute bar range is 38 ticks** (p25 27, p75 55, mean 45.4), measured over all 6,276
+bars of the month. This file's **15 ticks is a *minute*-bar figure**, and §"the two decisions"
+above reasons about `absorption_fade` with it — at 5-minute bars the proxy is looser than that note
+assumes, not tighter.
+
+Against 38 ticks, `planfortoday.md`'s pair sits like this:
+
+| | ticks | vs median 5-min bar |
+| :--- | ---: | ---: |
+| Stop | 20 | **0.53×** — half a bar |
+| Target | 70 | 1.8× |
+
+**A stop at half the median bar is inside the bar it is measured on.** Target and stop will both be
+touched within a single bar often enough that OHLC cannot order them, which is exactly the intra-bar
+ambiguity Week 1 D4 flags. This settles the "is Day 4 even well-posed" question D1 was told to ask,
+and the answer is **not at bar resolution** — D4's tick-resolution run on the fixture session is
+mandatory, and the bar-vs-tick gap it measures is a real error bar, not a formality.
+
+*(Note for the sample-size line below: the fixture session **2026-07-16** — the free absorption test
+case — falls in the **training** half of the 19 Jul split.)*
+
+#### What a sample size has to be to prove anything
+
+From [`week-01.md`](../../plans/team/week-01.md) §2, against a **random-walk** null of 22.22%
+(`P(hit +70 before −20) = 20/(70+20)`, which is also break-even at 3.5:1 — necessarily the same
+number). **The null you commit against is the *measured* one from `backtest.random_entries`, not
+this**; the table is here so the floor you write is not wishful.
+
+| Signals | 1 s.e. | Smallest hit rate provable at 2σ |
+| ---: | ---: | ---: |
+| 50 | 5.88 pp | **34.0%** |
+| 100 | 4.16 pp | **30.5%** |
+| 150 | 3.39 pp | **29.0%** |
+| 250 | 2.63 pp | 27.5% |
+| 500 | 1.86 pp | 25.9% |
+| 900 | 1.39 pp | 25.0% |
+
+A4's floor of 30 is the *reporting* floor. **At 50–150 signals — what `planfortoday.md` targets —
+nothing below ~29% is provable**, so a "minimum sample size before I believe any of it" of 30 and a
+hit-rate commitment of 26% are not compatible commitments. Pick both lines together.
+
+---
+
 ```markdown
 # Stage 1 — strategy 1 of 4: delta_outlier
 Date: <YYYY-MM-DD>   Committed at: <time>
 Instrument: GC (GCQ6 and successors)
-Data: <start> to <end>, <n> sessions. Walk-forward: n/a for Stage 1 — nothing is fitted.
+Data: 2026-07-01 to 2026-07-31, 23 sessions, 6,276 five-minute bars.
+      Provenance and hash: "The factual fields" above.
+      Walk-forward: n/a for Stage 1 — nothing is fitted.
 
 ## The rule
 A bar whose delta is <z> standard deviations above its trailing <window> goes
@@ -159,7 +235,9 @@ Realized move at 5 / 15 / 30 minutes, in ticks, plus MFE and MAE at each.
 # Stage 1 — strategy 2 of 4: cvd_divergence
 Date: <YYYY-MM-DD>   Committed at: <time>
 Instrument: GC (GCQ6 and successors)
-Data: <start> to <end>, <n> sessions. Walk-forward: n/a for Stage 1 — nothing is fitted.
+Data: 2026-07-01 to 2026-07-31, 23 sessions, 6,276 five-minute bars.
+      Provenance and hash: "The factual fields" above.
+      Walk-forward: n/a for Stage 1 — nothing is fitted.
 
 ## The rule
 Price closes at the high of its trailing <window> while CVD fell by at least
@@ -193,7 +271,9 @@ Realized move at 5 / 15 / 30 minutes, in ticks, plus MFE and MAE at each.
 # Stage 1 — strategy 3 of 4: absorption_fade
 Date: <YYYY-MM-DD>   Committed at: <time>
 Instrument: GC (GCQ6 and successors)
-Data: <start> to <end>, <n> sessions. Walk-forward: n/a for Stage 1 — nothing is fitted.
+Data: 2026-07-01 to 2026-07-31, 23 sessions, 6,276 five-minute bars.
+      Provenance and hash: "The factual fields" above.
+      Walk-forward: n/a for Stage 1 — nothing is fitted.
 
 ## FIRST: the two decisions above
 - Fade or continuation?                              <answer>
@@ -232,7 +312,9 @@ Realized move at 5 / 15 / 30 minutes, in ticks, plus MFE and MAE at each.
 # Stage 1 — strategy 4 of 4: footprint_stack
 Date: <YYYY-MM-DD>   Committed at: <time>
 Instrument: GC (GCQ6 and successors)
-Data: <start> to <end>, <n> sessions. Walk-forward: n/a for Stage 1 — nothing is fitted.
+Data: 2026-07-01 to 2026-07-31, 23 sessions, 6,276 five-minute bars.
+      Provenance and hash: "The factual fields" above.
+      Walk-forward: n/a for Stage 1 — nothing is fitted.
 
 ## The rule
 At least <min_stack> price levels inside the bar where buy volume is <ratio>
@@ -351,5 +433,16 @@ are transcribed from their docstrings, each block names exactly which thresholds
 requires, and the table records which two candidates actually inherit the ±15–20% delta error.
 Asked to fill Part B in, Claude declined the numbers and wrote the scaffold instead. **Every
 `<...>` field is still empty and still Varad's.**
+
+**Updated 2026-09-03: Part B's factual fields are filled; every commitment field is still empty.**
+The month, its hash, the session and bar counts, the label coverage, the walk-forward split, the
+tick value and the 5-minute bar-range scale are now written down, and the sample-size table from
+`week-01.md` §2 sits next to the line it constrains. **No threshold, hit rate, realized move, delta
+statistic, kill criterion or prediction was written** — the same line two prior sessions drew, drawn
+again: those are commitments by the person with the bias, and provenance is not.
+
+One measured number changed a plan assumption rather than merely recording it: **the median 5-minute
+bar range is 38 ticks, not the 15 this file carried from minute bars.** A 20-tick stop is half a
+median bar, so D4's tick-resolution check is load-bearing rather than a formality.
 
 **Nothing may be backtested until B is filled and committed.** Nothing may be clustered until C is.
