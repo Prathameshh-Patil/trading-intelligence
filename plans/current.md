@@ -1,12 +1,17 @@
 # Trading Intelligence — Current Plan
 
-Live tracker: who owns what, what is done, what is next. **Last updated: 2026-08-26.**
+Live tracker: who owns what, what is done, what is next. **Last updated: 2026-09-03.**
 
 > **The twelve-week schedule lives in [`plans/team/`](team/README.md).** This file stays the live
 > status tracker — what is done, what is open, who owns it. `plans/team/` is the day-by-day
-> execution path for all three of us, Week 0 (26 Aug) through Week 12 (20 Nov), derived from the
+> execution path for all three of us, Week 0 (26 Aug) through Week 12, derived from the
 > *Twelve Weeks to Ten Subscribers* artifact. Start at [`team/README.md`](team/README.md); read
 > [`team/contracts.md`](team/contracts.md) before writing any code.
+>
+> ⚠️ **Dates shifted one week right on 28 Aug** — nobody worked 29 Aug – 4 Sep, so Week 1 is
+> **5–11 Sep** and **Week 12 ends 27 Nov**, not 20 Nov. [`team/week-01.md`](team/week-01.md) is
+> authoritative on dates until the four phase files are rewritten; every date in them is a week
+> early.
 
 ## How the two folders work
 
@@ -924,14 +929,25 @@ finding two bugs**, both of which would have survived into `real.ts`.
 
 ## Next
 
-Ordered. Days 1–3 are complete except the items explicitly left unchecked above — now just
-reloading the extension. That is #8 below (#6, the S1 fixture cut, and #7, the real Tauri
-window, both closed on 25 Aug), not optional, and it is the same shape as the two that closed:
-code that type-checks and tests green but has never been run for real.
+Ordered. **Rows #2, #6, #7 and #8 all closed between 25 Aug and 3 Sep** — the S1 fixture cut, the
+real Tauri window (pixels confirmed 3 Sep), and the Chrome/Firefox extension checks, the last two
+closed on Prathamesh's account rather than a logged artefact from the time.
 
 **#1 is no longer one of them.** The first live analysis was the fourth item on that list
 until 25 Aug, when the backend question was closed by deciding to build our own model. It is
 not blocked-and-waiting; it is off this list until that model exists.
+
+**What is genuinely open here is #0, #3, #4, #5, #9, B — plus the two standing gaps W1D1 and W1D2
+both ran into**, neither of which is a row below because neither is anyone's task yet:
+
+- **Accessibility permission is ungranted**, so nothing in `apps/desktop` has been *clicked*. Two
+  days of UI now type-check, build and render, with every interaction fired programmatically: the
+  six tiles, the back button, the topbar drag region and the five mock controls are all unproven.
+  One grant closes both days at once, and W1D3's click-through work wants it anyway.
+- **There is no JS test runner in this workspace at all.** `mock.ts`'s reconciliation with `s1.py`
+  was verified by compiling it standalone under Node — repeatable, but uncommitted and outside any
+  CI, while Weeks 1–3 are entirely UI work against that fake. Adding `vitest` is a lockfile change
+  and earns its own reviewed commit, so it has deliberately not been slipped into a feature commit.
 
 | # | Item | Owner | Notes |
 | :--- | :--- | :--- | :--- |
