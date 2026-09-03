@@ -57,10 +57,19 @@ separation. Plausible mechanism: **calendar-spread legs carry no aggressor side*
 Those rows cannot be signed and contribute nothing to delta or CVD, so **delta is least complete
 exactly when the active contract is switching.**
 
-**The `contracts.md` amendment for `'N'` is drafted against the wrong number.** Its 2.34% / 1,811
-trades is the *S1 fixture* — one session, 2026-07-16, 77,532 rows. The full July 2026 month is
-**3.89%**, and July is itself a roll month (`GCQ6`→`GCZ6`), landing on the roll-month mean. The
-amendment needs a month-scale figure and a roll/non-roll split, not a single session's.
+~~**The `contracts.md` amendment for `'N'` is drafted against the wrong number.**~~ **Fixed 28 Aug
+(`99fac6b`), and the gate note that quotes it fixed 3 Sep.** The amendment now carries the 19-month
+distribution and the roll/mid-cycle split rather than the fixture's 2.34% / 1,811 trades.
+
+**Volume shares, measured 3 Sep** — the trade-count column above only bounds delta damage if
+unsigned trades are ordinary-sized, which was assumed and is now measured: pooled **2.73% of trades
+against 2.68% of contracts**, tracking within 0.2 pp in every one of the 19 months. Roll months mean
+3.73% of volume, mid-cycle 1.90%, range 1.21–5.06%.
+
+⚠️ **These parquets spell it `unknown`, not `'N'`** — `buy_initiated` / `sell_initiated` /
+`unknown`, per `pull_futures_trades.py`'s map. `'B'/'A'/'N'` is the S1 *fixture's* encoding.
+Filtering a month file for `'N'` returns zero rows, which reads as "the amendment is about nothing."
+It is the same field.
 
 ## Provenance note
 

@@ -97,24 +97,45 @@ rate is not a constant, and the first draft of the wording below generalised it 
 trades", which is false at month scale. Measured across **19 months, Jan 2025 – Jul 2026,
 46,034,813 trades** (`services/signal-data/analysis/gc_data_manifest.md`):
 
-| scope | `'N'` rate |
-| :--- | ---: |
-| this fixture, 2026-07-16 | 2.34% |
-| July 2026, full month | **3.89%** |
-| 19-month range | **1.15% – 5.23%** |
-| roll months (two contracts), n=9 | mean **3.75%** |
-| single-contract months, n=10 | mean **1.92%** |
+| scope | share of **trades** | share of **volume** |
+| :--- | ---: | ---: |
+| this fixture, 2026-07-16 | 2.34% | 2.05% |
+| July 2026, full month | **3.89%** | **3.65%** |
+| all 19 months pooled | **2.73%** | **2.68%** |
+| 19-month range | **1.15% – 5.23%** | **1.21% – 5.06%** |
+| roll months (two contracts), n=9 | mean **3.75%** | mean **3.73%** |
+| single-contract months, n=10 | mean **1.92%** | mean **1.90%** |
+
+**Both columns matter, and only the second one is about delta.** Delta is volume-weighted, so a
+trade-count share only bounds the damage if unsigned trades are ordinary-sized. **They are** —
+measured 2026-09-03 across all 46,034,813 trades, the volume share tracks the trade share within
+0.2 pp in every one of the 19 months, and the pooled figures are 2.73% of trades against 2.68% of
+contracts. Unsigned rows are very slightly *smaller* than average, not block-sized. That was an
+unstated assumption in the first draft of this amendment; it is now measured, and it holds.
 
 **`'N'` concentrates in roll months at roughly double the mid-cycle rate.** The ranges overlap —
 2025-08 at 3.63% and 2026-02 at 3.00% both clear the roll minimum of 2.68% — so this is a strong
 tendency, not a separation. The plausible mechanism is **calendar-spread legs carrying no aggressor
-side**, which is testable and has not been tested. July 2026 is itself a roll month (`GCQ6`→`GCZ6`)
-and its 3.89% lands on the roll-month mean; it was not among the months that produced that mean, so
-that is an out-of-sample fit rather than a fitted one.
+side**, which is testable and has not been tested.
+
+⚠️ **Corrected 2026-09-03:** an earlier version of this paragraph said July 2026's 3.89% "was not
+among the months that produced that mean, so that is an out-of-sample fit." **That was wrong** —
+July 2026 is a roll month (`GCQ6`→`GCZ6`) and is one of the nine in the 3.75% mean, so it is
+in-sample by construction. Dropping it, the other eight roll months average **3.73%** and July sits
+0.16 pp above that. The figure is consistent; it is not independent confirmation, and the amendment
+should not be voted on as though it were.
 
 **Why this matters more than the number:** unsigned rows contribute nothing to delta or CVD, so
 **delta is least complete exactly when the active contract underneath it is switching.** A flat
 "~2.3%, tolerable" reading hides that entirely.
+
+⚠️ **The month parquets do not spell it `'N'`.** `data/<YYYY-MM>/gc_trades.parquet` stores
+`buy_initiated` / `sell_initiated` / **`unknown`** — the `'B'/'A'/'N'` spelling is what
+`cut_s1_fixture.py` writes into the S1 fixture, per `pull_futures_trades.py`'s
+`"N": "unknown"` map. **Anyone checking this amendment against a month file by filtering
+`aggressor_side == 'N'` gets zero rows and concludes it is not real** — that happened on
+2026-09-03 while verifying these numbers. `s1.py`'s `SIDES` already accepts both spellings and
+raises on anything else, so the code is not exposed; a reader is.
 
 Consequences if a consumer takes `'B' | 'A'` literally:
 
@@ -137,8 +158,13 @@ mean consumers never learn `N` exists until they hit live data.
 
 **Still not applied — this remains a proposal, and the vote is unchanged.** What changed on 28 Aug is
 the evidence behind it: the wording now carries a 19-month distribution instead of one session's
-rate, and one sentence was added requiring consumers to report the `'N'` share next to delta. The
-amendment itself is still Wednesday's yes/no.
+rate, and one sentence was added requiring consumers to report the `'N'` share next to delta.
+
+**Re-verified 2026-09-03, directly against all 19 parquets** rather than against
+`gc_data_manifest.md`'s table. Every trade-share figure above reproduced exactly. Three things were
+added or corrected in the process — the volume column, the `unknown`/`'N'` spelling trap, and the
+false out-of-sample claim — and none of them changes the recommendation. **The amendment itself is
+still a yes/no, and the room it was written for has not met.**
 
 ### Three traps already found here, worth not re-discovering
 

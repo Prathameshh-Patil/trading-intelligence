@@ -959,6 +959,35 @@ that filling it is now writing numbers, not also assembling provenance.
 - [ ] **Still Varad's, still blocking D3 (Mon 7 Sep):** every `<...>` in Part B, and
       `plans/team/varad/thresholds.md`, whose own header made it due this morning.
 
+### Day 7 (night) — 2026-09-03 · the `'N'` amendment re-verified against the parquets, and two corrections · [`team/contracts.md`](team/contracts.md)
+
+Asked to fix the `'N'` number before the gate. **`contracts.md` was already fixed on 28 Aug
+(`99fac6b`) — the stale copy was the gate note**, which is the document the room actually votes from
+and which still carried the fixture's 2.34% and a superseded "verbatim" quote. Re-verified everything
+against all 19 parquets rather than against the manifest's table.
+
+- [x] **Every trade-share figure in the amendment reproduces exactly** — 3.75% roll (n=9), 1.92%
+      mid-cycle (n=10), range 1.15–5.23%, July 3.89%. Computed from 46,034,813 trades, not copied.
+- [x] **Volume shares measured for the first time, and they close an unstated assumption.** Delta is
+      volume-weighted, so a trade-count share only bounds the damage if unsigned trades are ordinary
+      sized. **They are:** pooled **2.73% of trades against 2.68% of contracts**, tracking within
+      0.2 pp in every one of the 19 months. Roll 3.73% of volume, mid-cycle 1.90%. The amendment's
+      claim is now measured on the axis it actually depends on.
+- [x] **Corrected: July 2026 is in-sample for the 3.75% roll mean, not an out-of-sample check.**
+      `contracts.md` claimed it "was not among the months that produced that mean" — it is one of the
+      nine. The other eight average **3.73%**, which July's 3.89% sits 0.16 pp above. Consistent, but
+      it is not independent confirmation and should not be voted on as though it were.
+- [x] **Found while verifying: the month parquets spell it `unknown`, not `'N'`.** `'B'/'A'/'N'` is
+      the S1 *fixture's* encoding; `data/<YYYY-MM>/` carries
+      `buy_initiated`/`sell_initiated`/`unknown`. **Filtering a month file for `'N'` returns zero
+      rows** — which reads as "the amendment is about nothing." It happened here first. `s1.py`'s
+      `SIDES` accepts both spellings and raises on anything else, so the code is not exposed; a
+      person checking the claim by hand is. Now flagged in all three documents.
+- [x] **The drafted wording itself was not touched.** The evidence around it was corrected; the
+      sentence being voted on is the same one as on 28 Aug, so this is still the same yes/no and not
+      a new proposal.
+- [ ] **The vote is still unheld.** Four asks, no room since 26 Aug.
+
 ---
 
 ## Next
