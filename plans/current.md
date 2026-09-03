@@ -1239,6 +1239,50 @@ through the filter and the held-out half is still unlooked at.
 - [x] **Backtesting is now unblocked both ways** — Parts B and D are committed. Part C is still empty,
       so nothing may be clustered.
 
+### W1D3 (V lane) — pulled forward to 2026-09-04 · `signals/engine.py` · [`daily_updates/2026-09-04.md`](../daily_updates/2026-09-04.md)
+
+D3 is Mon 7 Sep; written tonight because Parts B and D both landed. **The number D3 asks for is a
+zero, and the zero is the finding.**
+
+- [x] **`signals/engine.py`, 156 lines: four conditions plus a combiner**, all in `strategies.py`'s
+      `(bars, *, thresholds) -> +1 / -1 / 0` shape, every feature imported from `features/`.
+      **122 tests** (103 before — 19 new), `ruff` and `mypy` clean across 27 source files.
+- [x] **3-of-4 produces 0 signals on 3,516 training bars.** 2-of-4 gives 46 unfiltered and **1**
+      filtered.
+- [x] **B and D cannot agree, by construction — and that is why.** B fires long at a *new closing
+      low*; D fires long only on a bar that *closed up on a big body*. They co-fire on 26 bars and
+      agree on direction on **zero**. With A stubbed, 3-of-4 requires exactly that pair, so the gate
+      was dead before any threshold was argued about. B+C+D co-fire on **0** bars against **2.7**
+      expected under independence, so it would have been near-empty regardless.
+- [x] **Fire rates, unfiltered:** B 11.5%, C 11.0%, D 6.1%, A 0.0% (stub by Part B decision).
+      2-of-4 splits **17 × B+C** and **29 × C+D**; the B+D cell is empty.
+- [x] **The persistence gate and the signal conditions want opposite things.** Of the 46 unfiltered
+      signals, `cvd_persistence >= 0.40` passes **3** — against 41.1% of all bars. B and C both select
+      *turning* flow, and turning flow is cancelling flow, which is what low persistence measures.
+      `atr >= 40` passes 28, `EMA(15)` 30, `kappa` 46, interior 45; all five, **1 of 46**.
+      **Nothing was tuned in response** — Part D is frozen and its criterion 2 is D4's test of exactly
+      this.
+- [x] **Clustering is not the problem.** The 46 signals spread across all 13 training sessions, max 8,
+      top three holding 20 of 46 (43%). N is wrong at the design level, not the sample level.
+- [x] **The Week 1 gate line is met: `delta_outlier` flags the 2026-07-16 08:00 ET hour** — three of
+      the twelve bars, at Part B's committed `window="120min"`, `min_bars=12`, `z=2.0`. **Two caveats
+      that are not formalities:** all three flags are **long, into a 47.7-point drop** (it is a
+      continuation rule, so this hour is the case that decides Decision 1 — fade or continuation,
+      recorded and not taken); and **the engine does not flag the hour at all** — B long ×3, D short
+      ×2, C never, 9 of 12 bars eligible. The B/D opposition, on the exact hour that motivated the test.
+- [x] **The held-out half was not touched.** Everything is the training half (≤ 2026-07-19, 13
+      sessions, 3,516 bars), which keeps Part D's second honesty claim intact for D4 and D5.
+- [ ] **Reported against an existing prediction, as a raw count only: `delta_outlier` produces 221
+      entries on the training half alone**, against Part B's recorded **N < 100 unfiltered**. Entry
+      counts and a backtest's N are different quantities, but this is the first evidence and it points
+      the other way.
+- [ ] **D4 has nothing to measure, and the fix is Varad's call, not Claude's.** Three options: run D4
+      on the 46 unfiltered 2-of-4 signals (the filtered arm would be one signal — a comparison in name
+      only); **restore condition A** as a bar-level absorption rule, which needs one uncommitted number
+      (how close to VWAP counts as "at a level"); or treat the opposition as a **specification error** —
+      A+B read exhaustion, C+D read continuation, and a combiner over a family that can agree is a
+      different engine. **None of the three is a threshold to tune.**
+
 ---
 
 ## Next
