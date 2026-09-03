@@ -829,6 +829,26 @@ emails, or booked the CA call. None of that is closed by anything below.
       Part B. A prior Claude session already declined to fill Part B in — "a threshold picked by an
       assistant is not a commitment by the person with the bias" — and that reasoning held here too.
 
+### Day 7 (pre-week check) — 2026-09-03 · CA and data-sourcing move off-tracker; Week 1 readiness confirmed · [`daily_updates/2026-09-03.md`](../daily_updates/2026-09-03.md)
+
+- [x] **CA calls are off this tracker, by decision, not by resolution.** Handled manually and
+      directly by Prathamesh going forward; not reported back for logging. Was reading as an open
+      blocker since the 2 Sep gap entry — it is not one to chase.
+- [x] **Data acquisition is being scaled via outsourcing**, addressing Day 6's power-analysis
+      finding directly (per-regime cells thin at 37–112 signals even across 19 months). The
+      mechanics that finding surfaced — roll-chain integrity, degraded-session calls, checksum
+      backup — still apply to whatever arrives.
+- [x] **Prathamesh's Week 1 lane confirmed clear against `week-01.md` §4's own dependency table** —
+      all three pre-week items (`types.ts`+`FeedCreds`, the regenerated bar table, the fixture
+      JSON) landed before today. D1 reads only `types.ts`. Nothing blocks starting Sat 5 Sep.
+- [ ] **Varad's lane confirmed clear only through D2.** D3 onward (`signals/engine.py`, every
+      D4–D6 backtest) is gated on Part B, still open as of today. Not a tooling gap — two prior
+      Claude sessions already declined to author it, on the file's own stated reasoning. Needs to
+      land before D3 (Mon 7 Sep) or two of his seven days go idle.
+- [ ] **New gap, from today's own C1 decision:** D5's 30-minute live-feed hold is now an Ironbeam
+      connection, and nobody has an Ironbeam account or API credentials yet. Not tracked as
+      anyone's prep item before now. Needed before Wed 9 Sep.
+
 ---
 
 ## Next
@@ -857,6 +877,7 @@ not blocked-and-waiting; it is off this list until that model exists.
 | A2 | ~~Pull spot XAUUSD, compute GC-vs-spot correlation and basis distribution~~ — **CUT 25 Aug** | — | Killed by the artifact's Fact Two, not deprioritised. It was scoping MT5 spot gold as a launch instrument; spot gold has no centralised volume — which is exactly why `real_volume` comes back empty — so there is no delta to compute and nothing to correlate against. Returns in the Week 12 quarter-two discussion as a **context-only** mode: rules, journal and capture work on MT5, delta does not, and we never claim it does. *(`DELTA_CVD_FINDINGS.md` §4 said "blocked on Dukascopy being unreachable" — true, and the wrong reason. Rewritten 25 Aug to lead with the real one: the blocker was never the download, it is that spot gold cannot carry the product's core number, so **nobody needs to find a working mirror**.)* |
 | C1 | 🚚 **Feed vendor — historical stays Databento, live moves to Ironbeam** | Prathamesh, **decided 3 Sep** | **Supersedes the quantfeed evaluation** — no record in this repo that the 26 Aug quantfeed call happened or what it found; Ironbeam is a separate decision, reported directly, not derived from that call. **Historical/backtest track is unaffected:** the 19-month Databento archive, S1's contract, the quote-rule validation (99.65% agreement) and `contracts.md`'s `'N'` amendment all stand exactly as documented — nothing here is being re-derived on Ironbeam data. **Live feed moves to Ironbeam** (free L1/L2 for non-pro accounts, free API after 5 contracts/month traded, otherwise $249/mo) for both the personal GC-strategy-selector bot and, pending confirmation, the product's live overlay feed (`week-01.md` D5's "hold a live feed 30 minutes" task). **Checked against Ironbeam's own docs, not taken on faith:** the trade stream has an `as` (aggressor side) field, but its value semantics are undocumented (`0` in the example) — **treat it as unvalidated until checked against real data**, the same way Databento's `side` needed `pull_tbbo_validate.py` before it was trusted. **No historical L2/tick data exists via Ironbeam's REST API** — only live streaming — so any book-based backtesting starts from whenever capture begins, which is why keeping the Databento historical archive matters rather than trying to backfill from Ironbeam. **The vendor-licensing question likely changes shape, not just vendor:** Ironbeam is a broker, not a data reseller — if every end user connects through their *own* funded Ironbeam account, that is the same "runs on the user's machine, uses the user's own entitlement" model the product already assumes for MT5 (item B below), which is the model the drafted licence-email question was written to test favourably. **Still not legal advice** — confirm this reading with Ironbeam and the CA in writing before relying on it, same rule as everywhere else licensing comes up in this repo. **Open:** whether the three drafted emails (Databento, Rithmic, Tradovate) still go out as-is, get a fourth (Ironbeam) added, or get replaced — nobody has redrafted them yet |
 | B | Make `apps/desktop` behave like a real overlay — transparent, borderless, always-on-top, click-through toggle. Prove it floats over a live MT5 demo and that click-through reaches MT5 underneath | **Prathamesh**, W1D2–W2 | No longer gated on A1/A2 — it is Week 1 Day 2 and Week 2 in [`team/phase-1-kill-week.md`](team/phase-1-kill-week.md). Install the MT5 demo terminal first if nobody has it |
+| 9 | 🔌 **Get an Ironbeam account and API credentials** | Prathamesh | Surfaced 3 Sep, checking Week 1 readiness. `week-01.md` D5 has Prathamesh holding a live feed connection 30 minutes in Rust; under today's C1 decision that connection is Ironbeam's, and nobody has an account or credentials yet. Needed before Wed 9 Sep, not that morning |
 
 ---
 
@@ -905,3 +926,9 @@ Things that are cheap to break and expensive to notice.
   against. **This transfers to the own model unchanged** — it will have its own untested-by-default
   judgement, and the four Day 1 cases (bullish, bearish, neutral, negation) are the bar for both.
   Whatever replaces `analyze()` needs those four re-runnable without a paid API behind them.
+- **CA calls and data-pull scaling are handled outside this tracker, decided 3 Sep.** Compliance
+  calls are Prathamesh's own manual track and are not reported back here — don't chase or flag them
+  as an open item. Data acquisition is being scaled via outsourcing rather than solely his own
+  Databento pulls, to relieve the thin-per-cell power problem Day 6 found; the mechanics that
+  finding also surfaced (roll-chain integrity, degraded-session calls, checksum-verified backup)
+  still apply to whatever arrives.
