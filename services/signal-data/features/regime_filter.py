@@ -18,9 +18,9 @@ gate it would be lookahead nobody could see.
 The three traps `strategies.py` documents apply unchanged, and the machinery
 that solves them is imported rather than rewritten: clock-based windows,
 grouped by session, nothing reading a bar later than the one it scores.
-`_window` and `_align` are private to that module and importing them is
-deliberate -- D1 says so in as many words, because re-solving session-grouped
-trailing windows in a second file is how the two quietly disagree.
+Re-solving session-grouped trailing windows in a second file is how the two
+quietly disagree -- which is also why `atr` moved to `features/expansion.py`
+on D2 and is imported here rather than kept in two places.
 """
 
 from __future__ import annotations
@@ -28,8 +28,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from s1 import TICK
-from strategies import _align, _window
+from features.expansion import atr
 
 
 def regime_survival(bars: pd.DataFrame, *, horizon_bars: int) -> pd.Series:
@@ -45,30 +44,6 @@ def regime_survival(bars: pd.DataFrame, *, horizon_bars: int) -> pd.Series:
     fwd = bars.groupby("session", sort=False)["regime"].shift(-horizon_bars)
     held = (fwd == bars["regime"]).where(fwd.notna())
     return held.groupby(bars["regime"]).mean()
-
-
-def atr(bars: pd.DataFrame, *, window: str, min_bars: int) -> pd.Series:
-    """Average true range over a trailing clock window, in TICKS.
-
-    Ticks because every threshold in this project is in ticks (Part A, A7).
-    A filter that quietly used points would be a factor-of-ten error visible
-    only as a surprising pass rate.
-
-    True range needs the previous close, which is NaN at each session's first
-    bar -- so that bar's range is high-low, which is the right answer rather
-    than a gap measured against yesterday's close.
-    """
-    prev = bars.groupby("session", sort=False)["close"].shift(1)
-    tr = pd.concat(
-        [
-            bars["high"] - bars["low"],
-            (bars["high"] - prev).abs(),
-            (bars["low"] - prev).abs(),
-        ],
-        axis=1,
-    ).max(axis=1)
-    rolled = _window(bars.assign(_tr=tr), "_tr", window, min_bars).mean()
-    return _align(rolled, bars) / TICK
 
 
 def trend_aligned(bars: pd.DataFrame, *, span: int) -> pd.Series:

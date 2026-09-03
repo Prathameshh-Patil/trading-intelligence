@@ -1060,6 +1060,45 @@ Scheduled Sat 5 Sep, written a day early. **D1's number: 1,251 of 6,276 bars pas
       over the month reads median **41.9** ticks, p25 33.4, p75 54.0 — consistent, and both say the
       20-tick stop is well inside one bar.
 
+### W1D2 (V lane) — pulled forward to 2026-09-04 · `features/orderflow.py`, `features/expansion.py` · [`daily_updates/2026-09-04.md`](../daily_updates/2026-09-04.md)
+
+Scheduled Sun 6 Sep, written two days early. **97 tests green** (86 before), `ruff` clean, `mypy` clean
+across 24 files.
+
+- [x] **D2's number, and the specific thing it was told to watch for: nothing eats the London open.**
+      The London open (07:00 UTC) lands at **bar ~108** of a 23-hour session; the worst leading-NaN run
+      of any feature is **13 bars / 65 minutes** (ATR). D2 warns that a feature NaN for the first 40
+      bars "has silently deleted the London open" — none is close.
+- [x] **Every feature's distribution over the month**, at Part B's committed windows so the numbers
+      describe what will actually be traded:
+
+      | feature | median | σ | leading NaN bars |
+      | :--- | ---: | ---: | ---: |
+      | `delta_z` (120min/12) | 0.017 | **1.013** | 11 |
+      | `cvd_slope` (60min/6) | −22.0 | 265.8 | 5 |
+      | `absorption` | 0.709 | 0.902 | 0 |
+      | `vwap_distance` | −2.37 | **178.7** | 0 |
+      | `atr` (70min/14) | 41.93 | 19.54 | 13 |
+      | `bar_range` | **38.0** | 31.9 | 0 |
+      | `body_ratio` | 0.462 | 0.260 | 0 |
+
+- [x] **Three cross-checks fell out, all independent of the code that first produced them.**
+      `bar_range` median **38.0 ticks** reproduces the 3 Sep figure exactly through a different path;
+      `atr` median **41.93** reproduces D1's 41.9; and `delta_z` has **σ = 1.013**, which a z-score must
+      have by construction — the cheapest possible confirmation that the trailing window is trailing.
+- [x] **`atr` moved from `regime_filter.py` to `expansion.py`, where D2 puts it.** It is an expansion
+      feature the regime gate consumes, and D1 had it in the gate. `regime_filter` now imports it, so
+      there is one true-range calculation rather than two that drift — pinned by a test asserting
+      `rf.atr is ex.atr`. `regime_filter.py` drops 133 → 108 lines.
+- [x] **`orderflow.py` re-exports `delta_z`, `cvd_slope` and `absorption` rather than re-deriving
+      them**, which is what D2 asks for in as many words. Only VWAP is new. A test pins the identity of
+      all three so a future edit cannot quietly fork them.
+- [ ] **⚠️ `vwap_distance` has σ = 178.7 ticks — nearly 5× the median bar range of 38.** Not a bug: VWAP
+      is anchored at the session open and a CME session is 23 hours, so price wanders a long way from
+      it. But it means VWAP here is a slow trend feature, **not the bar-scale mean-reversion input D3
+      might assume it is.** If D3 wants the mean-reversion reading, it needs a shorter anchor (RTH, or
+      a rolling window) and that is a decision, not a parameter tweak.
+
 ---
 
 ## Next

@@ -2,7 +2,9 @@
 
 One test per gate, plus the two failure modes a filter has that a signal does
 not: passing a bar on a MISSING value, and letting a window or an EMA reach
-across the overnight break. A filter that fails open is worse than no filter,
+across the overnight break. The ATR gate's own tests live in
+`test_features.py`, with the function, which moved to `features/expansion.py`
+on D2. A filter that fails open is worse than no filter,
 because everything downstream is then measured on a sample nobody chose.
 
 What this file does NOT test is whether the filter's pass rate is any good.
@@ -52,38 +54,6 @@ def test_an_unlabelled_bar_never_passes() -> None:
     bars = with_regime(bars_at(list(range(6)), [100.0] * 6), [np.nan] * 6)
     gate = bars["regime"].map(pd.Series({0.0: 1.0})) >= 0.9
     assert not gate.any()
-
-
-# --------------------------------------------------------------------------
-# Gate 2 -- ATR
-# --------------------------------------------------------------------------
-def test_atr_is_in_ticks_not_price() -> None:
-    # Every bar spans 2.0 in price. GC's tick is 0.10, so that is 20 ticks --
-    # the whole point of the unit, since a 20-tick stop is the thing it is
-    # compared against.
-    bars = bars_at(list(range(10)), [100.0] * 10, ranges=[2.0] * 10)
-    a = rf.atr(bars, window="5min", min_bars=3)
-    assert a.dropna().round(6).eq(20.0).all()
-
-
-def test_atr_has_no_value_until_the_window_is_full() -> None:
-    bars = bars_at(list(range(10)), [100.0] * 10, ranges=[2.0] * 10)
-    a = rf.atr(bars, window="5min", min_bars=5)
-    assert a.iloc[:4].isna().all(), "four bars cannot fill a five-bar minimum"
-    assert a.iloc[4:].notna().all()
-
-
-def test_atr_does_not_measure_the_gap_across_a_session_break() -> None:
-    # Session two opens 50 points above session one's close. True range there
-    # is the bar's own 2.0, not the 50-point gap.
-    bars = bars_at(
-        list(range(8)),
-        [100.0] * 4 + [150.0] * 4,
-        ranges=[2.0] * 8,
-        session=[SESSION] * 4 + [NEXT] * 4,
-    )
-    a = rf.atr(bars, window="5min", min_bars=1)
-    assert a.iloc[4] == 20.0, "the overnight gap is not a true range"
 
 
 # --------------------------------------------------------------------------
