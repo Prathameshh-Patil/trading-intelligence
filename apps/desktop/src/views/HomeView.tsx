@@ -6,6 +6,7 @@ import {
   ScanIcon,
   ShieldIcon,
   SlidersIcon,
+  SparkIcon,
 } from "../ui/Icons";
 import { ActionTile, CountUp, Stat } from "../ui/components";
 import { riseIn, stagger } from "../ui/motion";
@@ -94,6 +95,14 @@ export default function HomeView({
           title="Analyze screen"
           subtitle="Capture the chart in view and get a directional read with confidence and signals."
           onClick={() => onNavigate("analyze")}
+        />
+
+        <ActionTile
+          wide
+          icon={<SparkIcon size={17} />}
+          title="Order flow"
+          subtitle="Live delta, session CVD and flagged outliers from the engine."
+          onClick={() => onNavigate("flow")}
         />
 
         <ActionTile

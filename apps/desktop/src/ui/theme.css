@@ -941,3 +941,232 @@ body.standalone .shell {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ------------------------------------------------------------------ */
+/* Order flow (W1D2) — the surface the mock's failure modes aim at     */
+/* ------------------------------------------------------------------ */
+
+/*
+ * Every field that renders an engine number is width-constrained and clips
+ * rather than reflows. A 7-digit CVD and a 40-character vendor are the two
+ * cases the mock fires on demand, and the layout must survive both without
+ * pushing anything off the 380px window.
+ */
+
+.feed-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface);
+}
+
+.feed-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 99px;
+  flex: none;
+  background: var(--text-faint);
+}
+
+.feed-ok .feed-dot { background: var(--green); }
+.feed-warn .feed-dot { background: var(--amber); }
+.feed-bad .feed-dot { background: var(--red); }
+
+.feed-state {
+  font-size: 13px;
+  font-weight: 600;
+  flex: none;
+}
+
+.feed-ok .feed-state { color: var(--green); }
+.feed-warn .feed-state { color: var(--amber); }
+.feed-bad .feed-state { color: var(--red); }
+
+/* The 40-character vendor lands here. Ellipsis, never a second line. */
+.feed-vendor {
+  margin-left: auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.feed-meta {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  font-size: 11px;
+  color: var(--text-faint);
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+/* The 40-character symbol lands here, and is allowed to take the space it
+   needs from the metadata after it rather than wrapping the row. */
+.feed-meta > span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text-dim);
+  font-weight: 600;
+}
+
+.feed-error {
+  padding: 8px 10px;
+  border-radius: var(--r-sm);
+  background: rgba(248, 113, 113, 0.1);
+  border: 1px solid rgba(248, 113, 113, 0.3);
+  color: var(--red);
+  font-size: 12px;
+}
+
+.cvd-card {
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+}
+
+.cvd-label {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  color: var(--text-faint);
+}
+
+/* Tabular numerals so digits do not jitter as the value ticks, and a size that
+   still fits seven digits plus a sign inside 380px. */
+.cvd-value {
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 1.15;
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cvd-value.pos { color: var(--green); }
+.cvd-value.neg { color: var(--red); }
+
+.cvd-sub {
+  font-size: 12px;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.flow-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.flow-cell {
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  min-width: 0;
+}
+
+.flow-k {
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  color: var(--text-faint);
+}
+
+.flow-v {
+  font-size: 16px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.flow-v.pos { color: var(--green); }
+.flow-v.neg { color: var(--red); }
+
+.unsigned-note {
+  padding: 8px 10px;
+  border-radius: var(--r-sm);
+  background: rgba(251, 191, 36, 0.08);
+  border: 1px solid rgba(251, 191, 36, 0.22);
+  color: var(--amber);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.empty-note {
+  font-size: 12px;
+  color: var(--text-faint);
+  padding: 8px 0;
+}
+
+.outlier-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.outlier-row {
+  display: grid;
+  grid-template-columns: 84px 1fr auto auto 28px;
+  gap: 8px;
+  align-items: center;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.outlier-kind { font-weight: 600; font-size: 11px; }
+.k-absorption { color: var(--violet); }
+.k-trapped { color: var(--amber); }
+.k-cluster { color: var(--indigo); }
+
+.outlier-price { color: var(--text); }
+.outlier-side { font-size: 10px; text-transform: uppercase; color: var(--text-faint); }
+.s-ask { color: var(--green); }
+.s-bid { color: var(--red); }
+.outlier-size { color: var(--text-dim); }
+.outlier-score { text-align: right; color: var(--text-faint); }
+
+.mock-note {
+  font-size: 11px;
+  color: var(--text-faint);
+  line-height: 1.4;
+  margin-bottom: 8px;
+}
+
+.mock-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding-bottom: 16px;
+}
+
+.mock-btn {
+  padding: 7px 10px;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--border-hi);
+  background: var(--surface-hi);
+  color: var(--text-dim);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.mock-btn:hover { color: var(--text); border-color: var(--text-faint); }
+
+.mock-btn.primary {
+  background: var(--accent-grad);
+  border-color: transparent;
+  color: #fff;
+  font-weight: 600;
+}

@@ -85,6 +85,7 @@ export interface StrategyStats {
 export type ViewKey =
   | "home"
   | "analyze"
+  | "flow"
   | "rules"
   | "strategy-review"
   | "strategy-change"

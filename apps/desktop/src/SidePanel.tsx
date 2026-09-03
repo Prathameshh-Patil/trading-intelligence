@@ -25,6 +25,7 @@ import type {
 } from "./lib/types";
 
 import AnalyzeView from "./views/AnalyzeView";
+import FlowView from "./views/FlowView";
 import HomeView from "./views/HomeView";
 import JournalView from "./views/JournalView";
 import RulesView from "./views/RulesView";
@@ -34,6 +35,7 @@ import StrategyReviewView from "./views/StrategyReviewView";
 const TITLES: Record<ViewKey, string> = {
   home: "Trading Intelligence",
   analyze: "Analyze screen",
+  flow: "Order flow",
   rules: "Trade rules",
   "strategy-review": "Review strategy",
   "strategy-change": "Change strategy",
@@ -204,6 +206,9 @@ export default function SidePanel() {
     switch (view) {
       case "analyze":
         return <AnalyzeView violations={violations} onNavigate={navigate} />;
+
+      case "flow":
+        return <FlowView />;
 
       case "rules":
         return (
