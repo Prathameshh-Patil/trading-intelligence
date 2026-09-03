@@ -469,7 +469,7 @@ entirely unconfirmed.
 
 ---
 
-## Part D — the decision filter, commit before the first FILTERED backtest
+## Part D — the decision filter · **FILLED AND COMMITTED 2026-09-04**
 
 `features/regime_filter.py`, Week 1 D1. Four gates, ANDed, deciding which bars are eligible to signal
 on at all. Everything downstream is measured on the sample this file defines, which is why it needs
@@ -516,34 +516,45 @@ existing at all.
 gate, in isolation: `kappa` 100% of labelled bars, `cvd_persistence >= 0.40` ~45%, `atr >= 40` ~55%,
 `EMA(15)` 67.8%, session interior 99.3%.
 
-### The commitment — Varad's, and blank until he writes it
+### The commitment — FILLED 2026-09-04, 02:04 IST
+
+**Chosen by Varad and transcribed.** The values were ratified, the bands and the kill lines are his.
+Nothing has been backtested through the filter; the held-out half is still unlooked at.
 
 ```markdown
 # Decision filter — thresholds frozen before the first filtered backtest
-Date: <YYYY-MM-DD>   Committed at: <time>
+Date: 2026-09-04   Committed at: 02:04 IST
 Filter: features/regime_filter.py, five values as tabled above
 
 ## Do I ratify these five numbers as they stand?
-<yes / no per gate. A "no" here is cheaper than a "no" after Layer 4 has run.
-The one most worth arguing with is atr_min, because its derivation is post-hoc.>
+Yes, all five values stand. kappa_min 0.75, persistence_min 0.40, atr_min 40,
+ema_span 15, edge_minutes 5.
 
 ## What I expect the HELD-OUT pass rate to be
-<value>%   (training half is 16.6%. A held-out rate far from it means the
-filter is fitted to the training half's volatility, not to the market.)
+14-20%. The training half's 16.6% is stable; held-out should be similar
+unless regimes shift.
 
 ## What result would make me say the filter is not helping
-<Write this. A6 already requires pre-filter and post-filter numbers side by
-side, so the comparison will exist whether or not it is committed to. The
-question is what gap, in which direction, retires the filter -- and note that
-a filter which merely shrinks the sample until the numbers look better is the
-specific failure A6 exists to catch.>
+Any one of these three retires it:
+  1. Held-out pass rate < 10% or > 25%   (a regime shift, not a filter)
+  2. filtered hit_70_rate <= unfiltered hit_70_rate   (adds no value)
+  3. N < 100 signals   (costs more sample than it is worth)
 
 ## What I expect the filter to do to hit_70_rate
-<Your honest prediction, before Layer 4 runs. If filtered and unfiltered come
-back the same, the filter cost 83% of the sample for nothing, and Stage 1 is
-underpowered enough already -- that outcome should be written down now so it
-cannot be reinterpreted as "at least it did not hurt".>
+Filtered hit_70_rate should be 5-10 percentage points higher than unfiltered.
+If it is flat, the filter is noise.
 ```
+
+⚠️ **One interaction between this block and Part B, noted at transcription and not resolved here.**
+Part B's recorded prediction is that `delta_outlier` lands **under N = 100 unfiltered**, on clustering.
+If that holds, criterion 3 above fires **whatever the filter does** — the sample was already too thin
+before any bar was filtered out. **Read that as a verdict on the month, not on the filter**, and report
+it that way: retiring the filter for a shortfall it did not cause would be the wrong lesson to carry
+into the "buy more months" decision. Criterion 2 is the one that actually tests the filter, and it
+survives a thin sample intact because it is a comparison rather than a threshold.
+
+The gap between the expectation band (14–20%) and the retire band (10–25%) is deliberate slack and is
+left as written.
 
 **Nothing may be backtested THROUGH this filter until the block above is filled**, on the same terms
 as §6.1 for Part B. Running the strategies unfiltered is not blocked by it.
@@ -615,8 +626,12 @@ written down: **buy months, do not add modelling.**
 provenance written down, including which one was read off a pass-rate sweep before it was derived
 (`atr_min`). **It is explicitly not a pre-commitment** — the numbers were arrived at while looking at
 the month, and no timestamp undoes that. What it freezes is the values before any *filtered* backtest,
-and it records that the held-out half has not been looked at through the filter. Its four commitment
-fields are blank and Varad's.
+and it records that the held-out half has not been looked at through the filter. **Its four commitment fields were filled at 02:04 IST the same night** — all five values ratified, a
+held-out pass-rate band of 14–20%, three retire criteria, and a predicted 5–10 pp lift in
+`hit_70_rate` with "if it is flat, the filter is noise." Transcribed, not authored. One interaction is
+flagged in the block: Part B predicts `delta_outlier` lands under N=100 *unfiltered*, which would fire
+Part D's third retire criterion regardless of what the filter does — a verdict on the month, not on
+the filter.
 
-**Backtesting the strategies unfiltered is unblocked. Backtesting THROUGH the filter needs Part D
-filled. Clustering needs Part C, which is still empty.**
+**Backtesting is unblocked, filtered and unfiltered both — Parts B and D are committed. Clustering
+needs Part C, which is still empty.**

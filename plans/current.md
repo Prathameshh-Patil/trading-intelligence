@@ -1217,6 +1217,28 @@ Drafted as **Part D** in `thresholds_selector.md` — one commitment ledger, not
 - [x] **`daily_updates/2026-09-04.md` restructured** — the day ran to seven topics under a header naming
       only the first. Now carries a contents table and consistent section levels. 561 lines.
 
+### Part D filled — 2026-09-04, 02:04 IST · the filter's thresholds are committed · [`thresholds_selector.md`](../services/signal-data/thresholds_selector.md)
+
+Drafted and filled the same night. **Chosen by Varad, transcribed.** Nothing has been backtested
+through the filter and the held-out half is still unlooked at.
+
+- [x] **All five values ratified as they stand** — `kappa_min` 0.75, `persistence_min` 0.40,
+      `atr_min` 40, `ema_span` 15, `edge_minutes` 5.
+- [x] **Held-out pass rate predicted at 14–20%**, against the training half's 16.6%.
+- [x] **Three retire criteria, any one of which kills the filter:** held-out pass rate outside
+      10–25% (a regime shift, not a filter); **filtered `hit_70_rate` ≤ unfiltered** (adds no value);
+      or **N < 100 signals** (costs more sample than it is worth).
+- [x] **Predicted effect: 5–10 pp lift in `hit_70_rate`, and "if it is flat, the filter is noise."**
+- [ ] **⚠️ Flagged at transcription, not resolved: criterion 3 collides with Part B's prediction.**
+      Part B records `delta_outlier` landing **under N=100 unfiltered**. If that holds, the filter's
+      third retire criterion fires **whatever the filter does** — the sample was already too thin
+      before a single bar was filtered out. **That is a verdict on the month, not on the filter**, and
+      retiring the filter for a shortfall it did not cause would carry the wrong lesson into the "buy
+      more months" decision. **Criterion 2 is the one that actually tests the filter**, and it survives
+      a thin sample because it is a comparison rather than a threshold.
+- [x] **Backtesting is now unblocked both ways** — Parts B and D are committed. Part C is still empty,
+      so nothing may be clustered.
+
 ---
 
 ## Next
