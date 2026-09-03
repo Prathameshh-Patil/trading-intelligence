@@ -195,6 +195,7 @@ from sklearn.metrics import silhouette_score  # type: ignore[import-untyped]
 from sklearn.preprocessing import StandardScaler  # type: ignore[import-untyped]
 
 from compute_delta_cvd import DISPLAY_TZ
+from features.orderflow import _persistence as _cvd_persistence
 from s1 import SESSION_SHIFT, load_ticks, minute_bars
 
 DEFAULT_DWELL_LAMBDA = 0.5   # see dwell_labels; 0.0 recovers plain KMeans
@@ -284,13 +285,6 @@ def _slope(y: np.ndarray) -> float:
         return np.nan
     x = np.arange(len(y), dtype="float64")
     return float(np.polyfit(x, y, 1)[0])
-
-
-def _cvd_persistence(delta: np.ndarray) -> float:
-    abs_sum = np.abs(delta).sum()
-    if abs_sum == 0:
-        return np.nan
-    return float(abs(delta.sum()) / abs_sum)
 
 
 def _efficiency(close: np.ndarray, high: np.ndarray, low: np.ndarray) -> float:

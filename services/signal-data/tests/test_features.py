@@ -130,6 +130,35 @@ def test_a_zero_volume_bar_is_nan_not_a_division_by_zero() -> None:
 
 
 # --------------------------------------------------------------------------
+# CVD persistence -- the D1 fourth gate's feature, canonical here
+# --------------------------------------------------------------------------
+def test_persistence_is_one_when_all_flow_goes_one_way() -> None:
+    bars = bars_at(list(range(6)), [100.0] * 6, deltas=[10, 20, 30, 40, 50, 60])
+    assert of.cvd_persistence(bars, window="5min", min_bars=3).dropna().eq(1.0).all()
+
+
+def test_persistence_is_zero_when_flow_cancels_exactly() -> None:
+    bars = bars_at(list(range(4)), [100.0] * 4, deltas=[50, -50, 50, -50])
+    p = of.cvd_persistence(bars, window="2min", min_bars=2)
+    assert p.iloc[1] == 0.0, "one up and one down is perfectly balanced"
+
+
+def test_no_flow_at_all_is_nan_not_zero() -> None:
+    # Zero would read as "perfectly balanced", which is a different statement
+    # from "nothing traded". The gate must fail closed on it, and NaN does.
+    bars = bars_at(list(range(4)), [100.0] * 4, deltas=[0, 0, 0, 0])
+    assert of.cvd_persistence(bars, window="2min", min_bars=2).isna().all()
+
+
+def test_regimes_uses_this_exact_definition() -> None:
+    # The clustering computed the labels with this function; the D1 gate now
+    # filters on it. Two copies would let the labels and the gate drift.
+    import regimes
+
+    assert regimes._cvd_persistence is of._persistence
+
+
+# --------------------------------------------------------------------------
 # The re-exports D2 asks for -- imported, not re-derived
 # --------------------------------------------------------------------------
 def test_orderflow_reexports_the_tested_originals() -> None:

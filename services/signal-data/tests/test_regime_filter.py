@@ -147,12 +147,20 @@ def test_the_interior_of_a_long_session_survives() -> None:
 def test_every_gate_can_veto_alone() -> None:
     n = 30
     bars = with_regime(
-        bars_at(list(range(n)), [100.0 + i for i in range(n)], ranges=[2.0] * n),
+        bars_at(
+            list(range(n)),
+            [100.0 + i for i in range(n)],
+            ranges=[2.0] * n,
+            deltas=[50] * n,
+        ),
         [0.0] * n,
     )
     kw = {
         "kappa": pd.Series({0.0: 0.85}),
         "kappa_min": 0.75,
+        "persistence_window": "10min",
+        "persistence_min_bars": 3,
+        "persistence_min": 0.4,
         "atr_window": "10min",
         "atr_min_bars": 5,
         "atr_min": 10.0,
@@ -165,17 +173,37 @@ def test_every_gate_can_veto_alone() -> None:
     assert not rf.passes(bars, **{**kw, "kappa_min": 0.99}).any()  # type: ignore[arg-type]
     assert not rf.passes(bars, **{**kw, "atr_min": 999.0}).any()  # type: ignore[arg-type]
     assert not rf.passes(bars, **{**kw, "edge_minutes": 60}).any()  # type: ignore[arg-type]
+    assert not rf.passes(bars, **{**kw, "persistence_min": 1.01}).any()  # type: ignore[arg-type]
+
+    # Flow that cancels bar for bar is vetoed by the persistence gate alone:
+    # the price trend, the range and the regime are all still fine.
+    churn = with_regime(
+        bars_at(
+            list(range(n)),
+            [100.0 + i for i in range(n)],
+            ranges=[2.0] * n,
+            deltas=[50, -50] * (n // 2),
+        ),
+        [0.0] * n,
+    )
+    assert not rf.passes(churn, **kw).any()  # type: ignore[arg-type]
 
     # A dead flat market has range to trade and a surviving regime, and is
     # vetoed by the trend gate alone -- a zero slope is not a direction.
     flat = with_regime(
-        bars_at(list(range(n)), [100.0] * n, ranges=[2.0] * n), [0.0] * n
+        bars_at(list(range(n)), [100.0] * n, ranges=[2.0] * n, deltas=[50] * n),
+        [0.0] * n,
     )
     assert not rf.passes(flat, **kw).any()  # type: ignore[arg-type]
 
     # A clean downtrend is NOT vetoed: the gate aligns short and passes it.
     falling = with_regime(
-        bars_at(list(range(n)), [100.0 - i for i in range(n)], ranges=[2.0] * n),
+        bars_at(
+            list(range(n)),
+            [100.0 - i for i in range(n)],
+            ranges=[2.0] * n,
+            deltas=[-50] * n,
+        ),
         [0.0] * n,
     )
     assert rf.passes(falling, **kw).iloc[10:25].all()  # type: ignore[arg-type]
@@ -184,13 +212,21 @@ def test_every_gate_can_veto_alone() -> None:
 def test_a_regime_missing_from_the_kappa_table_fails_closed() -> None:
     n = 30
     bars = with_regime(
-        bars_at(list(range(n)), [100.0 + i for i in range(n)], ranges=[2.0] * n),
+        bars_at(
+            list(range(n)),
+            [100.0 + i for i in range(n)],
+            ranges=[2.0] * n,
+            deltas=[50] * n,
+        ),
         [7.0] * n,
     )
     keep = rf.passes(
         bars,
         kappa=pd.Series({0.0: 0.85}),
         kappa_min=0.75,
+        persistence_window="10min",
+        persistence_min_bars=3,
+        persistence_min=0.4,
         atr_window="10min",
         atr_min_bars=5,
         atr_min=10.0,

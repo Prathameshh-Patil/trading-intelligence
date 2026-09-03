@@ -1129,6 +1129,38 @@ before), `ruff` and `mypy` clean.
 - [ ] **The labels are still not hand-checked per §6.2 and still not promoted** over `analysis/regimes/`.
       This review covered the plot and the transition structure only.
 
+### W1D1 (revised) — 2026-09-04 · `cvd_persistence` is the fourth gate · [`daily_updates/2026-09-04.md`](../daily_updates/2026-09-04.md)
+
+The kappa correction left the regime gate inert and ATR carrying the whole filter. **The fourth gate is
+now a flow quantity rather than a second volatility floor.** 103 tests green (99 before), `ruff` and
+`mypy` clean.
+
+- [x] **D1's number is back in band without touching `atr_min`.** At the committed `atr_min = 40` and
+      `persistence_min = 0.40`: **1,043 of 6,276 bars — 16.6%**. The band spans `persistence_min`
+      0.30–0.40 (21.6% → 16.6%). **ATR is no longer being tuned to reach the band**, which was the
+      objection to the 19.9% figure and then to the 38.4% one.
+- [x] **`persistence_min = 0.40` has a justification that is not the pass rate.** The two populations
+      sit at **0.206** (regime 2, chop) and **0.612 / 0.613** (regimes 0 and 1, flow); their midpoint is
+      **0.409**. The threshold separates the two clusters the labelling already found, and *then*
+      happens to land in band — rather than being chosen because it lands in band. **Still Varad's to
+      commit**, and it belongs next to `atr_min` wherever those land.
+- [x] **The feature is computed from bars, not read from the regime labels.** So the gate does not
+      depend on a labelling that is still unreviewed and unpromoted. **It reproduces the labels'
+      separation exactly** — computed medians per regime are **0.612 / 0.613 / 0.206** against the
+      README's 0.612 / 0.6125 / 0.2059, an independent agreement between a clock-window implementation
+      and `regimes.py`'s bar-window one.
+- [x] **One definition, not two.** `_persistence` moved *out* of `regimes.py` and into
+      `features/orderflow.py`, which is the correct direction: it is a feature the clustering consumes,
+      not a detail of the clustering. `regimes.py` imports it. **This also keeps `sklearn` off the
+      features import path** — importing `regimes` costs ~2.3s, which D3's engine would have paid on
+      every run. A test pins `regimes._cvd_persistence is of._persistence`.
+- [x] **Fails closed on no flow.** A window where nothing traded is **NaN, not 0.0** — zero would read
+      as "perfectly balanced", which is a different claim from "nothing happened". Three feature tests
+      and a combiner test where flow cancels bar-for-bar and only this gate vetoes.
+- [ ] **`persistence_min` and `atr_min` are both still uncommitted thresholds.** Two of the four gates
+      now carry a number chosen by looking at the month. The persistence one has an independent
+      argument; `atr_min = 40` still does not.
+
 ---
 
 ## Next

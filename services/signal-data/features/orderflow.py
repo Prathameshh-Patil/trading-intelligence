@@ -16,12 +16,55 @@ closed.
 
 from __future__ import annotations
 
+import numpy as np
 import pandas as pd
 
 from s1 import TICK
-from strategies import absorption, cvd_slope, delta_z
+from strategies import _align, _window, absorption, cvd_slope, delta_z
 
-__all__ = ["absorption", "cvd_slope", "delta_z", "vwap", "vwap_distance"]
+__all__ = [
+    "absorption",
+    "cvd_persistence",
+    "cvd_slope",
+    "delta_z",
+    "vwap",
+    "vwap_distance",
+]
+
+
+def _persistence(delta: np.ndarray) -> float:
+    """|sum(delta)| / sum(|delta|) -- how one-directional a stretch of flow was.
+
+    Dimensionless, in [0, 1]. One means every contract went the same way; zero
+    means buying and selling cancelled exactly.
+
+    **This is the canonical definition and `regimes.py` imports it from here.**
+    It lived there first, as `_cvd_persistence`, because the clustering needed
+    it before anything else did. It belongs at this layer: a feature the
+    clustering consumes, not a detail of the clustering. Keeping one copy is
+    what stops the regime labels and the gate that filters on them from
+    quietly measuring different things.
+
+    A window with no flow at all has no direction to report, so it is NaN
+    rather than 0.0 -- zero would read as "perfectly balanced", which is a
+    different statement from "nothing happened".
+    """
+    gross = np.abs(delta).sum()
+    if gross == 0:
+        return np.nan
+    return float(abs(delta.sum()) / gross)
+
+
+def cvd_persistence(bars: pd.DataFrame, *, window: str, min_bars: int) -> pd.Series:
+    """`_persistence` over a trailing clock window, restarted each session.
+
+    `regimes.py` computes this same quantity over a window measured in BARS
+    rather than clock time. The two agree on a frame with no missing bars and
+    diverge on one with gaps, which is the dropped-minute trap `strategies.py`
+    documents -- this version is the one that survives it.
+    """
+    r = _window(bars, "delta", window, min_bars)
+    return _align(r.apply(_persistence, raw=True), bars)
 
 
 def vwap(bars: pd.DataFrame) -> pd.Series:

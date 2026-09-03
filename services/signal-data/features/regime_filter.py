@@ -3,6 +3,7 @@
 Week 1 D1, `plans/team/week-01.md` §3. Four gates, ANDed:
 
   * the bar's regime is persistent ABOVE ITS OWN BASE RATE (kappa),
+  * recent flow went one way rather than cancelling (CVD persistence),
   * there is enough range to pay for a stop (ATR),
   * the bar is not in the opening or closing minutes of its session,
   * price and its own trend agree.
@@ -17,6 +18,14 @@ scores 0.63 by shuffling alone, so the threshold kept the one regime with no
 directional flow and dropped both that had it. Normalised for base rate the
 ranking inverts -- the two flow regimes are the MORE persistent ones. The 0.92
 number is retired; see `analysis/regimes_2026-09-02/README.md`.
+
+That correction left the kappa gate inert on this labelling -- all three
+regimes clear it -- and ATR carrying the whole filter. **CVD persistence is
+the fourth gate, added 2026-09-04 to put the discriminating back on a flow
+quantity rather than on a volatility floor.** It is the feature that separated
+the flow regimes from the chop bucket in the first place (median 0.61 against
+0.21), computed here from bars rather than read from the regime labels, so the
+gate does not depend on a labelling that is still unreviewed and unpromoted.
 
 The survival table is an *argument*, not something this module computes for
 itself. It is the only quantity here that reads forward, so fitting it belongs
@@ -37,6 +46,7 @@ import numpy as np
 import pandas as pd
 
 from features.expansion import atr
+from features.orderflow import cvd_persistence
 
 
 def regime_survival(bars: pd.DataFrame, *, horizon_bars: int) -> pd.Series:
@@ -113,6 +123,9 @@ def passes(
     *,
     kappa: pd.Series,
     kappa_min: float,
+    persistence_window: str,
+    persistence_min_bars: int,
+    persistence_min: float,
     atr_window: str,
     atr_min_bars: int,
     atr_min: float,
@@ -127,6 +140,12 @@ def passes(
     """
     return (
         (bars["regime"].map(kappa) >= kappa_min)
+        & (
+            cvd_persistence(
+                bars, window=persistence_window, min_bars=persistence_min_bars
+            )
+            >= persistence_min
+        )
         & (atr(bars, window=atr_window, min_bars=atr_min_bars) >= atr_min)
         & trend_aligned(bars, span=ema_span)
         & session_interior(bars, edge_minutes=edge_minutes)
