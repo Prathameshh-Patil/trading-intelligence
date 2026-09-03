@@ -10,11 +10,16 @@
     "frontendDist": "../dist"
   },
   "app": {
+    "macOSPrivateApi": true,
     "windows": [
       {
         "title": "Trading Intelligence",
-        "width": 460,
-        "height": 820
+        "width": 380,
+        "height": 820,
+        "transparent": true,
+        "decorations": false,
+        "alwaysOnTop": true,
+        "shadow": false
       }
     ],
     "security": {

@@ -18,7 +18,10 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "2", features = [] }
+# `macos-private-api` is what makes `transparent: true` actually transparent on
+# macOS; without it the window silently stays opaque and `tauri.conf.json`'s
+# `macOSPrivateApi` fails the build rather than degrading quietly.
+tauri = { version = "2", features = ["macos-private-api"] }
 tauri-plugin-opener = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

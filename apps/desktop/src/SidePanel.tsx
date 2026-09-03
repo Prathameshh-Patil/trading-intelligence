@@ -190,7 +190,7 @@ export default function SidePanel() {
   if (!loaded || !strategy) {
     return (
       <div className="shell">
-        <div className="topbar">
+        <div className="topbar" data-tauri-drag-region>
           <div className="brand">
             <div className="brand-mark">T</div>
             Trading Intelligence
@@ -260,7 +260,14 @@ export default function SidePanel() {
 
   return (
     <div className="shell">
-      <div className="topbar">
+      {/*
+        The window is borderless (`decorations: false`), so there is no titlebar
+        to grab and the topbar has to be the drag handle. Tauri starts a drag
+        only when the mousedown target *itself* carries the attribute, so the
+        back button and the rule pill inside stay clickable — the draggable area
+        is the topbar's own background and the spacer.
+      */}
+      <div className="topbar" data-tauri-drag-region>
         <AnimatePresence mode="wait" initial={false}>
           {view === "home" ? (
             <motion.div
@@ -296,7 +303,7 @@ export default function SidePanel() {
           )}
         </AnimatePresence>
 
-        <div className="spacer" />
+        <div className="spacer" data-tauri-drag-region />
 
         <RulePill
           level={level}
