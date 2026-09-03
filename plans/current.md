@@ -988,6 +988,43 @@ against all 19 parquets rather than against the manifest's table.
       a new proposal.
 - [ ] **The vote is still unheld.** Four asks, no room since 26 Aug.
 
+### W1D-pre — 2026-09-04, 00:38 IST · **Part B is filled and committed** · [`daily_updates/2026-09-04.md`](../daily_updates/2026-09-04.md)
+
+**The file three sessions declined to fill is filled** — and it was filled the only way it could be:
+by asking. Every threshold, floor, kill line and prediction was **chosen by Varad**, each put as an
+explicit choice with its consequence stated, then transcribed. Claude authored no number. The git
+timestamp is the mechanism and nothing has been run.
+
+- [x] **Three blocks, not four.** `delta_outlier` (`window="120min"`, `min_bars=12`, `z=2.0`),
+      `cvd_divergence` (`"60min"`, `6`, `min_slope=200`), `footprint_stack` (`ratio=3.0`,
+      `min_stack=3`). All three verified to bind to `strategies.py`'s signatures with no unfilled
+      keyword-only parameters — **no month data touched, so nothing leaked into the commitment**.
+- [x] **`absorption_fade` dropped from Week 1 by decision**, not left blank. Decision 2 went the way
+      the file warned it might: the `|delta| / bar range` proxy was reasoned against a 15-tick median
+      bar, the 5-minute median is **38**, and the classical price-level form needs code that does not
+      exist. Decision 1 recorded, not taken — **when it returns it returns as two blocks**, fade and
+      continuation, each measured.
+- [x] **Shared commitments:** horizon **5 minutes**; derived on the **training half only** (13
+      sessions, 3,373 bars); median move **≥ +14 ticks** at 5m; hit rate is **the D5 gate formula**
+      (beat the *measured* null by 2 s.e., N ≥ 100) rather than a flat number, so Part B and the gate
+      cannot disagree; MAE tolerance **20 ticks**; kill line is **failure on held-out data, dead** —
+      explicitly not "promising but underpowered".
+- [x] **The prediction, recorded before the run: none of the three clears, and `delta_outlier` lands
+      under N=100 on clustering.** Both chosen over the more optimistic options offered. By his own
+      prediction `N` fails before the hit rate is reached, so the outcome is `inconclusive` — §6's
+      written prediction, Day 5's arithmetic and this pre-registration all agreeing in advance. The
+      response is already on record: **buy months, do not add modelling.**
+- [ ] **The 5-minute horizon is contingent on gate item 3, still unvoted.** The Day 5 entry flags it
+      "not Varad's alone to take — it changes what Part B's thresholds are written against." **If the
+      room picks another horizon these blocks are re-committed before anything runs**, not
+      reinterpreted afterwards.
+- [ ] **Two consequences of dropping absorption, neither closed.** D3's 3-of-4 checker loses
+      condition A (stub it `return False`, which D3 sanctions) and becomes effectively **3-of-3 — a
+      stricter gate than designed**, to be reported as such. And the Week 1 gate line *"the outlier
+      detector flags the 2026-07-16 08:00 ET absorption hour"* **still stands** — that hour must now
+      be caught by `delta_outlier`, and if nothing flags it, Stage 1 does not work.
+- [ ] **Part C is still empty.** Backtesting is unblocked; clustering is not.
+
 ---
 
 ## Next
@@ -1015,7 +1052,7 @@ both ran into**, neither of which is a row below because neither is anyone's tas
 | # | Item | Owner | Notes |
 | :--- | :--- | :--- | :--- |
 | 0 | 🔑 **Revoke the Anthropic key** | Varad | It was in the tracked `.env.example` (uncommitted, absent from history, placeholder restored) **and in a chat transcript.** Ten minutes, at console.anthropic.com. *Revoke*, not rotate: the own-model decision means nothing depends on it and there is no replacement to issue, so this got easier — the suite stays green on a placeholder because the tests only need the key **present**, not valid |
-| 1 | ~~Pick the analysis backend, then run the live analysis once~~ — **PARKED 25 Aug: we build our own model** | Varad | No hosted backend is bought, so no live analysis runs and the 5 `LIVE_API_TESTS=1` tests stay skipped. Claude stays in as the interim implementation; the four-key contract stays frozen, so the own model is a drop-in behind the same `analyze()` — the Day 3 lexicon→Claude swap already proved that seam holds. **Scoped 25 Aug — and it does not need a week.** The "own model" turned out not to be a replacement for `analyze()` at all: it is a **GC strategy selector**, and it is a *personal research tool*, not a product feature. Design in [`docs/superpowers/specs/2026-08-25-gc-strategy-selector-design.md`](../docs/superpowers/specs/2026-08-25-gc-strategy-selector-design.md). It takes no week from `plans/team/`, so the "unscheduled model eats Week 6" risk is closed by the thing not being scheduled rather than by scheduling it. **`analyze()` keeps Claude as its interim implementation and stays `503` indefinitely** — that is unchanged and still unverified end to end. **Stage 1's machinery landed the night of 25 Aug** — `s1.py`, `backtest.py`, 16 tests, and a 3.12-pinned environment for `services/signal-data`, which had none. **Still not started: any actual backtest.** `thresholds_selector.md` now exists with §6.1's Part A binding, but **Parts B and C are empty and only Varad can fill them** — the candidate strategies are his to author (§9 Q1), and a threshold picked by an assistant is not a commitment by the person with the bias. One session cannot support §6 regardless; the full month is still only on Prathamesh's disk. **Stage 1's candidates landed 26 Aug** — `strategies.py`, 191 lines, four features and four entry-only rules, 27 tests green. **No threshold in it has a default**, so §6.1 is enforced by the function signature: the file raises `TypeError` (and fails `mypy`) until Part B exists. The four rules are now shaped functions to be *corrected* rather than blank blocks to be *authored*, which is a smaller ask — but Part B is still the only thing between here and a first backtest |
+| 1 | ~~Pick the analysis backend, then run the live analysis once~~ — **PARKED 25 Aug: we build our own model** | Varad | No hosted backend is bought, so no live analysis runs and the 5 `LIVE_API_TESTS=1` tests stay skipped. Claude stays in as the interim implementation; the four-key contract stays frozen, so the own model is a drop-in behind the same `analyze()` — the Day 3 lexicon→Claude swap already proved that seam holds. **Scoped 25 Aug — and it does not need a week.** The "own model" turned out not to be a replacement for `analyze()` at all: it is a **GC strategy selector**, and it is a *personal research tool*, not a product feature. Design in [`docs/superpowers/specs/2026-08-25-gc-strategy-selector-design.md`](../docs/superpowers/specs/2026-08-25-gc-strategy-selector-design.md). It takes no week from `plans/team/`, so the "unscheduled model eats Week 6" risk is closed by the thing not being scheduled rather than by scheduling it. **`analyze()` keeps Claude as its interim implementation and stays `503` indefinitely** — that is unchanged and still unverified end to end. **Stage 1's machinery landed the night of 25 Aug** — `s1.py`, `backtest.py`, 16 tests, and a 3.12-pinned environment for `services/signal-data`, which had none. **Still not started: any actual backtest.** `thresholds_selector.md` now exists with §6.1's Part A binding, but **Parts B and C are empty and only Varad can fill them** — the candidate strategies are his to author (§9 Q1), and a threshold picked by an assistant is not a commitment by the person with the bias. One session cannot support §6 regardless; the full month is still only on Prathamesh's disk. **Stage 1's candidates landed 26 Aug** — `strategies.py`, 191 lines, four features and four entry-only rules, 27 tests green. **No threshold in it has a default**, so §6.1 is enforced by the function signature: the file raises `TypeError` (and fails `mypy`) until Part B exists. The four rules are now shaped functions to be *corrected* rather than blank blocks to be *authored*, which is a smaller ask — but Part B is still the only thing between here and a first backtest. **Part B was FILLED and committed 2026-09-04, 00:38 IST** — three blocks (`absorption_fade` dropped from Week 1 by decision), every threshold, kill line and prediction chosen by Varad and transcribed. **A backtest is no longer blocked on this file.** Part C remains empty, so nothing may be clustered |
 | 2 | ~~Click the demo through in **Firefox**~~ — **reported done, ~28 Aug or before** | Either | Prathamesh reports capture verified end-to-end in both a real Chrome profile and a real Firefox profile with the rebuilt (`955b374`) extension. **Not contemporaneously logged** — no daily update, commit, or screenshot from the time records it, so this row is closed on his account rather than on independent evidence. If that evidence turns up (a screenshot, a `daily_updates` entry) it should still get linked here |
 | 3 | Review the **popup UI** | Prathamesh | Written from scratch to unbreak the build — a starting point, not a design |
 | 4 | Decide **where the API lives** | Both | Popup hardcodes `http://localhost:8000`, matching `host_permissions`; a deployed URL changes both, and the CORS entries start mattering once `host_permissions` no longer covers the host. **Now also a secrets question:** the API holds an Anthropic key, so it needs somewhere that can hold an env var — and the key must never move into the extension, which is public |

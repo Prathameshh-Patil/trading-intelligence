@@ -52,7 +52,7 @@ not mentioning it.
 
 ---
 
-## Part B — Stage 1, fill in before the first backtest
+## Part B — Stage 1 · **FILLED AND COMMITTED 2026-09-04**
 
 **One block per candidate strategy. Copy it 3–4 times.** Nothing below is written by Claude; §9 Q1
 of the design says the candidates are authored by the person who trades them, and a threshold
@@ -96,7 +96,7 @@ finding it out cheaply is the entire reason Stage 1 goes first.
 
 ---
 
-### The four blocks, scaffolded — 2026-08-26
+### The four blocks, scaffolded — 2026-08-26 *(four then; three of them filled 2026-09-04, `absorption_fade` dropped — see below)*
 
 `strategies.py` landed 26 Aug, so the candidates now exist as code and the rules below are
 transcribed from their docstrings. **Everything factual is filled in. Every number and every
@@ -114,6 +114,13 @@ Two things to settle **before** any number, because both change what is being th
    median bar range of **15 ticks** it is a loose one. This one may delete the rule rather than
    tune it. *(Measured 3 Sep: 15 ticks is the **minute**-bar figure. The 5-minute median is
    **38 ticks** — see "Scale" below, which makes the proxy looser here, not tighter.)*
+
+**Both settled 2026-09-04, and decision 2 went the way this section warned it might.** Absorption is
+**dropped from Week 1** rather than re-specified at the price level — three well-posed candidates
+against a thin month beat four with one mis-specified. Decision 1 is **recorded, not taken**: when
+the rule returns it returns as *two* blocks, fade and continuation, each measured rather than one of
+them assumed. See "`absorption_fade` — deferred out of Week 1" below for what that costs at D3 and at
+the gate.
 
 **Which candidates actually inherit the ±15–20% delta error** (measured 26 Aug, asserted in
 `tests/test_stage1.py`) — this decides how much A5's output means for each:
@@ -198,148 +205,212 @@ hit-rate commitment of 26% are not compatible commitments. Pick both lines toget
 
 ---
 
+### FILLED — 2026-09-04, 00:38 IST, before anything was run
+
+**Every number below was chosen by Varad on 2026-09-04 and transcribed, not authored.** The
+selections were made against the arithmetic in "The factual fields" above — the separable-edge
+floor, the power table, the 38-tick bar range — and each was put as an explicit choice with its
+consequence stated. Claude wrote no threshold, no kill criterion and no prediction of its own; where
+a field required a belief rather than a number, it was asked for. **The git timestamp on this commit
+is the mechanism, and nothing ran before it.**
+
+Two structural decisions came first, because both change what is being thresholded:
+
+- **`absorption_fade` is out for Week 1.** Decision 2 above resolved as *drop*, not *tune* — exactly
+  the outcome that section said was possible. Three candidates, not four.
+- **When it returns it returns as two blocks, fade *and* continuation**, each with its own
+  commitment and its own kill line, rather than one signed guess. Decision 1 is recorded, not taken.
+
+**What every block shares** — stated once here rather than repeated three times:
+
+| | commitment |
+| :--- | :--- |
+| Horizon | **5 minutes.** 15 and 30 descriptive only. ⚠️ **Contingent on gate item 3**, which is drafted and unvoted — `current.md` flags it "not Varad's alone to take, it changes what Part B's thresholds are written against." **If the room picks another horizon, these blocks are re-committed before anything runs, not reinterpreted after.** |
+| Derived on | **The training half only** — sessions ≤ 2026-07-19: 13 sessions, 3,373 labelled bars. The held-out 10 sessions / 2,650 bars are not looked at |
+| Median move @ 5m | **≥ +14 ticks** ($140), in the signal's favour. Chosen against the separable floor of **13.68 ticks at N=100** — i.e. deliberately set so the commitment is provable at the sample size floored below, and knowingly far larger than a real order-flow edge (1–3 ticks) is expected to be |
+| Hit rate | **The gate formula, not a flat number:** held-out `hit_70_rate` beats the **measured** random-entry null `p₀` by at least `2 × sqrt(p₀(1−p₀)/N)`, with **N ≥ 100**. Identical to `week-01.md` §2's pre-written threshold, so Part B and the D5 gate cannot disagree. `backtest.random_entries` measures `p₀`; a second null must not be written |
+| Minimum N | **100.** Below it the result is **inconclusive** — reported, not acted on. A4's floor of 30 is the reporting floor and is not this |
+| Median MAE tolerated | **20 ticks** — equal to the hard stop, so a rule whose median MAE reaches it is stopping out at the median. Note this is **0.53× a median 5-minute bar**, which is why D4 must measure it at tick resolution before the number means anything |
+| Kill line | **Fails the gate formula on held-out data → the strategy is dead.** Not "promising but underpowered", not "worth another month". The same line D5 already measures, so there is no second standard to argue about |
+
+**The prediction, recorded before any of it runs:** *none of the three clears its bar, and
+`delta_outlier` comes in **under 100 signals** because entries cluster into a handful of volatile
+sessions.* Both were chosen deliberately over the more optimistic options offered.
+
+**Read what that means honestly:** by his own prediction the study is underpowered *before* the hit
+rate matters — N fails first, so the outcome is `inconclusive` and the kill line is never reached.
+That is §6's recorded prediction, Day 5's power arithmetic and this pre-registration all agreeing in
+advance. **It is a real result and the cheapest possible one** — the response written down for it is
+already on record: buy months, do not add modelling.
+
 ```markdown
-# Stage 1 — strategy 1 of 4: delta_outlier
-Date: <YYYY-MM-DD>   Committed at: <time>
+# Stage 1 — strategy 1 of 3: delta_outlier
+Date: 2026-09-04   Committed at: 00:38 IST
 Instrument: GC (GCQ6 and successors)
 Data: 2026-07-01 to 2026-07-31, 23 sessions, 6,276 five-minute bars.
+      Derived on the TRAINING half only: <= 2026-07-19, 13 sessions, 3,373 labelled bars.
       Provenance and hash: "The factual fields" above.
-      Walk-forward: n/a for Stage 1 — nothing is fitted.
+      Walk-forward: n/a for Stage 1 -- nothing is fitted.
 
 ## The rule
-A bar whose delta is <z> standard deviations above its trailing <window> goes
-long at that bar's close; <z> below goes short. Trailing statistics only, reset
-at each session boundary, minimum <min_bars> bars of context before any signal.
+A bar whose delta is 2.0 standard deviations above its trailing 120min window
+goes long at that bar's close; 2.0 below goes short. Trailing statistics only,
+reset at each session boundary, minimum 12 bars of context before any signal.
 
 ## What I am measuring
 Realized move at 5 / 15 / 30 minutes, in ticks, plus MFE and MAE at each.
+The 5-minute figure is the commitment; 15 and 30 are descriptive.
 
-## The threshold — this is the commitment
-- window:                                            <value>
-- min_bars:                                          <value>
-- z:                                                 <value>
-- Median move at <N> minutes:                        <value, signed, ticks>
-- Hit rate:                                          <value>%
-- Versus the null:                                   beat it by <value> ticks
-- Minimum sample size before I believe any of it:    <N>   (floor is 30, A4)
-- Median MAE I am willing to sit through:            <value> ticks
+## The threshold -- this is the commitment
+- window:                                            "120min"   (24 x 5-min bars)
+- min_bars:                                          12
+- z:                                                 2.0
+- Median move at 5 minutes:                          >= +14 ticks ($140)
+- Hit rate:                                          beats the measured null p0 by
+                                                     >= 2*sqrt(p0*(1-p0)/N)
+- Versus the null:                                   the margin above IS the bar;
+                                                     no separate tick figure
+- Minimum sample size before I believe any of it:    100          (floor is 30, A4)
+- Median MAE I am willing to sit through:            20 ticks
+- A5 note: this rule does NOT inherit the +/-15-20% delta error. A z-score
+  divides by its own sigma, so a uniform delta rescale cancels. The perturbation
+  is still run; it is expected to move nothing, and that is the check.
 
 ## What result would make me say no
-<Write this. Most important line in the file.>
+Held-out hit_70_rate fails to clear the measured null by 2 standard errors at
+N >= 100. Then it is dead -- not "promising but underpowered", not "worth
+another month". Below N = 100 the result is inconclusive and is reported, not
+acted on, and inconclusive is not a soft no that gets argued into a yes.
 
 ## What I expect to see
-<Your honest prediction, before you look.>
+It does not clear. I expect N under 100 on the training half despite the
+Gaussian estimate of ~150, because entries will cluster into a handful of
+volatile sessions and the raw count will overstate the independent
+observations. If that is what happens, N fails before the hit rate is even
+reached, and the honest response is more months, not more modelling.
 ```
 
 ```markdown
-# Stage 1 — strategy 2 of 4: cvd_divergence
-Date: <YYYY-MM-DD>   Committed at: <time>
+# Stage 1 — strategy 2 of 3: cvd_divergence
+Date: 2026-09-04   Committed at: 00:38 IST
 Instrument: GC (GCQ6 and successors)
 Data: 2026-07-01 to 2026-07-31, 23 sessions, 6,276 five-minute bars.
+      Derived on the TRAINING half only: <= 2026-07-19, 13 sessions, 3,373 labelled bars.
       Provenance and hash: "The factual fields" above.
-      Walk-forward: n/a for Stage 1 — nothing is fitted.
+      Walk-forward: n/a for Stage 1 -- nothing is fitted.
 
 ## The rule
-Price closes at the high of its trailing <window> while CVD fell by at least
-<min_slope> contracts across that same window: short. A new low that buying did
+Price closes at the high of its trailing 60min window while CVD fell by at
+least 200 contracts across that same window: short. A new low that buying did
 not confirm by the same margin: long. The extreme and the flow are measured
-over the SAME window — two windows would be two thresholds pretending to be one.
+over the SAME window -- two windows would be two thresholds pretending to be
+one. Minimum 6 bars of context before any signal.
 
 ## What I am measuring
 Realized move at 5 / 15 / 30 minutes, in ticks, plus MFE and MAE at each.
+The 5-minute figure is the commitment; 15 and 30 are descriptive.
 
-## The threshold — this is the commitment
-- window:                                            <value>
-- min_bars:                                          <value>
-- min_slope (contracts):                             <value>
-- Median move at <N> minutes:                        <value, signed, ticks>
-- Hit rate:                                          <value>%
-- Versus the null:                                   beat it by <value> ticks
-- Minimum sample size before I believe any of it:    <N>   (floor is 30, A4)
-- Median MAE I am willing to sit through:            <value> ticks
-- ...and it must still clear that bar at min_slope x0.8 and x1.2 (A5, and this
-  strategy genuinely inherits the error)
+## The threshold -- this is the commitment
+- window:                                            "60min"    (12 x 5-min bars)
+- min_bars:                                          6
+- min_slope (contracts):                             200
+- Median move at 5 minutes:                          >= +14 ticks ($140)
+- Hit rate:                                          beats the measured null p0 by
+                                                     >= 2*sqrt(p0*(1-p0)/N)
+- Versus the null:                                   the margin above IS the bar
+- Minimum sample size before I believe any of it:    100          (floor is 30, A4)
+- Median MAE I am willing to sit through:            20 ticks
+- ...and it must still clear that bar at min_slope 160 and 240 (A5 +/-20%).
+  This rule genuinely inherits the error: min_slope is denominated in contracts,
+  and session delta is method-dependent at ~15-20%. If the edge dies inside its
+  own known error bar, it was never an edge.
 
 ## What result would make me say no
-<Write this.>
+Held-out hit_70_rate fails to clear the measured null by 2 standard errors at
+N >= 100 -- or it clears at min_slope 200 and fails at 160 or 240. Either one
+kills it. The second is not a caveat to note in the write-up; it is a kill.
 
 ## What I expect to see
-<prediction>
+It does not clear. This is the one with a real mechanism story behind it, which
+is exactly why I do not trust my own read of it -- a story is what makes a thin
+result look like an edge. I expect the A5 perturbation to be where it dies if
+the raw number looks good.
 ```
 
 ```markdown
-# Stage 1 — strategy 3 of 4: absorption_fade
-Date: <YYYY-MM-DD>   Committed at: <time>
+# Stage 1 — strategy 3 of 3: footprint_stack
+Date: 2026-09-04   Committed at: 00:38 IST
 Instrument: GC (GCQ6 and successors)
 Data: 2026-07-01 to 2026-07-31, 23 sessions, 6,276 five-minute bars.
+      Derived on the TRAINING half only: <= 2026-07-19, 13 sessions, 3,373 labelled bars.
       Provenance and hash: "The factual fields" above.
-      Walk-forward: n/a for Stage 1 — nothing is fitted.
-
-## FIRST: the two decisions above
-- Fade or continuation?                              <answer>
-- Time-bar ratio, or price-level absorption?         <answer>
-  If price-level, this block describes a rule that does not exist yet and the
-  numbers below are for the wrong thing. Settle it first.
+      Walk-forward: n/a for Stage 1 -- nothing is fitted.
 
 ## The rule
-A bar trading at least <min_ratio> contracts per tick of range, on at least
-<min_delta> contracts of one-sided flow, takes the OPPOSITE side of the delta.
-The size floor is load-bearing: the ratio alone is scale-free, and without
-min_delta the rule selects for the Globex-open dead zone rather than absorption.
+At least 3 price levels inside the bar where buy volume is 3.0 times the sell
+volume one tick below, and NO level imbalanced the other way: long. Mirrored
+for short. Counts levels, not consecutive runs -- consecutive stacking is a
+stricter rule and would need its own block. Reads TICKS, not bars: price levels
+within a bar do not survive OHLC.
 
 ## What I am measuring
 Realized move at 5 / 15 / 30 minutes, in ticks, plus MFE and MAE at each.
+The 5-minute figure is the commitment; 15 and 30 are descriptive.
 
-## The threshold — this is the commitment
-- min_ratio (contracts per tick):                    <value>
-- min_delta (contracts):                             <value>
-- Median move at <N> minutes:                        <value, signed, ticks>
-- Hit rate:                                          <value>%
-- Versus the null:                                   beat it by <value> ticks
-- Minimum sample size before I believe any of it:    <N>   (floor is 30, A4)
-- Median MAE I am willing to sit through:            <value> ticks
-- ...and it must still clear that bar at x0.8 and x1.2 on both (A5, and this
-  strategy genuinely inherits the error)
-
-## What result would make me say no
-<Write this.>
-
-## What I expect to see
-<prediction>
-```
-
-```markdown
-# Stage 1 — strategy 4 of 4: footprint_stack
-Date: <YYYY-MM-DD>   Committed at: <time>
-Instrument: GC (GCQ6 and successors)
-Data: 2026-07-01 to 2026-07-31, 23 sessions, 6,276 five-minute bars.
-      Provenance and hash: "The factual fields" above.
-      Walk-forward: n/a for Stage 1 — nothing is fitted.
-
-## The rule
-At least <min_stack> price levels inside the bar where buy volume is <ratio>
-times the sell volume one tick below, and NO level imbalanced the other way:
-long. Mirrored for short. Counts levels, not consecutive runs — consecutive
-stacking is a stricter rule and would need its own block.
-
-## What I am measuring
-Realized move at 5 / 15 / 30 minutes, in ticks, plus MFE and MAE at each.
-
-## The threshold — this is the commitment
-- ratio:                                             <value>
-- min_stack (levels):                                <value>
-- Median move at <N> minutes:                        <value, signed, ticks>
-- Hit rate:                                          <value>%
-- Versus the null:                                   beat it by <value> ticks
-- Minimum sample size before I believe any of it:    <N>   (floor is 30, A4)
-- Median MAE I am willing to sit through:            <value> ticks
+## The threshold -- this is the commitment
+- ratio:                                             3.0
+- min_stack (levels):                                3
+- Median move at 5 minutes:                          >= +14 ticks ($140)
+- Hit rate:                                          beats the measured null p0 by
+                                                     >= 2*sqrt(p0*(1-p0)/N)
+- Versus the null:                                   the margin above IS the bar
+- Minimum sample size before I believe any of it:    100          (floor is 30, A4)
+- Median MAE I am willing to sit through:            20 ticks
+- A5 note: this rule does NOT inherit the +/-15-20% delta error. A volume ratio
+  scales on both sides. Run the perturbation anyway; expect it to move nothing.
 
 ## What result would make me say no
-<Write this.>
+Held-out hit_70_rate fails to clear the measured null by 2 standard errors at
+N >= 100. Dead, on the same terms as the other two.
 
 ## What I expect to see
-<prediction>
+It does not clear, and I expect this one to be the thinnest of the three -- a
+bar with three levels stacked 3:1 and nothing imbalanced against it is rare.
+If N comes in under 30 this is reported and not acted on under A4, which is a
+different outcome from failing, and I will not blur the two.
 ```
+
+### `absorption_fade` — deferred out of Week 1, 2026-09-04
+
+**Not a failed candidate and not an unfilled block. A decision.** Decision 2 above asked whether
+absorption should be measured at the price level rather than as a time-bar ratio, and warned the
+answer "may delete the rule rather than tune it." It did.
+
+- **The proxy is looser than the file assumed.** `|delta| / bar range` was reasoned about against a
+  15-tick median bar. That is the *minute*-bar figure; the 5-minute median is **38 ticks**, so the
+  denominator is 2.5× wider than the note that endorsed the proxy had in mind.
+- **The classical form needs code that does not exist.** `compute_delta_cvd.py`'s `footprint()`
+  aggregates by price level already, but no rule reads it that way, and writing one before a first
+  backtest is new machinery on the critical path in a week that has none to spare.
+- **Three well-posed candidates beat four where one is mis-specified**, against a month this thin.
+
+**When it returns, it returns as two blocks** — fade *and* continuation, each with its own threshold,
+kill line and prediction. The code currently hard-codes the fade reading in a docstring; the same bar
+is a continuation if the aggressor was early, and that is a question to be *measured*, not settled by
+whoever wrote the function first.
+
+⚠️ **This has a consequence at D3 and one at the gate, and neither is closed here:**
+
+- `week-01.md` D3's signal engine is a **3-of-4 checker** whose condition A is absorption. With the
+  rule out, A is stubbed `return False` — which D3 already sanctions ("if a condition is genuinely
+  hard — absorption is the likely one — stub it, commit that, and move on") — and the combiner is
+  effectively 3-of-3. **That is a stricter gate than designed**, not a looser one, and it should be
+  reported as such rather than quietly relabelled.
+- **The Week 1 gate line "the outlier detector flags the 2026-07-16 08:00 ET absorption hour" still
+  stands.** That hour — delta **+1,083** against a **47.7-point drop** — is textbook absorption, and
+  the rule named for it is now out. It has to be caught by `delta_outlier` instead, which is a real
+  test rather than a formality: **if nothing flags that hour, Stage 1 does not work**, and dropping
+  `absorption_fade` does not dissolve that line.
 
 ---
 
@@ -445,4 +516,19 @@ One measured number changed a plan assumption rather than merely recording it: *
 bar range is 38 ticks, not the 15 this file carried from minute bars.** A 20-tick stop is half a
 median bar, so D4's tick-resolution check is load-bearing rather than a formality.
 
-**Nothing may be backtested until B is filled and committed.** Nothing may be clustered until C is.
+**Updated 2026-09-04: Part B is FILLED and committed. Part C is not.** Three blocks — `delta_outlier`,
+`cvd_divergence`, `footprint_stack` — carry parameters, a shared horizon and sample floor, a median-move
+bar, a hit-rate rule, an MAE tolerance, a kill line and a prediction. **Every one of those was chosen by
+Varad on 2026-09-04 and transcribed**; each was put as an explicit choice with its consequence stated
+(the separable-edge floor, the power table, the 38-tick bar range), and where a field needed a belief
+rather than a number it was asked for rather than invented. `absorption_fade` was **dropped from Week 1
+by decision**, not left blank.
+
+**The pre-registered expectation is failure by underpowering:** none of the three clears, and
+`delta_outlier` lands under N=100 on clustering. So `N` fails before the hit rate is reached and the
+outcome is `inconclusive` — the same thing §6 predicted in writing, Day 5 confirmed with arithmetic,
+and this file now records *before* the run rather than after. The response to that outcome is already
+written down: **buy months, do not add modelling.**
+
+**Backtesting is unblocked. Clustering is not — Part C is still empty**, and nothing may be clustered
+until it is filled.
