@@ -1025,6 +1025,41 @@ timestamp is the mechanism and nothing has been run.
       be caught by `delta_outlier`, and if nothing flags it, Stage 1 does not work.
 - [ ] **Part C is still empty.** Backtesting is unblocked; clustering is not.
 
+### W1D1 (V lane) — pulled forward to 2026-09-04 · `features/regime_filter.py` · [`daily_updates/2026-09-04.md`](../daily_updates/2026-09-04.md)
+
+Scheduled Sat 5 Sep, written a day early. **D1's number: 1,251 of 6,276 bars pass — 19.9%, inside the
+15–25% band** (941–1,569). 86 tests green (72 before), `ruff` clean, `mypy` clean across 21 files.
+
+- [x] **Four gates, one function each, `passes()` ANDs them.** `strategies.py`'s `_window`/`_align`
+      imported rather than re-solved, as D1 requires — session-grouped clock windows, no bar reading a
+      later bar. 133 lines, 14 new tests, one per gate plus the two ways a *filter* fails that a
+      signal does not: passing on a missing value, and reaching across the overnight break.
+- [x] **No threshold has a default**, same `TypeError` enforcement `strategies.py` uses. The survival
+      table is an **argument, not computed inside** — it is the only quantity here that reads forward,
+      so it is fitted on the training half at the call site where the split is visible.
+- [x] **A real bug, caught by a test that failed for the wrong reason.** The EMA gate first used a
+      one-bar slope, which is a **tautology**: `ema_t` always lies between `close_t` and `ema_t-1`, so
+      `close > ema` and `ema` rising are the same statement and can never disagree. It would have
+      passed everything except an exactly flat bar and **filtered nothing**. Slope is now measured over
+      `span` bars, where the two are independent; the rejected case — price back above a still-lower
+      average — is a bounce inside a downtrend, and it is now tested explicitly.
+- [ ] **⚠️ Survival ≥ 0.92 keeps exactly one regime, and it is the quiet one.** Measured on the
+      training half: regime 0 **0.869**, regime 1 **0.868**, regime 2 **0.924**. Only regime 2 clears,
+      so the gate reduces to *"trade only regime 2"* — 63% of bars, and per `regimes_2026-09-02`'s own
+      table the regime with **median `cvd_slope` −0.199 and persistence 0.206**, against ±27 and 0.61
+      for the two it excludes. **The filter is selecting the regime with the least directional flow.**
+      That may be exactly backwards for a flow strategy and it is Varad's call, not a bug to patch.
+- [ ] **⚠️ `atr_min = 40` was chosen with the answer in view.** The band is hit by the ATR gate alone —
+      35 ticks gives 26.7%, 40 gives 19.9%, 50 gives 10.0% — and 40 sits just under the month's median
+      ATR of 41.9. **That is a threshold picked while looking at the pass rate**, which is the thing
+      this module's own docstring warns about. It is recorded here rather than committed silently;
+      **it needs to land in `thresholds_selector.md` as a commitment or be re-derived.**
+- [x] **Session-edge gate is nearly free** — 5 minutes at each end of a 23-hour session is one bar per
+      side, 46 of 6,276 bars, **0.7%**. Correct, and worth knowing it is not doing the work.
+- [x] **The other D1 number, already measured 3 Sep:** median 5-minute bar range **38 ticks**. ATR(14)
+      over the month reads median **41.9** ticks, p25 33.4, p75 54.0 — consistent, and both say the
+      20-tick stop is well inside one bar.
+
 ---
 
 ## Next
