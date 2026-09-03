@@ -884,6 +884,42 @@ parts:** six views render · zero console errors · geometry matching `tauri.con
       identical-copy property is spent — which was always going to happen the day the desktop app
       became an overlay.
 
+### W1D2 — pulled forward to 2026-09-03 · `engine/mock.ts` · [`daily_updates/2026-09-03.md`](../daily_updates/2026-09-03.md)
+
+S2's fake, plus the first surface built against the engine seam. **The day earned its place by
+finding two bugs**, both of which would have survived into `real.ts`.
+
+- [x] **The bars are real and reconcile with `s1.py`** — 77,532 ticks, session delta **+1,842**,
+      volume **110,817**, unsigned **2,271**, all matching a different language on the same fixture.
+      **The check discriminates:** an inverted `B`/`A` gives −1,842. Two unaimed-for numbers agree
+      too — 2,271 contracts / 1,811 trades is exactly the `'N'` amendment's figure, and **1,379 bars**
+      matches the 26 Aug smoke run.
+- [x] **The `'N'` amendment needs no contract change to be honoured.** `volume` counts every trade
+      while the two legs count only attributed ones, so `volume − bidVol − askVol` *is* the unsigned
+      share. The Flow view reports it next to delta, as the drafted wording requires.
+- [x] **Three of four failure modes photographed** — live, stale (vendor still shown: connected but
+      not receiving), and dropped (vendor cleared, distinguishable at a glance), plus a 40-char
+      symbol and vendor that both ellipsise without overflowing 380px.
+- [x] **🐛 A late subscriber never learned the feed was live.** `onStatus` did not replay current
+      status, and `emit` only pushes on *change*, so a steady `live` feed never announced itself —
+      any view mounted after connection rendered "Disconnected" over a working feed. **`real.ts`
+      must replay too.**
+- [x] **🐛 Two replay schedulers could run at once.** `connect()` cleared timers *before* awaiting
+      the fixture, so overlapping connects each started a chain; the orphaned one kept emitting and
+      reset the state to `live`. **That is why `goStale()`/`drop()` appeared to do nothing through
+      three rounds of investigation.** Fixed with a generation counter and a memoised load.
+- [ ] **The 7-digit CVD mode is implemented but unphotographed** — four capture attempts lost to
+      display sleep and Space switching. The field carries `tabular-nums`/`nowrap`/ellipsis so it is
+      guarded by construction, but that is not the same as seen.
+- [ ] **Nothing was clicked, again.** The five mock controls were fired programmatically; the
+      buttons themselves are unproven. One Accessibility grant closes this and W1D1's navigation gap
+      together.
+- [ ] **⚠️ There is still no JS test runner in this workspace.** The reconciliation was verified by
+      compiling `barTicks` standalone under Node — real and repeatable, but not committed and not in
+      any CI. Adding `vitest` is a lockfile change, which the standing constraints say earns its own
+      reviewed commit, so it was not smuggled in. **Weeks 1–3 are all UI work against this fake and
+      it has no tests** — a decision, not a silent gap.
+
 ---
 
 ## Next
