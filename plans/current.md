@@ -1161,6 +1161,34 @@ now a flow quantity rather than a second volatility floor.** 103 tests green (99
       now carry a number chosen by looking at the month. The persistence one has an independent
       argument; `atr_min = 40` still does not.
 
+### Derivation — 2026-09-04 · `atr_min = 40` stops being a tuned number · [`features/regime_filter.py`](../services/signal-data/features/regime_filter.py)
+
+The last threshold in the filter without an argument behind it. Now derived, and the derivation lands
+on the number already in use.
+
+- [x] **`atr_min = 40` is the volatility floor at which the 70-tick target becomes reachable inside
+      D4's 6-bar forward window.** Measured across every window in the **training half**: the median
+      best one-way move over 6 bars equals 70 ticks at **ATR = 39.4** (full month: 40.1). Below the
+      floor the target is worse than a coin flip against the horizon — P(move ≥ 70) is **45.8%** in the
+      35–40 bucket against **55.3%** in 40–45.
+- [x] **It is unconditional volatility scaling, not an outcome measurement.** Every window, no entries,
+      no direction, no hit rates — the same class of statistic as the median bar range, and the same
+      reasoning `horizon.py` used for σ ÷ √h. It reads forward windows, so it was derived on the
+      **training half only** and the held-out ten sessions were not touched.
+- [x] **Corrected on the way in: "2× the 20-tick stop" is a coincidence, not a derivation.** The
+      proposed rationale was that ATR ≥ 2× stop keeps the stop working. It runs the other way — at ATR
+      40 the 20-tick stop is roughly **half a typical bar**, so more volatility makes it **more** prone
+      to intrabar noise, not less. The floor protects the **target**, not the stop. Same number, and
+      now a reason that survives being read back.
+- [x] **That fragility is still real and still D4's.** The 20-tick stop sitting inside one bar is the
+      intra-bar ambiguity that has to be measured at tick resolution; a volatility floor does not fix
+      it and must not be written as though it did.
+- [ ] **All four gate thresholds now have provenance** — `kappa_min` 0.75 (all regimes clear it, and
+      that is the finding), `persistence_min` 0.40 (midpoint of the two populations, 0.409),
+      `atr_min` 40 (target reachability), `edge_minutes` 5 and `ema_span` 15 (from D1's spec).
+      **None of them is committed anywhere with a timestamp**, which is the remaining gap — Part B's
+      mechanism applied to the filter rather than to the strategies.
+
 ---
 
 ## Next

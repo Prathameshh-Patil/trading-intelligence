@@ -11,6 +11,29 @@ Week 1 D1, `plans/team/week-01.md` §3. Four gates, ANDed:
 **No threshold here has a default**, for the reason `strategies.py` has none:
 a number chosen while looking at the answer is not a filter, it is a fit.
 
+### `atr_min = 40 ticks` -- derived 2026-09-04, not tuned
+
+**The ATR threshold is 40 ticks: the volatility floor at which the 70-tick
+target becomes reachable inside D4's 6-bar (30-minute) forward window.**
+Measured over every window in the training half, the median best one-way move
+across 6 bars equals 70 ticks at **ATR = 39.4**; over the full month, 40.1.
+Below that floor the target is worse than a coin flip against the horizon
+(P(move >= 70) is 45.8% in the 35-40 bucket, 55.3% in 40-45), so a signal
+there is being asked for a move the tape does not usually supply in the time
+allowed.
+
+This is unconditional volatility scaling -- every window, no entries, no
+direction, no hit rates -- the same class of statistic as the median bar
+range, and the same reasoning `horizon.py` used for `sigma / sqrt(h)`. It uses
+forward windows, so it was derived on the **training half only**.
+
+**It is a coincidence, not a derivation, that 40 is also 2x the 20-tick stop.**
+The stop does not motivate this floor and cannot: at ATR 40 a 20-tick stop is
+roughly *half a typical bar*, so more volatility makes the stop **more** prone
+to intrabar noise, not less. That fragility is real and is exactly what D4
+must measure at tick resolution -- but the fix for it is not a volatility
+floor, and this floor should not be read as protecting it.
+
 **The regime gate is kappa, not raw survival, and that is a correction.** D1
 specified `survival >= 0.92`. Reviewed against the plot on 2026-09-04, raw
 survival turned out to select on *prevalence*: a regime holding 63% of bars
