@@ -849,6 +849,41 @@ emails, or booked the CA call. None of that is closed by anything below.
       connection, and nobody has an Ironbeam account or API credentials yet. Not tracked as
       anyone's prep item before now. Needed before Wed 9 Sep.
 
+### W1D1 — pulled forward to 2026-09-03 · the overlay skeleton · [`daily_updates/2026-09-03.md`](../daily_updates/2026-09-03.md)
+
+Scheduled Sat 5 Sep, done two days early on the readiness finding above. **D1's number, all three
+parts:** six views render · zero console errors · geometry matching `tauri.conf.json` to the pixel.
+
+- [x] **The window is the overlay shell — 380×820, transparent, borderless, always-on-top.**
+      Geometry confirmed by the accessibility API at **380×820 at (545, 37)**, and it read the same
+      on all six captures. The home screenshot keeps the desktop in frame on purpose: no titlebar,
+      the window behind stays behind, and **the desktop shows through outside the rounded corners**,
+      which is what proves `transparent: true` took effect rather than degrading silently.
+- [x] **All six views render at 380px** — home, analyze, rules, strategy-review, strategy-change,
+      journal. Nothing clips or reflows at a width the UI was built 412 for.
+- [x] **"Zero console errors" stopped being an unverifiable claim.** This morning's entry recorded
+      that a `WKWebView` doesn't reliably forward `console.error` to the terminal, so a clean log
+      proved nothing. `src/lib/webviewLog.ts` + a `log_webview` Rust command now forward
+      `console.error`/`warn`, uncaught errors and unhandled rejections to stderr — **and the bridge
+      was proved to discriminate** with a temporary probe before being trusted. Across the whole
+      run those three probe lines are the only `[webview:*]` lines in the log.
+      *Honest deduction:* Vite 8's dev client also forwards `console.error`, so the terminal was
+      less blind in `tauri dev` than assumed — the bridge's real value is that it holds in a
+      **built** app, and that it catches `unhandledrejection`, which Vite's does not.
+- [x] **`macos-private-api` is a required Cargo feature, not a nicety** — without it the build
+      fails loudly instead of shipping a silently-opaque window. `shadow: false` too: a system
+      shadow draws a square outline around a rounded transparent window.
+- [ ] **Navigation by clicking is unexercised, and dragging with it.** Accessibility permission is
+      still ungranted (`osascript` → `-25208`), so the five non-home views were reached by
+      temporarily setting the initial view and reloading, not by clicking tiles. **Each view is
+      proved to render; the tiles, the back button and the topbar drag region are not proved to
+      work.** Granting Accessibility closes both — and D3 will want it anyway.
+- [ ] **`apps/desktop` and `apps/extension` have genuinely diverged.** `theme.css` and
+      `SidePanel.tsx` were byte-identical copies since 24 Aug; the overlay changes are desktop-only.
+      The extension is unaffected (`body.standalone` never applies there) and builds green, but the
+      identical-copy property is spent — which was always going to happen the day the desktop app
+      became an overlay.
+
 ---
 
 ## Next
