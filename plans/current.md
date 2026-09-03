@@ -1189,6 +1189,34 @@ on the number already in use.
       **None of them is committed anywhere with a timestamp**, which is the remaining gap — Part B's
       mechanism applied to the filter rather than to the strategies.
 
+### Part D — 2026-09-04 · the filter gets a threshold block, honestly labelled · [`thresholds_selector.md`](../services/signal-data/thresholds_selector.md)
+
+`regime_filter.py`'s five numbers all have arguments behind them; none had a commit predating a result.
+Drafted as **Part D** in `thresholds_selector.md` — one commitment ledger, not a second file.
+
+- [x] **It states in its own first paragraph that it is NOT a pre-commitment.** Part B's mechanism is a
+      git timestamp earlier than any result; Part D's numbers were arrived at today while looking at
+      the month's distributions. No timestamp undoes that, and presenting it as a pre-commitment would
+      be worse than having no block.
+- [x] **What it does commit to**, which is narrower and still useful: the values are frozen **before the
+      first *filtered* backtest** (no signal, return, MFE or hit rate has been computed through them —
+      that boundary is genuinely uncrossed); the **held-out half has not been looked at through the
+      filter**; and each number's provenance is stated exactly.
+- [x] **Including the awkward row.** `atr_min = 40` is labelled **"partly" independent** — 40 was read
+      off a pass-rate sweep first and the target-reachability derivation (39.4) came afterwards. A real
+      derivation landing on the same number, and **post-hoc**. It would have been easy to present it as
+      derived and let the order of events disappear.
+- [ ] **Four fields blank and Varad's:** ratify the five values gate by gate, the **expected held-out
+      pass rate** against the training half's 16.6%, what result retires the filter, and what he expects
+      the filter to do to `hit_70_rate`. **That last one has teeth** — if filtered and unfiltered come
+      back the same, the filter cost 83% of an already-underpowered sample for nothing, and A6 puts both
+      numbers side by side whether or not anyone committed to reading them.
+- [x] **New rule: nothing may be backtested *through* the filter until Part D is filled.** Running the
+      three strategies **unfiltered is deliberately not blocked** — A6's pre-filter number is the
+      baseline the filter has to beat, and it can be produced now.
+- [x] **`daily_updates/2026-09-04.md` restructured** — the day ran to seven topics under a header naming
+      only the first. Now carries a contents table and consistent section levels. 561 lines.
+
 ---
 
 ## Next

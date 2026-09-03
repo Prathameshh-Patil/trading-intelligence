@@ -469,6 +469,87 @@ entirely unconfirmed.
 
 ---
 
+## Part D — the decision filter, commit before the first FILTERED backtest
+
+`features/regime_filter.py`, Week 1 D1. Four gates, ANDed, deciding which bars are eligible to signal
+on at all. Everything downstream is measured on the sample this file defines, which is why it needs
+the same discipline as Part B and did not have it.
+
+### ⚠️ Read this before treating it as a pre-commitment
+
+**It is not one, and it must not be presented as one.** Part B's mechanism is a git timestamp earlier
+than any result. These five numbers were arrived at on 2026-09-04 **while looking at the month's
+distributions**, some of them off a pass-rate sweep. No timestamp can undo that.
+
+What this block can honestly commit to is narrower, and still worth having:
+
+1. **The values are frozen here, before any *filtered backtest*** — before a signal, a return, an MFE
+   or a hit rate has been computed through them. That boundary has not been crossed yet.
+2. **The held-out half has not been looked at through this filter.** Every number below was derived on
+   the training half (≤ 2026-07-19, 13 sessions) or on scale statistics that use no outcomes.
+3. **The provenance of each number is stated exactly**, including which ones were first read off a
+   sweep and only later given an argument. That distinction is the point of the table.
+
+### The five numbers, and where each came from
+
+| gate | value | provenance | independent of the pass rate? |
+| :--- | ---: | :--- | :--- |
+| `kappa_min` | **0.75** | Chosen by Varad from options. **All three regimes clear it (0.842 / 0.833 / 0.798), so on this labelling the gate filters nothing** — that is the finding, not a failure | Yes — and it selects nothing, so it cannot be tuning |
+| `persistence_min` | **0.40** | Midpoint of the two populations the labelling found: chop at **0.206**, flow at **0.612 / 0.613**, midpoint **0.409** | **Yes** — derived from the population separation. The pass-rate sweep was visible at the time and is not what produced the number |
+| `atr_min` | **40** | The floor at which the 70-tick target is reachable in D4's 6-bar window: median best one-way move crosses 70 at **ATR 39.4** (training half), 40.1 (full month) | **Partly. Say it plainly: 40 was first read off a pass-rate sweep on 2026-09-04, and the derivation came afterwards.** It is a genuine derivation that independently lands on the same number, but it is post-hoc and should be read that way |
+| `ema_span` | **15** | `week-01.md` D1's specification, never tuned | Yes |
+| `edge_minutes` | **5** | `week-01.md` D1's specification, never tuned | Yes |
+
+Windows, which are shape rather than threshold: `persistence_window` `"60min"` / `min_bars` 6 (matching
+`cvd_divergence`'s committed window); `atr_window` `"70min"` / `min_bars` 14 (ATR(14) at 5-minute bars).
+
+**What was retired, and why it matters here:** D1 specified `survival >= 0.92`. Reviewed against the
+plot on 2026-09-04, raw survival turned out to select on *prevalence* — a regime holding 63% of bars
+scores 0.63 by shuffling alone — so the gate kept the one regime with no directional flow. See
+[`analysis/regimes_2026-09-02/README.md`](analysis/regimes_2026-09-02/README.md). **A threshold that
+looked principled for a week was measuring the wrong quantity**, which is the argument for this block
+existing at all.
+
+### The measured pass rate, on the training half
+
+**1,043 of 6,276 bars — 16.6%** of the month at these values, inside D1's 15–25% target band. Gate by
+gate, in isolation: `kappa` 100% of labelled bars, `cvd_persistence >= 0.40` ~45%, `atr >= 40` ~55%,
+`EMA(15)` 67.8%, session interior 99.3%.
+
+### The commitment — Varad's, and blank until he writes it
+
+```markdown
+# Decision filter — thresholds frozen before the first filtered backtest
+Date: <YYYY-MM-DD>   Committed at: <time>
+Filter: features/regime_filter.py, five values as tabled above
+
+## Do I ratify these five numbers as they stand?
+<yes / no per gate. A "no" here is cheaper than a "no" after Layer 4 has run.
+The one most worth arguing with is atr_min, because its derivation is post-hoc.>
+
+## What I expect the HELD-OUT pass rate to be
+<value>%   (training half is 16.6%. A held-out rate far from it means the
+filter is fitted to the training half's volatility, not to the market.)
+
+## What result would make me say the filter is not helping
+<Write this. A6 already requires pre-filter and post-filter numbers side by
+side, so the comparison will exist whether or not it is committed to. The
+question is what gap, in which direction, retires the filter -- and note that
+a filter which merely shrinks the sample until the numbers look better is the
+specific failure A6 exists to catch.>
+
+## What I expect the filter to do to hit_70_rate
+<Your honest prediction, before Layer 4 runs. If filtered and unfiltered come
+back the same, the filter cost 83% of the sample for nothing, and Stage 1 is
+underpowered enough already -- that outcome should be written down now so it
+cannot be reinterpreted as "at least it did not hurt".>
+```
+
+**Nothing may be backtested THROUGH this filter until the block above is filled**, on the same terms
+as §6.1 for Part B. Running the strategies unfiltered is not blocked by it.
+
+---
+
 ## The rules that make this mean something
 
 **Commit before you run, not before you present.** The git timestamp is the whole mechanism and it
@@ -530,5 +611,12 @@ outcome is `inconclusive` — the same thing §6 predicted in writing, Day 5 con
 and this file now records *before* the run rather than after. The response to that outcome is already
 written down: **buy months, do not add modelling.**
 
-**Backtesting is unblocked. Clustering is not — Part C is still empty**, and nothing may be clustered
-until it is filled.
+**Added 2026-09-04: Part D, the decision filter.** `regime_filter.py`'s five thresholds now have their
+provenance written down, including which one was read off a pass-rate sweep before it was derived
+(`atr_min`). **It is explicitly not a pre-commitment** — the numbers were arrived at while looking at
+the month, and no timestamp undoes that. What it freezes is the values before any *filtered* backtest,
+and it records that the held-out half has not been looked at through the filter. Its four commitment
+fields are blank and Varad's.
+
+**Backtesting the strategies unfiltered is unblocked. Backtesting THROUGH the filter needs Part D
+filled. Clustering needs Part C, which is still empty.**
