@@ -1,11 +1,14 @@
 # alltick
 
-What the AllTick market-data API actually provides, measured rather than quoted, rendered as a
-single self-contained HTML page.
+What the AllTick market-data API actually provides, measured rather than quoted.
 
 AllTick's own docs ship a truncated sample of each product list and a rate-limit table that
 doesn't match what the server does. This repo pulls the real catalog, calls every documented
-endpoint once with a real token, records what came back, and builds a page from the result.
+endpoint once with a real token, and records what came back.
+
+**Closed 2026-09-05: the historical track stays Databento.** This directory is the record of
+why, kept so the question does not get re-litigated from a blank page. See `plans/current.md`
+row C2.
 
 **For the gold order-flow question, read [`GOLD.md`](GOLD.md).** Short version: `GOLD` is a 1 Hz
 top-of-book snapshot with a hardcoded aggressor flag — L1 only, no L2, no MBP, no MBO, and no
@@ -23,7 +26,6 @@ packages/probe/ws.py          WebSocket subscribe + push capture -> data/ws.json
 packages/probe/gold.py        GOLD depth + cadence + aggressor measurement -> data/gold.json
 packages/probe/pull_klines.py pages candle history backwards, resumable -> data/klines/*.jsonl
 packages/edge/ohlcv_edge.py   is there anything OHLCV-only features can find?
-packages/site/build.py        data/*.json -> site/index.html
 data/reference.json           plan limits, error codes, cmd_ids, transcribed from the docs
 ```
 
@@ -32,8 +34,6 @@ data/reference.json           plan limits, error codes, cmd_ids, transcribed fro
 ```sh
 echo 'your-token' > .token     # or export ALLTICK_TOKEN
 make all                       # ~25 min on the free plan; it is mostly sleeping
-make serve                     # http://localhost:8000
-
 make klines                    # ~1.9 h: 5-minute gold back to 2022-06
 make edge                      # the test that decides whether any of this is worth buying
 ```
@@ -79,8 +79,8 @@ Python 3.12, standard library only, except `websockets` for `make stream` and `m
   now", not a proven permission error.
 - The entitlement scan sampled 50 codes each from the three equity books (2,962 / 2,870 / 5,086)
   and swept the small classes whole.
-- Trading hours in the spreadsheet are merged cells covering a whole exchange, so the site shows
-  them per asset class; `data/catalog.json` keeps the raw per-row values.
+- Trading hours in the spreadsheet are merged cells covering a whole exchange, so they describe
+  an exchange rather than an instrument; `data/catalog.json` keeps the raw per-row values.
 
 Sources: [AllTick API docs](https://alltick.co/apis/en),
 [official GitHub](https://github.com/AllTick-Official/alltick-realtime-forex-crypto-stock-tick-finance-websocket-api).
