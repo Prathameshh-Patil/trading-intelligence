@@ -1285,6 +1285,62 @@ zero, and the zero is the finding.**
 
 ---
 
+### 2026-09-05 — repo architecture doc · [`docs/ARCHITECTURE.md`](../docs/ARCHITECTURE.md)
+
+- [x] **`docs/ARCHITECTURE.md` written** by Claude, on request. A single map of what the project is
+      trying to achieve, the four-tier layout (research → contracts → runtime → shells/backend), the
+      six seams and their status, the research stack's data provenance and known traps, the vendor
+      decisions, and an honest built-vs-proven-vs-missing status. **Derived from files already in the
+      repo — it introduces no new claim, measurement or decision**, and it says so at the top: where
+      it disagrees with `plans/` or `daily_updates/`, those win and it is stale.
+- [x] **Test counts in §8 are `grep -c '^def test_'`, not a run** — 116 in `services/signal-data/tests/`,
+      20 in `services/api/tests/` — and the file states that rather than implying a green suite.
+
+### 2026-09-05 (later) — the live signal pipeline, designed · [`specs/2026-09-05-live-signal-pipeline-design.md`](../docs/superpowers/specs/2026-09-05-live-signal-pipeline-design.md)
+
+Varad stated the product's core loop end to end — OCR → analysis → bot → decision → feedback → signal
+— with the goal *"accurate trade signals with exactly how many pips it will travel, so anyone can
+trust that many pips and place orders with huge lots."* Written up as a design spec, with two things
+in the brief changed and nothing else.
+
+- [x] **The spec exists, and it is design only.** Six stages (capture · engine · features · model ·
+      decision · explain · calibration), each with its contract, its owner and its blocker. **Nothing
+      in it is built and two of its stages are blocked on things that do not exist.** It takes no week
+      from `plans/team/` — stated in the file, the same move the 25 Aug selector spec made.
+- [x] **Correction 1 — OCR cannot supply CVD, order book or footprint, and `contracts.md` S6 already
+      said so.** The brief routed all of them through the screen read. A rendered candle threw the
+      aggressor side away; the screenshot of it did too, and spot gold has no centralised volume
+      (A2's finding). **The fix costs nothing:** capture supplies context (symbol, timeframe, drawn
+      levels, the trader's question), the engine supplies every number, and they merge at the feature
+      step. S6's forbidden-field rule is restated in the spec rather than amended.
+- [x] **Correction 2 — "exactly N pips, guaranteed" is not supportable, and the honest version is
+      already written in this repo.** `horizon.py` (GC) and `ohlcv_edge.py` (spot) both measured a
+      random walk at 5/15/30m to within 0.4%, from two code paths not fitted to each other; and a
+      magnitude forecast is strictly harder than the direction call it contains. `regime_filter.py`'s
+      ATR-floor paragraph is the correct form — *P(move ≥ 70) is 55.3% in the 40-45 bucket* — and
+      `backtest.py`'s per-trade MFE/MAE is the raw material for it. **Output is a conditional
+      distribution + P(reach target before stop), not a scalar.**
+- [x] **A decision-file contract is proposed as S7** — `PipForecast` + `Signal`. **Not frozen**;
+      freezing needs all three. Its enforcement is by absence, the way S6's is: **no `guaranteedPips`
+      field, no lot size, no risk amount**, `forecast: null` a common and valid answer, `suggested`
+      derived from the reach table rather than chosen, and no threshold with a default.
+- [x] **The feedback loop is re-pointed.** The brief had it formatting JSON (that is stage E). Its
+      real job is **calibration** — when the model says 61%, does it happen 61% of the time — logged
+      per signal with the feed status and thresholds in force at the moment of display. It reports;
+      it does not auto-retrain.
+- [x] **Unit trap recorded:** every internal number is GC **ticks** (0.10, $10); MT5 "pips" are
+      broker-dependent. Conversion happens once, at the display boundary, labelled. Rendering a
+      tick-denominated forecast as pips unconverted is off by up to 10×, in the flattering direction.
+- [ ] **Six open decisions, all Varad's**, listed in §11 — Gate 1's three options, `MIN_SAMPLES`, the
+      reach pass line, whether S7 freezes, what the model is, and **whether the pip forecast ships to
+      subscribers at all or stays personal** (that one is Shreyas's CA call, per §2.3).
+- [ ] **Build order is deliberately not the diagram's order: F → B → A → C → D → E.** The outcome log
+      goes first, before any signal exists — a calibration loop retrofitted afterwards has no history.
+      And §11's item 5 is the one worth reading twice: **the `reach` table alone is a complete Stage
+      C+D with no model in it, and it should be built first and beaten.**
+
+---
+
 ## Next
 
 Ordered. **Rows #2, #6, #7 and #8 all closed between 25 Aug and 3 Sep** — the S1 fixture cut, the
