@@ -1,0 +1,7 @@
+.token
+__pycache__/
+
+# The root .gitignore excludes data/ to keep market-data dumps out of git. These
+# are small JSON captures that the site is built from, so they belong in the repo.
+!data/
+data/product_list.xlsx

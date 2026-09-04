@@ -1,0 +1,878 @@
+{
+ "trade_tick": {
+  "forex": {
+   "base": "quote-b-api",
+   "requested": [
+    "AUDNZD",
+    "AUDUSD",
+    "CADCHF",
+    "CADJPY",
+    "CHFJPY"
+   ],
+   "returned": [],
+   "ret": 604,
+   "msg": "code unauthorized",
+   "sample": []
+  },
+  "metals": {
+   "base": "quote-b-api",
+   "requested": [
+    "GOLD",
+    "Silver",
+    "Aluminum",
+    "COPPER",
+    "Palladium"
+   ],
+   "returned": [
+    "GOLD"
+   ],
+   "ret": 200,
+   "msg": "ok",
+   "sample": [
+    {
+     "code": "GOLD",
+     "seq": "86986922",
+     "tick_time": "1788529024862",
+     "price": "4409.64",
+     "volume": "10.00",
+     "turnover": "44096.40",
+     "trade_direction": 1
+    }
+   ]
+  },
+  "energy": {
+   "base": "quote-b-api",
+   "requested": [
+    "UKOIL",
+    "USOIL",
+    "NGAS"
+   ],
+   "returned": [
+    "USOIL"
+   ],
+   "ret": 200,
+   "msg": "ok",
+   "sample": [
+    {
+     "code": "USOIL",
+     "seq": "86987565",
+     "tick_time": "1788529036175",
+     "price": "89.504",
+     "volume": "10.000",
+     "turnover": "895.040",
+     "trade_direction": 1
+    }
+   ]
+  },
+  "cfd_index": {
+   "base": "quote-b-api",
+   "requested": [
+    "CHA50",
+    "AUS200",
+    "EUSTX50",
+    "FRA40",
+    "ND25"
+   ],
+   "returned": [],
+   "ret": 604,
+   "msg": "code unauthorized",
+   "sample": []
+  },
+  "crypto": {
+   "base": "quote-b-api",
+   "requested": [
+    "BTCUSDT",
+    "DOGEUSDT",
+    "ADAUSDT",
+    "AVAXUSDT",
+    "AXSUSDT"
+   ],
+   "returned": [
+    "BTCUSDT"
+   ],
+   "ret": 200,
+   "msg": "ok",
+   "sample": [
+    {
+     "code": "BTCUSDT",
+     "seq": "1287917181",
+     "tick_time": "1788529064027",
+     "price": "79317.70",
+     "volume": "0.00357",
+     "turnover": "283.16",
+     "trade_direction": 1
+    }
+   ]
+  },
+  "us_stock": {
+   "base": "quote-stock-b-api",
+   "requested": [
+    "AAPL.US",
+    "MSFT.US",
+    "GOOG.US",
+    "GOOGL.US",
+    "AMZN.US"
+   ],
+   "returned": [],
+   "ret": 604,
+   "msg": "code unauthorized",
+   "sample": []
+  },
+  "hk_stock": {
+   "base": "quote-stock-b-api",
+   "requested": [
+    "700.HK",
+    "9988.HK",
+    "1398.HK",
+    "857.HK",
+    "941.HK"
+   ],
+   "returned": [
+    "700.HK"
+   ],
+   "ret": 200,
+   "msg": "ok",
+   "sample": [
+    {
+     "code": "700.HK",
+     "seq": "1718325",
+     "tick_time": "1788509282465",
+     "price": "442.800000",
+     "volume": "3877600",
+     "turnover": "1717001280.000000",
+     "trade_direction": 0
+    }
+   ]
+  },
+  "index": {
+   "base": "quote-stock-b-api",
+   "requested": [
+    "000001.SH",
+    "399001.SZ",
+    "399006.SZ",
+    "000300.SH",
+    "HSI.HK"
+   ],
+   "returned": [
+    "000001.SH",
+    "399001.SZ"
+   ],
+   "ret": 200,
+   "msg": "ok",
+   "sample": [
+    {
+     "code": "000001.SH",
+     "seq": "9562886",
+     "tick_time": "1788505206089",
+     "price": "3930.120000",
+     "volume": "2333383",
+     "turnover": "3951562707.500000",
+     "trade_direction": 0
+    }
+   ]
+  },
+  "cn_stock": {
+   "base": "quote-stock-b-api",
+   "requested": [
+    "000001.SH",
+    "399001.SZ",
+    "399006.SZ",
+    "600941.SH",
+    "600519.SH"
+   ],
+   "returned": [
+    "000001.SH",
+    "399001.SZ"
+   ],
+   "ret": 200,
+   "msg": "ok",
+   "sample": [
+    {
+     "code": "000001.SH",
+     "seq": "9562886",
+     "tick_time": "1788505206089",
+     "price": "3930.120000",
+     "volume": "2333383",
+     "turnover": "3951562707.500000",
+     "trade_direction": 0
+    }
+   ]
+  }
+ },
+ "depth_tick": {
+  "forex": {
+   "base": "quote-b-api",
+   "code": "AUDNZD",
+   "ret": 604,
+   "msg": "code unauthorized",
+   "levels": 0,
+   "sample": []
+  },
+  "metals": {
+   "base": "quote-b-api",
+   "code": "GOLD",
+   "ret": 200,
+   "msg": "ok",
+   "levels": 1,
+   "sample": [
+    {
+     "code": "GOLD",
+     "seq": "1788529136107",
+     "tick_time": "1788529136107",
+     "bids": [
+      {
+       "price": "4412.86",
+       "volume": "729477.26"
+      }
+     ],
+     "asks": [
+      {
+       "price": "4412.99",
+       "volume": "810223.68"
+      }
+     ]
+    }
+   ]
+  },
+  "energy": {
+   "base": "quote-b-api",
+   "code": "UKOIL",
+   "ret": 604,
+   "msg": "code unauthorized",
+   "levels": 0,
+   "sample": []
+  },
+  "cfd_index": {
+   "base": "quote-b-api",
+   "code": "CHA50",
+   "ret": 604,
+   "msg": "code unauthorized",
+   "levels": 0,
+   "sample": []
+  },
+  "crypto": {
+   "base": "quote-b-api",
+   "code": "BTCUSDT",
+   "ret": 200,
+   "msg": "ok",
+   "levels": 5,
+   "sample": [
+    {
+     "code": "BTCUSDT",
+     "seq": "1788529174441",
+     "tick_time": "1788529174441",
+     "bids": [
+      {
+       "price": "79334.66",
+       "volume": "1.29774"
+      },
+      {
+       "price": "79334.65",
+       "volume": "0.00118"
+      },
+      {
+       "price": "79334.64",
+       "volume": "0.00020"
+      },
+      {
+       "price": "79334.58",
+       "volume": "0.00014"
+      },
+      {
+       "price": "79333.52",
+       "volume": "0.00007"
+      }
+     ],
+     "asks": [
+      {
+       "price": "79334.67",
+       "volume": "1.39152"
+      },
+      {
+       "price": "79334.68",
+       "volume": "0.00034"
+      },
+      {
+       "price": "79334.69",
+       "volume": "0.00013"
+      },
+      {
+       "price": "79335.52",
+       "volume": "0.00007"
+      },
+      {
+       "price": "79335.53",
+       "volume": "0.13628"
+      }
+     ]
+    }
+   ]
+  },
+  "us_stock": {
+   "base": "quote-stock-b-api",
+   "code": "AAPL.US",
+   "ret": 604,
+   "msg": "code unauthorized",
+   "levels": 0,
+   "sample": []
+  },
+  "hk_stock": {
+   "base": "quote-stock-b-api",
+   "code": "700.HK",
+   "ret": 200,
+   "msg": "ok",
+   "levels": 10,
+   "sample": [
+    {
+     "code": "700.HK",
+     "seq": "1788509289424",
+     "tick_time": "1788509289424",
+     "bids": [
+      {
+       "price": "442.800000",
+       "volume": "31200"
+      },
+      {
+       "price": "442.600000",
+       "volume": "91000"
+      },
+      {
+       "price": "442.400000",
+       "volume": "19900"
+      },
+      {
+       "price": "442.200000",
+       "volume": "27600"
+      },
+      {
+       "price": "442.000000",
+       "volume": "48600"
+      },
+      {
+       "price": "441.800000",
+       "volume": "10400"
+      },
+      {
+       "price": "441.600000",
+       "volume": "158300"
+      },
+      {
+       "price": "441.400000",
+       "volume": "58700"
+      },
+      {
+       "price": "441.200000",
+       "volume": "49800"
+      },
+      {
+       "price": "441.000000",
+       "volume": "83500"
+      }
+     ],
+     "asks": [
+      {
+       "price": "443.000000",
+       "volume": "58500"
+      },
+      {
+       "price": "443.200000",
+       "volume": "50800"
+      },
+      {
+       "price": "443.400000",
+       "volume": "53500"
+      },
+      {
+       "price": "443.600000",
+       "volume": "273000"
+      },
+      {
+       "price": "443.800000",
+       "volume": "71800"
+      },
+      {
+       "price": "444.000000",
+       "volume": "68900"
+      },
+      {
+       "price": "444.200000",
+       "volume": "77100"
+      },
+      {
+       "price": "444.400000",
+       "volume": "91200"
+      },
+      {
+       "price": "444.600000",
+       "volume": "87600"
+      },
+      {
+       "price": "444.800000",
+       "volume": "155100"
+      }
+     ]
+    }
+   ]
+  },
+  "index": {
+   "base": "quote-stock-b-api",
+   "code": "000001.SH",
+   "ret": 200,
+   "msg": "ok",
+   "levels": 0,
+   "sample": []
+  },
+  "cn_stock": {
+   "base": "quote-stock-b-api",
+   "code": "000001.SH",
+   "ret": 200,
+   "msg": "ok",
+   "levels": 0,
+   "sample": []
+  }
+ },
+ "kline_types": {
+  "GOLD": {
+   "base": "quote-b-api",
+   "types": {
+    "1": {
+     "ret": 200,
+     "msg": "ok",
+     "bars": 3,
+     "sample": [
+      {
+       "timestamp": "1788529080",
+       "open_price": "4414.17",
+       "close_price": "4412.19",
+       "high_price": "4414.43",
+       "low_price": "4409.92",
+       "volume": "489.00",
+       "turnover": "2157667.57"
+      }
+     ]
+    },
+    "2": {
+     "ret": 200,
+     "msg": "ok",
+     "bars": 3,
+     "sample": [
+      {
+       "timestamp": "1788528600",
+       "open_price": "4412.45",
+       "close_price": "4413.86",
+       "high_price": "4420.38",
+       "low_price": "4412.19",
+       "volume": "2543.00",
+       "turnover": "11232005.05"
+      }
+     ]
+    },
+    "3": {
+     "ret": 200,
+     "msg": "ok",
+     "bars": 3,
+     "sample": [
+      {
+       "timestamp": "1788526800",
+       "open_price": "4393.78",
+       "close_price": "4394.10",
+       "high_price": "4394.40",
+       "low_price": "4365.92",
+       "volume": "7383.00",
+       "turnover": "32365272.83"
+      }
+     ]
+    },
+    "4": {
+     "ret": 200,
+     "msg": "ok",
+     "bars": 3,
+     "sample": [
+      {
+       "timestamp": "1788525000",
+       "open_price": "4471.56",
+       "close_price": "4393.79",
+       "high_price": "4472.60",
+       "low_price": "4380.28",
+       "volume": "14937.00",
+       "turnover": "65678901.71"
+      }
+     ]
+    },
+    "5": {
+     "ret": 200,
+     "msg": "ok",
+     "bars": 3,
+     "sample": [
+      {
+       "timestamp": "1788519600",
+       "open_price": "4472.49",
+       "close_price": "4467.10",
+       "high_price": "4473.43",
+       "low_price": "4465.29",
+       "volume": "17034.00",
+       "turnover": "76125338.32"
+      }
+     ]
+    },
+    "6": {
+     "ret": 200,
+     "msg": "ok",
+     "bars": 3,
+     "sample": [
+      {
+       "timestamp": "1788508800",
+       "open_price": "4483.78",
+       "close_price": "4465.41",
+       "high_price": "4486.44",
+       "low_price": "4463.74",
+       "volume": "36334.00",
+       "turnover": "162597451.08"
+      }
+     ]
+    },
+    "7": {
+     "ret": 200,
+     "msg": "ok",
+     "bars": 3,
+     "sample": [
+      {
+       "timestamp": "1788494400",
+       "open_price": "4466.86",
+       "close_price": "4483.49",
+       "high_price": "4490.57",
+       "low_price": "4460.13",
+       "volume": "71149.00",
+       "turnover": "318104806.11"
+      }
+     ]
+    },
+    "8": {
+     "ret": 200,
+     "msg": "ok",
+     "bars": 3,
+     "sample": [
+      {
+       "timestamp": "1788307200",
+       "open_price": "4333.70",
+       "close_price": "4387.17",
+       "high_price": "4397.42",
+       "low_price": "4282.54",
+       "volume": "498263.00",
+       "turnover": "2161688480.58"
+      }
+     ]
+    },
+    "9": {
+     "ret": 200,
+     "msg": "ok",
+     "bars": 3,
+     "sample": [
+      {
+       "timestamp": "1786924800",
+       "open_price": "4379.15",
+       "close_price": "4604.56",
+       "high_price": "4632.13",
+       "low_price": "4324.64",
+       "volume": "2739560.00",
+       "turnover": "12206057632.15"
+      }
+     ]
+    },
+    "10": {
+     "ret": 200,
+     "msg": "ok",
+     "bars": 3,
+     "sample": [
+      {
+       "timestamp": "1782864000",
+       "open_price": "4012.71",
+       "close_price": "4046.03",
+       "high_price": "4202.36",
+       "low_price": "3959.58",
+       "volume": "11474191.00",
+       "turnover": "46699010766.58"
+      }
+     ]
+    }
+   }
+  },
+  "700.HK": {
+   "base": "quote-stock-b-api",
+   "types": {
+    "1": {
+     "ret": 200,
+     "msg": "ok",
+     "bars": 3,
+     "sample": [
+      {
+       "timestamp": "1788508680",
+       "open_price": "443.600000",
+       "close_price": "443.600000",
+       "high_price": "443.800000",
+       "low_price": "443.400000",
+       "volume": "78300",
+       "turnover": "34735034.500000"
+      }
+     ]
+    },
+    "2": {
+     "ret": 200,
+     "msg": "ok",
+     "bars": 3,
+     "sample": [
+      {
+       "timestamp": "1788508200",
+       "open_price": "443.600000",
+       "close_price": "443.600000",
+       "high_price": "444.200000",
+       "low_price": "443.600000",
+       "volume": "352540",
+       "turnover": "156473956.902000"
+      }
+     ]
+    },
+    "3": {
+     "ret": 200,
+     "msg": "ok",
+     "bars": 3,
+     "sample": [
+      {
+       "timestamp": "1788507000",
+       "open_price": "444.600000",
+       "close_price": "444.200000",
+       "high_price": "445.000000",
+       "low_price": "443.000000",
+       "volume": "1070186",
+       "turnover": "475007300.900000"
+      }
+     ]
+    },
+    "4": {
+     "ret": 200,
+     "msg": "ok",
+     "bars": 3,
+     "sample": [
+      {
+       "timestamp": "1788505200",
+       "open_price": "444.000000",
+       "close_price": "444.400000",
+       "high_price": "445.000000",
+       "low_price": "443.000000",
+       "volume": "1287063",
+       "turnover": "571358853.200000"
+      }
+     ]
+    },
+    "5": {
+     "ret": 200,
+     "msg": "ok",
+     "bars": 3,
+     "sample": [
+      {
+       "timestamp": "1788501600",
+       "open_price": "445.000000",
+       "close_price": "443.800000",
+       "high_price": "445.800000",
+       "low_price": "442.800000",
+       "volume": "2243425",
+       "turnover": "997220831.900000"
+      }
+     ]
+    },
+    "6": {
+     "ret": 200,
+     "msg": "ok",
+     "bars": 0,
+     "sample": []
+    },
+    "7": {
+     "ret": 200,
+     "msg": "ok",
+     "bars": 0,
+     "sample": []
+    },
+    "8": {
+     "ret": 200,
+     "msg": "ok",
+     "bars": 3,
+     "sample": [
+      {
+       "timestamp": "1788278400",
+       "open_price": "439.000000",
+       "close_price": "438.200000",
+       "high_price": "441.400000",
+       "low_price": "435.000000",
+       "volume": "21341328",
+       "turnover": "9336637626.000000"
+      }
+     ]
+    },
+    "9": {
+     "ret": 200,
+     "msg": "ok",
+     "bars": 3,
+     "sample": [
+      {
+       "timestamp": "1786896000",
+       "open_price": "444.800000",
+       "close_price": "457.000000",
+       "high_price": "457.400000",
+       "low_price": "437.600000",
+       "volume": "104782977",
+       "turnover": "46886196724.120000"
+      }
+     ]
+    },
+    "10": {
+     "ret": 200,
+     "msg": "ok",
+     "bars": 3,
+     "sample": [
+      {
+       "timestamp": "1782835200",
+       "open_price": "442.600000",
+       "close_price": "475.200000",
+       "high_price": "494.800000",
+       "low_price": "425.400000",
+       "volume": "760713942",
+       "turnover": "351129386997.110000"
+      }
+     ]
+    }
+   }
+  }
+ },
+ "kline_max": {
+  "requested": 500,
+  "returned": 357,
+  "ret": 200,
+  "oldest": "1745193600",
+  "newest": "1788480000"
+ },
+ "static_info": {
+  "GOLD": {
+   "base": "quote-b-api",
+   "ret": 200,
+   "msg": "non-json response",
+   "sample": [],
+   "raw": "Unable to find matching target resource method"
+  },
+  "700.HK": {
+   "base": "quote-stock-b-api",
+   "ret": 200,
+   "msg": "ok",
+   "sample": [
+    {
+     "board": "HKEquity",
+     "bps": "143.659966329912167",
+     "circulating_shares": "9103146761",
+     "currency": "HKD",
+     "dividend_yield": "5.3086429275025065",
+     "eps": "27.3459080810399229",
+     "eps_ttm": "29.7864876444618819",
+     "exchange": "SEHK",
+     "hk_shares": "9103146761",
+     "lot_size": "100",
+     "name_cn": "腾讯控股",
+     "name_en": "TENCENT",
+     "name_hk": "騰訊控股",
+     "symbol": "700.HK",
+     "total_shares": "9103146761"
+    }
+   ]
+  },
+  "AAPL.US": {
+   "base": "quote-stock-b-api",
+   "ret": 200,
+   "msg": "ok",
+   "sample": [
+    {
+     "board": "USMain",
+     "bps": "7.3673203975831462",
+     "circulating_shares": "14569162936",
+     "currency": "USD",
+     "dividend_yield": "1.06",
+     "eps": "7.6749772854658501",
+     "eps_ttm": "8.8343435533890907",
+     "exchange": "NASD",
+     "hk_shares": "0",
+     "lot_size": "1",
+     "name_cn": "苹果",
+     "name_en": "Apple",
+     "name_hk": "蘋果",
+     "symbol": "AAPL.US",
+     "total_shares": "14594180000"
+    }
+   ]
+  }
+ },
+ "batch_kline": {
+  "GOLD": {
+   "base": "quote-b-api",
+   "ret": 200,
+   "msg": "ok",
+   "sample": {
+    "kline_list": [
+     {
+      "code": "GOLD",
+      "kline_type": 1,
+      "kline_data": [
+       {
+        "timestamp": "1788529440",
+        "open_price": "4418.46",
+        "close_price": "4424.02",
+        "high_price": "4424.25",
+        "low_price": "4418.46",
+        "volume": "503.00",
+        "turnover": "2223582.08"
+       },
+       {
+        "timestamp": "1788529500",
+        "open_price": "4423.89",
+        "close_price": "4422.20",
+        "high_price": "4424.55",
+        "low_price": "4422.20",
+        "volume": "240.00",
+        "turnover": "1061644.95"
+       }
+      ]
+     }
+    ]
+   }
+  },
+  "700.HK": {
+   "base": "quote-stock-b-api",
+   "ret": 200,
+   "msg": "ok",
+   "sample": {
+    "kline_list": [
+     {
+      "code": "700.HK",
+      "kline_type": 1,
+      "kline_data": [
+       {
+        "timestamp": "1788508740",
+        "open_price": "443.800000",
+        "close_price": "443.800000",
+        "high_price": "443.800000",
+        "low_price": "443.600000",
+        "volume": "34700",
+        "turnover": "15396250.000000"
+       },
+       {
+        "timestamp": "1788508800",
+        "open_price": "442.800000",
+        "close_price": "442.800000",
+        "high_price": "443.800000",
+        "low_price": "442.800000",
+        "volume": "3877664",
+        "turnover": "1717029504.000000"
+       }
+      ]
+     }
+    ]
+   }
+  }
+ }
+}

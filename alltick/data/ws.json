@@ -1,0 +1,173 @@
+[
+ {
+  "path": "quote-b-ws-api",
+  "codes": [
+   "GOLD",
+   "BTCUSDT",
+   "USOIL"
+  ],
+  "acks": [
+   {
+    "cmd_id": 22005,
+    "ret": 200,
+    "msg": "ok"
+   },
+   {
+    "cmd_id": 22003,
+    "ret": 200,
+    "msg": "ok"
+   },
+   {
+    "cmd_id": 22001,
+    "ret": 200,
+    "msg": "ok"
+   },
+   {
+    "cmd_id": 22001,
+    "ret": 200,
+    "msg": "ok"
+   }
+  ],
+  "pushes": 235,
+  "pushed_codes": [
+   "GOLD",
+   "USOIL",
+   "BTCUSDT"
+  ],
+  "samples": {
+   "22998": {
+    "cmd_id": 22998,
+    "data": {
+     "code": "GOLD",
+     "seq": 1788530574453,
+     "tick_time": 1788530573000,
+     "price": "4415.32",
+     "volume": "8.00",
+     "turnover": "35322.56",
+     "trade_direction": 1
+    }
+   },
+   "22999": {
+    "cmd_id": 22999,
+    "data": {
+     "code": "BTCUSDT",
+     "seq": 1788530575440,
+     "tick_time": 1788530575440,
+     "bids": [
+      {
+       "price": "79476.00",
+       "volume": "0.42000"
+      },
+      {
+       "price": "79475.99",
+       "volume": "0.00063"
+      },
+      {
+       "price": "79475.76",
+       "volume": "0.00007"
+      },
+      {
+       "price": "79475.19",
+       "volume": "0.00007"
+      },
+      {
+       "price": "79475.16",
+       "volume": "0.00007"
+      }
+     ],
+     "asks": [
+      {
+       "price": "79476.01",
+       "volume": "4.42363"
+      },
+      {
+       "price": "79476.02",
+       "volume": "0.00027"
+      },
+      {
+       "price": "79476.03",
+       "volume": "0.00013"
+      },
+      {
+       "price": "79477.03",
+       "volume": "0.00007"
+      },
+      {
+       "price": "79477.40",
+       "volume": "0.00014"
+      }
+     ]
+    }
+   }
+  },
+  "error": null
+ },
+ {
+  "path": "quote-stock-b-ws-api",
+  "codes": [
+   "700.HK",
+   "TSLA.US"
+  ],
+  "acks": [
+   {
+    "cmd_id": 22005,
+    "ret": 200,
+    "msg": "ok"
+   },
+   {
+    "cmd_id": 22003,
+    "ret": 200,
+    "msg": "ok"
+   },
+   {
+    "cmd_id": 22001,
+    "ret": 200,
+    "msg": "ok"
+   },
+   {
+    "cmd_id": 22001,
+    "ret": 200,
+    "msg": "ok"
+   }
+  ],
+  "pushes": 402,
+  "pushed_codes": [
+   "TSLA.US"
+  ],
+  "samples": {
+   "22998": {
+    "cmd_id": 22998,
+    "data": {
+     "code": "TSLA.US",
+     "seq": 1788530607543,
+     "tick_time": 1788530607000,
+     "price": "357.340000",
+     "volume": "100",
+     "turnover": "35734.000000",
+     "trade_direction": 0
+    }
+   },
+   "22999": {
+    "cmd_id": 22999,
+    "data": {
+     "code": "TSLA.US",
+     "seq": 1788530608346,
+     "tick_time": 1788530608346,
+     "bids": [
+      {
+       "price": "357.350000",
+       "volume": "114"
+      }
+     ],
+     "asks": [
+      {
+       "price": "357.400000",
+       "volume": "94"
+      }
+     ]
+    }
+   }
+  },
+  "error": null
+ }
+]

@@ -1,0 +1,101 @@
+{
+ "rest_depth": {
+  "ret": 200,
+  "msg": "ok",
+  "trace": "a27a3ac8220044c9b24c780b",
+  "data": {
+   "tick_list": [
+    {
+     "code": "GOLD",
+     "seq": "1788543500049",
+     "tick_time": "1788543500049",
+     "bids": [
+      {
+       "price": "4424.60",
+       "volume": "255394.93"
+      }
+     ],
+     "asks": [
+      {
+       "price": "4424.70",
+       "volume": "299319.67"
+      }
+     ]
+    }
+   ]
+  }
+ },
+ "seq_before": [
+  87634131,
+  1788543511739
+ ],
+ "seq_after": [
+  87640674,
+  1788543706337
+ ],
+ "upstream_ticks_per_second": 33.6,
+ "stream": {
+  "window_seconds": 180,
+  "book_updates": 176,
+  "book_levels_seen": {
+   "1x1": 176
+  },
+  "book_updates_per_second": 0.98,
+  "spread_min": 0.07999999999992724,
+  "spread_median": 0.08,
+  "spread_max": 0.14000000000032742,
+  "book_seq_is_timestamp": true,
+  "first_book": {
+   "code": "GOLD",
+   "seq": 1788543514448,
+   "tick_time": 1788543514449,
+   "bids": [
+    {
+     "price": "4424.25",
+     "volume": "610535.10"
+    }
+   ],
+   "asks": [
+    {
+     "price": "4424.37",
+     "volume": "595049.68"
+    }
+   ]
+  },
+  "trades": 164,
+  "trades_per_second": 0.91,
+  "trade_direction_counts": {
+   "1": 164
+  },
+  "trade_volume_distinct": [
+   2.0,
+   3.0,
+   4.0,
+   5.0,
+   6.0,
+   7.0,
+   8.0,
+   9.0,
+   10.0,
+   11.0,
+   12.0,
+   13.0,
+   14.0,
+   15.0,
+   16.0,
+   19.0
+  ],
+  "trade_time_ms_resolution": [
+   0
+  ],
+  "price_ticks_up": 77,
+  "price_ticks_down": 82,
+  "price_ticks_flat": 4,
+  "direction_on_down_ticks": {
+   "1": 82
+  },
+  "direction_on_up_ticks": {
+   "1": 77
+  }
+ }
+}

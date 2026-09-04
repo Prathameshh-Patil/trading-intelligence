@@ -1,0 +1,149 @@
+{
+ "sse": {
+  "success": true,
+  "total": 26,
+  "ret": 200,
+  "msg": "no ret field in response",
+  "sample": [
+   {
+    "symbol": "111008",
+    "symbolName": "沿浦转债",
+    "haltReason": "重要公告",
+    "haltDate": "-",
+    "haltTime": null,
+    "haltPeriod": "自2025-03-31起连续停牌",
+    "resumeDate": null,
+    "resumeTime": null,
+    "publishDate": "2025-03-19"
+   },
+   {
+    "symbol": "600803",
+    "symbolName": "新奥股份",
+    "haltReason": "拟筹划重大资产重组",
+    "haltDate": "-",
+    "haltTime": null,
+    "haltPeriod": "自2025-03-19起连续停牌",
+    "resumeDate": null,
+    "resumeTime": null,
+    "publishDate": "2025-03-19"
+   },
+   {
+    "symbol": "113530",
+    "symbolName": "大丰转债",
+    "haltReason": "重要公告",
+    "haltDate": "-",
+    "haltTime": null,
+    "haltPeriod": "自2025-03-24起连续停牌",
+    "resumeDate": null,
+    "resumeTime": null,
+    "publishDate": "2025-03-19"
+   }
+  ]
+ },
+ "nyse": {
+  "success": true,
+  "total": 16,
+  "ret": 200,
+  "msg": "no ret field in response",
+  "sample": [
+   {
+    "symbol": "CLGN",
+    "symbolName": "CollPlant Biotechnologies Ltd Ordinary Shares",
+    "haltReason": "News Pending",
+    "haltDate": "2026-09-03",
+    "haltTime": "19:50:00",
+    "haltDateTime": "2026-09-03 19:50:00",
+    "resumeDate": "2026-09-04",
+    "resumeTime": "09:00:00",
+    "resumeDateTime": "2026-09-04 09:00:00",
+    "sourceExchange": "Nasdaq",
+    "publishDate": "2026-09-03 19:50:00"
+   },
+   {
+    "symbol": "TANH",
+    "symbolName": "Tantech Holdings Ltd. Class A Common Shares",
+    "haltReason": "News Pending",
+    "haltDate": "2026-09-03",
+    "haltTime": "19:50:00",
+    "haltDateTime": "2026-09-03 19:50:00",
+    "resumeDate": "2026-09-04",
+    "resumeTime": "09:00:00",
+    "resumeDateTime": "2026-09-04 09:00:00",
+    "sourceExchange": "Nasdaq",
+    "publishDate": "2026-09-03 19:50:00"
+   },
+   {
+    "symbol": "LPSN",
+    "symbolName": "LivePerson Inc",
+    "haltReason": "News Pending",
+    "haltDate": "2026-09-03",
+    "haltTime": "19:50:00",
+    "haltDateTime": "2026-09-03 19:50:00",
+    "resumeDate": null,
+    "resumeTime": null,
+    "resumeDateTime": null,
+    "sourceExchange": "Nasdaq",
+    "publishDate": "2026-09-03 19:50:00"
+   }
+  ]
+ },
+ "nasdaq": {
+  "success": true,
+  "total": 11,
+  "ret": 200,
+  "msg": "no ret field in response",
+  "sample": [
+   {
+    "symbol": "MAGH",
+    "symbolName": "Magnitude International Ltd OS",
+    "haltDate": "2025-12-04",
+    "haltTime": "19:50:00",
+    "sourceExchange": "NASDAQ",
+    "haltReason": [
+     "H10 Halt SEC Trading Suspension -",
+     "T1 Halt - News Pending - Trading is halted pending the release of material news.",
+     "T12 Halt - Trading Halted; For information requested by NASDAQ -"
+    ],
+    "pauseThresholdPrice": "",
+    "resumeDate": null,
+    "resumeTime": null,
+    "resumeDateTime": null,
+    "publishDate": "2025-12-04 19:50:00"
+   },
+   {
+    "symbol": "MAMK",
+    "symbolName": "MaxsMaking Inc.",
+    "haltDate": "2025-11-14",
+    "haltTime": "19:50:00",
+    "sourceExchange": "NASDAQ",
+    "haltReason": [
+     "H10 Halt SEC Trading Suspension -",
+     "T1 Halt - News Pending - Trading is halted pending the release of material news.",
+     "T12 Halt - Trading Halted; For information requested by NASDAQ -"
+    ],
+    "pauseThresholdPrice": "",
+    "resumeDate": null,
+    "resumeTime": null,
+    "resumeDateTime": null,
+    "publishDate": "2025-11-14 19:50:00"
+   },
+   {
+    "symbol": "MCTA",
+    "symbolName": "Charming Medical Limit Cl A OS",
+    "haltDate": "2025-11-11",
+    "haltTime": "19:50:00",
+    "sourceExchange": "NASDAQ",
+    "haltReason": [
+     "H10 Halt SEC Trading Suspension -",
+     "T1 Halt - News Pending - Trading is halted pending the release of material news.",
+     "T12 Halt - Trading Halted; For information requested by NASDAQ -"
+    ],
+    "pauseThresholdPrice": "",
+    "resumeDate": null,
+    "resumeTime": null,
+    "resumeDateTime": null,
+    "publishDate": "2025-11-11 19:50:00"
+   }
+  ]
+ }
+}

@@ -1,0 +1,335 @@
+{
+ "source": "https://github.com/AllTick-Official/alltick-realtime-forex-crypto-stock-tick-finance-websocket-api",
+ "hosts": {
+  "rest": "https://quote.alltick.co",
+  "ws": "wss://quote.alltick.co",
+  "quote-b-api": "Forex, precious metals, energy, CFD indices, cryptocurrency",
+  "quote-stock-b-api": "US stocks, HK stocks, China A-shares, market indices"
+ },
+ "endpoints": [
+  {
+   "method": "GET",
+   "path": "/{base}/trade-tick",
+   "name": "Latest trade price",
+   "params": [
+    [
+     "symbol_list",
+     "[{code}]",
+     "Codes to quote"
+    ]
+   ],
+   "returns": "tick_list[]: code, seq, tick_time (ms), price, volume, turnover, trade_direction (0 unknown / 1 buy / 2 sell)"
+  },
+  {
+   "method": "GET",
+   "path": "/{base}/depth-tick",
+   "name": "Order book",
+   "params": [
+    [
+     "symbol_list",
+     "[{code}]",
+     "Codes to quote"
+    ]
+   ],
+   "returns": "tick_list[]: code, seq, tick_time (ms), bids[{price,volume}], asks[{price,volume}]",
+   "note": "Book depth varies by venue, not by plan: 10 levels on HK equities, 5 on crypto, 1 on spot metals. CFD indices carry no book at all."
+  },
+  {
+   "method": "GET",
+   "path": "/{base}/kline",
+   "name": "Historical candles (one code)",
+   "params": [
+    [
+     "code",
+     "string",
+     "Single product code"
+    ],
+    [
+     "kline_type",
+     "int",
+     "1..10, see interval table"
+    ],
+    [
+     "kline_timestamp_end",
+     "int",
+     "0 = latest; a unix ts walks backwards (FX/metals/crypto only)"
+    ],
+    [
+     "query_kline_num",
+     "int",
+     "max 500"
+    ],
+    [
+     "adjust_type",
+     "int",
+     "0 = unadjusted; equities only"
+    ]
+   ],
+   "returns": "kline_list[]: timestamp (s), open_price, close_price, high_price, low_price, volume, turnover",
+   "note": ""
+  },
+  {
+   "method": "POST",
+   "path": "/{base}/batch-kline",
+   "name": "Latest 2 candles (many codes)",
+   "params": [
+    [
+     "data_list",
+     "[{code,kline_type,kline_timestamp_end,query_kline_num,adjust_type}]",
+     "Body, not query string. Returns at most 2 bars per entry."
+    ]
+   ],
+   "returns": "kline_list per requested code+interval pair",
+   "note": ""
+  },
+  {
+   "method": "GET",
+   "path": "/{base}/static_info",
+   "name": "Reference / fundamentals",
+   "params": [
+    [
+     "symbol_list",
+     "[{code}]",
+     "Codes to describe"
+    ]
+   ],
+   "returns": "static_info_list[]: symbol, name_en/name_cn/name_hk, exchange, board, currency, lot_size, total_shares, circulating_shares, eps, eps_ttm, bps, dividend_yield",
+   "note": "Stock host only. On quote-b-api the same call answers HTTP 200 with the plain-text body \"Unable to find matching target resource method\" \u2014 not JSON, and not an error code. There is no reference data for forex, metals or crypto."
+  },
+  {
+   "method": "GET",
+   "path": "/api/suspension/{sse|nyse|nasdaq}",
+   "name": "Halt / resume notices",
+   "params": [],
+   "returns": "success, timestamp, totalCount, data[]: symbol, symbolName, haltReason, haltDate, haltTime, resumeDate, resumeTime"
+  }
+ ],
+ "websocket": {
+  "paths": {
+   "quote-b-ws-api": "Forex, metals, energy, crypto",
+   "quote-stock-b-ws-api": "Equities and indices"
+  },
+  "commands": [
+   [
+    22000,
+    "Heartbeat request",
+    "Send every ~10s or the server drops the connection"
+   ],
+   [
+    22001,
+    "Heartbeat reply",
+    ""
+   ],
+   [
+    22002,
+    "Subscribe order book",
+    ""
+   ],
+   [
+    22003,
+    "Subscribe order book ack",
+    ""
+   ],
+   [
+    22004,
+    "Subscribe trades",
+    ""
+   ],
+   [
+    22005,
+    "Subscribe trades ack",
+    ""
+   ],
+   [
+    22006,
+    "Unsubscribe",
+    ""
+   ],
+   [
+    22007,
+    "Unsubscribe ack",
+    ""
+   ],
+   [
+    22998,
+    "Trade push",
+    "Same fields as /trade-tick"
+   ],
+   [
+    22999,
+    "Order book push",
+    "Same fields as /depth-tick"
+   ]
+  ]
+ },
+ "kline_types": [
+  [
+   1,
+   "1 minute",
+   true
+  ],
+  [
+   2,
+   "5 minute",
+   true
+  ],
+  [
+   3,
+   "15 minute",
+   true
+  ],
+  [
+   4,
+   "30 minute",
+   true
+  ],
+  [
+   5,
+   "1 hour",
+   true
+  ],
+  [
+   6,
+   "2 hour",
+   false
+  ],
+  [
+   7,
+   "4 hour",
+   false
+  ],
+  [
+   8,
+   "1 day",
+   true
+  ],
+  [
+   9,
+   "1 week",
+   true
+  ],
+  [
+   10,
+   "1 month",
+   true
+  ]
+ ],
+ "kline_types_note": "The last column is what the docs claim for equities: 2h and 4h are listed as forex/metals/crypto only.",
+ "plans": {
+  "columns": [
+   "Plan",
+   "HTTP rate",
+   "Daily cap",
+   "Codes per request",
+   "WS connections",
+   "WS codes"
+  ],
+  "rows": [
+   [
+    "Free",
+    "1 req / 10 s per endpoint; 10 req/min total",
+    "1,000",
+    "5",
+    "1",
+    "5"
+   ],
+   [
+    "Basic",
+    "1 req / s (batch-kline 1 / 3 s)",
+    "86,400",
+    "~50 (URL length)",
+    "1",
+    "100"
+   ],
+   [
+    "Premium",
+    "10 req / s (batch-kline 1 / 2 s)",
+    "864,000",
+    "~50",
+    "3",
+    "200"
+   ],
+   [
+    "Professional",
+    "20 req / s (batch-kline 1 / s)",
+    "1,728,000",
+    "~50",
+    "10",
+    "3,000"
+   ],
+   [
+    "All HK Stocks",
+    "20 req / s",
+    "1,728,000",
+    "~50",
+    "10",
+    "3,000"
+   ],
+   [
+    "All CN Stocks",
+    "20 req / s",
+    "1,728,000",
+    "~50",
+    "10",
+    "3,000"
+   ]
+  ]
+ },
+ "errors": [
+  [
+   200,
+   "ok",
+   "Success"
+  ],
+  [
+   400,
+   "request header/data param invalid",
+   "Malformed JSON envelope or data object"
+  ],
+  [
+   401,
+   "token invalid",
+   "Bad token format, or the account expired"
+  ],
+  [
+   402,
+   "query invalid",
+   "query string not URL-encoded correctly"
+  ],
+  [
+   429,
+   "Too many requests",
+   "Sent as HTTP 429 with body {\"error_msg\": ...} and no ret/msg fields"
+  ],
+  [
+   600,
+   "code invalid",
+   "Unknown product code, or the code was sent to the wrong host"
+  ],
+  [
+   601,
+   "body empty",
+   "POST body missing (batch-kline)"
+  ],
+  [
+   603,
+   "token level not enough",
+   "More codes or candles than the plan allows"
+  ],
+  [
+   604,
+   "code unauthorized",
+   "The plan does not include this product"
+  ],
+  [
+   605,
+   "too many requests",
+   "HTTP frequency limit"
+  ],
+  [
+   606,
+   "too many requests, connection will be closed",
+   "WebSocket frequency limit"
+  ]
+ ]
+}
