@@ -1339,6 +1339,84 @@ in the brief changed and nothing else.
       And §11's item 5 is the one worth reading twice: **the `reach` table alone is a complete Stage
       C+D with no model in it, and it should be built first and beaten.**
 
+### 2026-09-05 (later still) — the reach table, built and measured · `81de547`, `backtest.py`
+
+Build order's Stage C+D-without-a-model, from the pipeline spec §11 item 5. **+107 lines in
+`backtest.py` (120 → 227), 9 tests, no new file and no new dependency.** Suite **131 green**, `ruff`
+and `mypy` clean.
+
+- [x] **`first_touch(bars, trades, *, target, stop, horizon, ties)`** — which came first, +target or
+      −stop. **MFE and MAE structurally cannot answer this**, and it is not obvious that they cannot:
+      a trade with `mfe=+50, mae=−30` either ran to its target or was stopped on the way, and both
+      outcomes produce the same two numbers. A hit rate read off MFE scores every stopped-out trade
+      as a win. `test_mfe_and_mae_cannot_tell_these_two_trades_apart_and_first_touch_can` is that
+      pair of frames, built by hand.
+- [x] **The same-bar ambiguity is reported as a band, not resolved by assertion.** When one bar's
+      high clears the target and its low clears the stop, the order is not in the bar. Default
+      `ties="stop"` gives a lower bound; `reach_table` runs both ways and reports `p_target` and
+      `p_target_max`. **Never the midpoint** — bars do not know where in the band the truth is.
+- [x] **`session_ends` extracted** rather than the leg rule being re-derived in a second place —
+      the reason `atr` moved to `features/expansion.py` on D2. Session semantics live in one function
+      and `evaluate` now calls it.
+- [x] **First real numbers — July 2026, training half only (3,516 bars, 13 sessions, held-out half
+      untouched), unconditional long, 30-minute horizon.** This is the base rate every signal has to
+      beat, and no bucket clears it:
+
+      | ATR | n | p_target (70) | p_stop (20) | EV |
+      | :--- | ---: | :--- | ---: | ---: |
+      | <30 | 415 | 0.108–0.108 | 0.728 | **−7.0 ticks** |
+      | 30–40 | 866 | 0.140–0.147 | 0.752 | **−5.3** |
+      | 40–50 | 870 | 0.155–0.160 | 0.772 | **−4.6** |
+      | 50+ | 1,222 | 0.213–0.247 | 0.762 | **−0.3** |
+
+- [x] **The ATR gradient is real, monotone, and does not work the way the floor's derivation
+      assumed.** `p_target` climbs 0.108 → 0.213 across the buckets, but **`p_stop` is flat at
+      0.73–0.77 in every one of them.** Higher ATR does not buy fewer stop-outs; it converts
+      *neither* into *target* (`p_neither` 0.164 → 0.025). The floor's direction survives; the
+      mechanism stated for it does not.
+- [x] **The tie band is narrow where it matters** — 0.164–0.179 unconditionally, so the
+      bar-resolution result is not an artefact of the tie rule. It widens only in the 50+ bucket
+      (0.213–0.247), which is exactly where `regime_filter.py` predicted a 20-tick stop sits inside
+      a typical bar. **Tick resolution is still D4's, and this bounds how much it can move.**
+- [ ] **Not done, and deliberately:** no threshold committed, no pass line, no bucketing scheme
+      promoted, held-out half untouched, and **no conditional table yet** — that needs a signal set,
+      which is Gate 1 and still empty.
+
+### 2026-09-05 (later still) — the calibration log · `81de547`, `calibration.py`
+
+Build order's step 1, **written before the first signal exists**, which is the whole point: a
+calibration loop retrofitted later has no history, and the first weeks are when it is most
+informative. **152 lines, 11 tests, one new file, no new dependency.** Suite **142 green**, `ruff`
+and `mypy` clean.
+
+- [x] **Append-only, and it is structural rather than promised.** A signal record is never
+      rewritten; an outcome is a *second* record joined by id. `test_settling_never_rewrites_the_
+      forecast_that_was_shown` asserts the signal line on disk is byte-identical after an outcome
+      lands. **Calibration measured against retrospectively adjusted forecasts measures nothing, and
+      the adjustment would be invisible in the result.**
+- [x] **`settle` cannot invent history** — raises on an id that was never emitted and on one already
+      settled. `read` raises on a hand-edited orphan outcome. Ids are generated, not accepted, so no
+      caller can reuse one and overwrite a forecast in the join.
+- [x] **A forecast without its context is refused at the boundary.** `SIGNAL_FIELDS` requires `feed`,
+      `bucket`, `n` and `thresholds` alongside `p` — a probability off nine samples is not the same
+      claim as one off nine hundred, and a stale feed invalidates everything above it.
+- [x] **`outcome` uses `first_touch`'s encoding (+1/−1/0), not a bool** — the live outcome and the
+      historical base rate it is compared against have to be the same measurement. **A real bug came
+      out of this test:** `True in (-1, 0, 1)` is `True` in Python, so a bool sailed through the
+      guard, would have serialised as `true`, and would have quietly meant "hit". Now excluded by
+      `type(...) is not int`, with the reason in a comment.
+- [x] **End-to-end verified on real data, and honestly labelled.** July training half, each ATR
+      bucket's own base rate replayed as the forecast: **3,373 signals emitted, settled and read
+      back; `realised` equals `predicted` to three decimals in all four bins.** **This is in-sample
+      by construction and MUST come out calibrated** — it tests the plumbing, not a model. The
+      held-out version is the real measurement and has not been run.
+- [x] **Known limit, measured not guessed:** `settle` reads the whole log, so a replay of N signals
+      is O(N²) — 3,373 pairs in 26.5s. Live use settles a handful a day against a log of hundreds,
+      where it is free, and both integrity guards need that read. **Recorded in the docstring rather
+      than optimised away**; seeding from the full archive is the case that would need batching.
+- [ ] **Nothing is wired to it yet.** There is no producer — Gate 1 is still empty — so the log has
+      no live caller, which is exactly the state it was built to be ready for.
+
 ---
 
 ## Next
@@ -1376,7 +1454,7 @@ both ran into**, neither of which is a row below because neither is anyone's tas
 | 8 | ~~Load the rebuilt extension in Chrome, confirm capture still works~~ — **reported done, ~28 Aug or before** | Either | See row #2 — same report, same caveat: closed on Prathamesh's account, not on a logged artifact from the time |
 | A1 | Compute delta and CVD ~~from the tick data~~ **done** · ~~validate against a real footprint chart~~ — **SUBSTANTIALLY CLOSED 24 Aug, `c504e50`** | Prathamesh | Closed by an independent *method* rather than an independent platform, which sidesteps the Windows-only blocker entirely: `pull_tbbo_validate.py` reclassifies every trade in the 2026-07-16 session by the **quote rule** (price vs the bid/ask immediately before the trade), using the `side` field not at all. **99.65% agreement with `SIDE_MAP` across 75,578 comparable trades**, a near-symmetric confusion matrix (96 vs 165), **0 of 23 hours disagreeing in sign**, and a footprint cross-check at 980/980 common price levels with volume r=1.0000 and delta r=0.9870. Separately `verify_settlement_close.py` resolved the 12.2-point gap against TradingView's reported close as settlement-window-vs-last-trade, VWAP matching within 0.25 — that one **is** an external reference, so contract and timezone are checked too. **Residual, and it must be carried downstream:** session-total delta is method-dependent at the ~15–20% level (side field +1,842 vs quote rule +2,216). **Direction and shape are robust; absolute magnitude needs an error bar.** *(`DELTA_CVD_FINDINGS.md` §3 rewritten 25 Aug — it now records the gate as closed, carries the residual as the file's headline number, and inverts the debugging order so the aggressor mapping is checked **last**, since it has four independent confirmations)* |
 | A2 | ~~Pull spot XAUUSD, compute GC-vs-spot correlation and basis distribution~~ — **CUT 25 Aug** | — | Killed by the artifact's Fact Two, not deprioritised. It was scoping MT5 spot gold as a launch instrument; spot gold has no centralised volume — which is exactly why `real_volume` comes back empty — so there is no delta to compute and nothing to correlate against. Returns in the Week 12 quarter-two discussion as a **context-only** mode: rules, journal and capture work on MT5, delta does not, and we never claim it does. *(`DELTA_CVD_FINDINGS.md` §4 said "blocked on Dukascopy being unreachable" — true, and the wrong reason. Rewritten 25 Aug to lead with the real one: the blocker was never the download, it is that spot gold cannot carry the product's core number, so **nobody needs to find a working mirror**.)* |
-| C1 | 🚚 **Feed vendor — historical stays Databento, live moves to Ironbeam** | Prathamesh, **decided 3 Sep** | **Supersedes the quantfeed evaluation** — no record in this repo that the 26 Aug quantfeed call happened or what it found; Ironbeam is a separate decision, reported directly, not derived from that call. **Historical/backtest track is unaffected:** the 19-month Databento archive, S1's contract, the quote-rule validation (99.65% agreement) and `contracts.md`'s `'N'` amendment all stand exactly as documented — nothing here is being re-derived on Ironbeam data. **Live feed moves to Ironbeam** (free L1/L2 for non-pro accounts, free API after 5 contracts/month traded, otherwise $249/mo) for both the personal GC-strategy-selector bot and, pending confirmation, the product's live overlay feed (`week-01.md` D5's "hold a live feed 30 minutes" task). **Checked against Ironbeam's own docs, not taken on faith:** the trade stream has an `as` (aggressor side) field, but its value semantics are undocumented (`0` in the example) — **treat it as unvalidated until checked against real data**, the same way Databento's `side` needed `pull_tbbo_validate.py` before it was trusted. **No historical L2/tick data exists via Ironbeam's REST API** — only live streaming — so any book-based backtesting starts from whenever capture begins, which is why keeping the Databento historical archive matters rather than trying to backfill from Ironbeam. **The vendor-licensing question likely changes shape, not just vendor:** Ironbeam is a broker, not a data reseller — if every end user connects through their *own* funded Ironbeam account, that is the same "runs on the user's machine, uses the user's own entitlement" model the product already assumes for MT5 (item B below), which is the model the drafted licence-email question was written to test favourably. **Still not legal advice** — confirm this reading with Ironbeam and the CA in writing before relying on it, same rule as everywhere else licensing comes up in this repo. **Open:** whether the three drafted emails (Databento, Rithmic, Tradovate) still go out as-is, get a fourth (Ironbeam) added, or get replaced — nobody has redrafted them yet |
+| C1 | 🚚 **Feed vendor — historical stays Databento, live moves to Ironbeam** | Prathamesh, **decided 3 Sep** | **Supersedes the quantfeed evaluation** — no record in this repo that the 26 Aug quantfeed call happened or what it found; Ironbeam is a separate decision, reported directly, not derived from that call. **Historical/backtest track is unaffected:** the 19-month Databento archive, S1's contract, the quote-rule validation (99.65% agreement) and `contracts.md`'s `'N'` amendment all stand exactly as documented — nothing here is being re-derived on Ironbeam data. **Live feed moves to Ironbeam** (free L1/L2 for non-pro accounts, free API after 5 contracts/month traded, otherwise $249/mo) for both the personal GC-strategy-selector bot and, pending confirmation, the product's live overlay feed (`week-01.md` D5's "hold a live feed 30 minutes" task). **Checked against Ironbeam's own docs, not taken on faith:** the trade stream has an `as` (aggressor side) field, but its value semantics are undocumented (`0` in the example) — **treat it as unvalidated until checked against real data**, the same way Databento's `side` needed `pull_tbbo_validate.py` before it was trusted. **No historical L2/tick data exists via Ironbeam's REST API** — only live streaming — so any book-based backtesting starts from whenever capture begins, which is why keeping the Databento historical archive matters rather than trying to backfill from Ironbeam. **The vendor-licensing question likely changes shape, not just vendor:** Ironbeam is a broker, not a data reseller — if every end user connects through their *own* funded Ironbeam account, that is the same "runs on the user's machine, uses the user's own entitlement" model the product already assumes for MT5 (item B below), which is the model the drafted licence-email question was written to test favourably. **Still not legal advice** — confirm this reading with Ironbeam and the CA in writing before relying on it, same rule as everywhere else licensing comes up in this repo. **Open:** whether the three drafted emails (Databento, Rithmic, Tradovate) still go out as-is, get a fourth (Ironbeam) added, or get replaced — nobody has redrafted them yet. ⚠️ **REOPENED 5 Sep — Ironbeam is not funded and the live half of this decision is back open.** The account asks **$1,000 funded plus 5 contracts/month traded** for the free API tier (otherwise $249/mo), and Varad has not paid it. Two reasons not to, and the second is the one that matters. **(a) Nothing on the critical path needs a live feed this week** — the empty signal set, Part C, the regime × ATR bucketing, OCR and the calibration log are all offline work against the Databento archive, and `contracts.md` exists so Weeks 1–3 run against `engine/mock.ts` by design. **(b) Mixing vendors puts an unvalidated seam in the middle of the product's core claim.** Calibration compares live outcomes against historical base rates; if historical is Databento and live is Ironbeam, and the two sign trades even slightly differently, the calibration number measures the vendor difference and reads as a slightly-off model. Databento's `side` needed `pull_tbbo_validate.py` (99.65%) before it was trusted and turned out to mean the opposite of its natural-language reading; Ironbeam's `as` field is undocumented and would need that project done again. **Proposed: run D5's spike on Databento live** — same schema, same validated semantics, account already held, no minimum and no trading obligation — and note that `week-01.md`'s gate line reads *"a live feed held 30 minutes without desync"* and **does not name a vendor**. **Databento live is not priced yet; that is the one action item.** **A third reason Ironbeam may be wrong for the product regardless of price:** the bring-your-own-entitlement model means every subscriber funds $1,000 and trades 5 contracts/month before seeing a signal. That is the signup funnel, and it is a product problem, not a cost one. **Databento closes the Week 1 gate. It does not close C1** — per-user live licensing is still unanswered and still Shreyas's |
 | B | Make `apps/desktop` behave like a real overlay — transparent, borderless, always-on-top, click-through toggle. Prove it floats over a live MT5 demo and that click-through reaches MT5 underneath | **Prathamesh**, W1D2–W2 | No longer gated on A1/A2 — it is Week 1 Day 2 and Week 2 in [`team/phase-1-kill-week.md`](team/phase-1-kill-week.md). Install the MT5 demo terminal first if nobody has it |
 | 9 | 🔌 **Get an Ironbeam account and API credentials** | Prathamesh | Surfaced 3 Sep, checking Week 1 readiness. `week-01.md` D5 has Prathamesh holding a live feed connection 30 minutes in Rust; under today's C1 decision that connection is Ironbeam's, and nobody has an account or credentials yet. Needed before Wed 9 Sep, not that morning |
 | C2 | ~~📡 **AllTick evaluated**~~ — **CLOSED 5 Sep: sticking with Databento** | Varad, decided 5 Sep | **The gold answer is the whole answer, and it is no.** `alltick/GOLD.md` measures it: `GOLD` is a **1 Hz top-of-book snapshot** — the book is 1×1 on every update, `trade_direction` is hardcoded to 1 across all 402 trade pushes in **two windows three hours apart**, including all 202 down-ticks; timestamps are second-aligned; and the venue `seq` counter advances 52.4/s and 33.6/s against 0.99/s and 0.91/s delivered, so **~2% of ticks arrive** — the delivered rate did not move when the market quietened. No L2, no MBP, no MBO, and `trade-tick`/`depth-tick` are latest-value only, so there is **no book or tick history to backtest** even going forward. **Neither limit is the free plan:** the same key returns 10 book levels on `700.HK` and 5 on `BTCUSDT`, and `TSLA.US` pushed 16 updates/second. **AllTick carries no CME futures at all** (11,223 instruments, no `GC`/`MGC`), so `GOLD` is spot/CFD and its quoted sizes swing 4.6× between snapshots — the same no-centralised-volume problem A2 already closed spot gold on. **Nothing here displaces C1 or the Databento archive.** Context-only at best: OHLCV across ten intervals and a 1 Hz mid. Secondary finding, vendor-independent: entitlement is per product and unauthorised codes are dropped *silently* from a mixed request, and the rate limiter answers HTTP 429 with a body carrying no `ret` field. **Corrected 5 Sep:** "no history" was true of book and tick data and wrong about candles — `kline_timestamp_end` pages back to **2022-06 at 1-minute** and 2022-03-03 daily, so ~4.3 years of free gold OHLCV is a real dataset (GOLD.md §7). That does not revive order flow; it opens a different question, and `alltick/packages/edge/ohlcv_edge.py` is the test that answers it — an OHLCV rule sweep measured through `backtest.evaluate` against a best-of-grid permutation null. **First result: AllTick spot gold is a random walk at 5/15/30m to within 0.4%, the same thing `horizon.py` measured on GC.** Full-history run pending. **Nothing is bought and no threshold is committed** — §6.1 still says the pass line is Varad's. **Not tested:** any paid tier, and no tier was priced — **and now nobody needs to.** Varad closed this 5 Sep: the historical track stays Databento only. The 5-minute pull was stopped at 101,962 bars (2025-03-28 → 2026-09-04) rather than run to completion, and no OHLCV sweep was run on it, so **there is no result here and none is owed** — the decision is that the question is not worth answering, which is different from the answer being no. `alltick/` stays in the repo as the record of why, so this does not get re-litigated from scratch; `alltick/GOLD.md` is the one file to read if it comes back up. Nothing was bought |
