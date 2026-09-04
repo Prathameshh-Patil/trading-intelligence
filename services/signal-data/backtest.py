@@ -17,6 +17,9 @@ anything is lookahead.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+from typing import Literal
+
 import numpy as np
 import pandas as pd
 
@@ -24,6 +27,12 @@ from s1 import TICK, TICK_VALUE
 
 HORIZONS = (5, 15, 30)  # minutes
 MIN_SAMPLES = 30        # design §6.5: below this, report but do not act
+
+
+def session_ends(bars: pd.DataFrame) -> pd.Series:
+    """Last bar of each session, so a horizon can be told "ran out of session"
+    apart from "ran out of bars" -- a gap in the tape is not a short leg."""
+    return pd.Series(bars.index, index=bars.index).groupby(bars["session"], sort=False).last()
 
 
 def evaluate(
@@ -46,9 +55,7 @@ def evaluate(
         raise ValueError("entries carry timestamps that are not bars")
 
     span = max(horizons)
-    # Last bar of each session, so a horizon can be told "ran out of session"
-    # apart from "ran out of bars" -- a gap in the tape is not a short leg.
-    ends = pd.Series(bars.index, index=bars.index).groupby(bars["session"], sort=False).last()
+    ends = session_ends(bars)
     rows = []
     fired = entries[entries != 0]
     for t, side in zip(pd.DatetimeIndex(fired.index), fired.to_numpy(), strict=True):
@@ -105,6 +112,106 @@ def summarize(trades: pd.DataFrame, horizon: int = HORIZONS[0]) -> dict[str, flo
 def report(trades: pd.DataFrame, horizons: tuple[int, ...] = HORIZONS) -> pd.DataFrame:
     """The metric set across horizons, one row each, N always present."""
     return pd.DataFrame([summarize(trades, h) for h in horizons], index=[f"{h}m" for h in horizons])
+
+
+def first_touch(
+    bars: pd.DataFrame,
+    trades: pd.DataFrame,
+    *,
+    target: float,
+    stop: float,
+    horizon: int,
+    ties: Literal["stop", "target"] = "stop",
+) -> pd.Series:
+    """Which came first, +target ticks or -stop ticks: +1 target, -1 stop, 0 neither.
+
+    **MFE and MAE cannot answer this and it is not obvious that they cannot.**
+    A trade with `mfe=+50` and `mae=-25` either ran to its target or was
+    stopped out on the way; both outcomes produce the same two numbers,
+    because the order is the whole question and the order is not in them.
+    Reading a hit rate off MFE alone counts every stopped-out trade as a win.
+
+    **A same-bar tie resolves to the stop by default.** When one bar's high
+    clears the target and its low clears the stop, the tape's order is not in
+    the bar and `ties="stop"` reports the worse of the two, making `p_target` a
+    LOWER bound. `ties="target"` is the same measurement at the other extreme,
+    and it exists so the width of that band can be reported rather than
+    assumed small -- the truth is inside it and bars cannot say where.
+
+    The band is widest exactly where the stop is tight relative to the bar
+    range: at ATR 40 a 20-tick stop is about half a typical bar, which
+    `features/regime_filter.py` already flags as the fragility Week 1 D4 must
+    settle at tick resolution. **A wide band there is not a defect of this
+    function; it is the honest size of what bar data knows.**
+
+    NaN when the session ends inside the horizon, matching `evaluate`: a leg
+    the tape never offered is not a leg that went nowhere.
+    """
+    ends = session_ends(bars)
+    out = []
+    for t, side, entry in zip(trades["t"], trades["side"], trades["entry"], strict=True):
+        mark = t + pd.Timedelta(minutes=horizon)
+        session = bars.at[t, "session"]
+        leg = bars.loc[t:mark]
+        leg = leg[leg["session"] == session].iloc[1:]
+        if leg.empty or ends[session] < mark:
+            out.append(np.nan)
+            continue
+        fav = (leg["high"] if side > 0 else leg["low"]).to_numpy()
+        adv = (leg["low"] if side > 0 else leg["high"]).to_numpy()
+        hit_target = np.flatnonzero(side * (fav - entry) >= target * TICK)
+        hit_stop = np.flatnonzero(side * (adv - entry) <= -stop * TICK)
+        if not len(hit_target) and not len(hit_stop):
+            out.append(0)
+        elif not len(hit_stop):
+            out.append(1)
+        elif not len(hit_target):
+            out.append(-1)
+        elif hit_stop[0] == hit_target[0]:
+            out.append(-1 if ties == "stop" else 1)
+        else:
+            out.append(-1 if hit_stop[0] < hit_target[0] else 1)
+    return pd.Series(out, index=trades.index, dtype="float64")
+
+
+def reach_table(
+    bars: pd.DataFrame,
+    trades: pd.DataFrame,
+    pairs: Sequence[tuple[float, float]],
+    horizon: int = HORIZONS[0],
+) -> pd.DataFrame:
+    """One row per (target, stop) in ticks: how often the target came first, with N.
+
+    This is the whole of the pip forecast the product promises, in the only
+    form the data supports -- a base rate conditional on a bucket the caller
+    chose, not a prediction of how far this particular trade travels. Bucket
+    by grouping `trades` before calling; nothing here picks the buckets, and
+    nothing here picks a pass line either. Design:
+    docs/superpowers/specs/2026-09-05-live-signal-pipeline-design.md §6.3.
+    """
+    rows = []
+    for target, stop in pairs:
+        touch = first_touch(bars, trades, target=target, stop=stop, horizon=horizon).dropna()
+        best = first_touch(
+            bars, trades, target=target, stop=stop, horizon=horizon, ties="target"
+        ).dropna()
+        n = len(touch)
+        rows.append(
+            {
+                "target": target,
+                "stop": stop,
+                "n": n,
+                "thin": n < MIN_SAMPLES,
+                "p_target": float((touch == 1).mean()) if n else np.nan,
+                # The same number with same-bar ties read the other way. Report
+                # the pair, never the midpoint: bars do not know where in the
+                # band the truth is, and averaging invents a precision.
+                "p_target_max": float((best == 1).mean()) if n else np.nan,
+                "p_stop": float((touch == -1).mean()) if n else np.nan,
+                "p_neither": float((touch == 0).mean()) if n else np.nan,
+            }
+        )
+    return pd.DataFrame(rows)
 
 
 def random_entries(bars: pd.DataFrame, like: pd.Series, seed: int) -> pd.Series:

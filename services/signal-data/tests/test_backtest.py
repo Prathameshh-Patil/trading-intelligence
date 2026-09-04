@@ -109,3 +109,79 @@ def test_a_flat_market_has_no_edge_and_the_harness_says_so() -> None:
     assert (rep["expectancy_ticks"] == 0).all()
     assert (rep["n"] == 40).all()
     assert np.isclose(rep["hit_rate"], 0.0).all()
+
+
+# --------------------------------------------------------------------------
+# first_touch -- the ordered question MFE and MAE cannot answer
+# --------------------------------------------------------------------------
+def _one_long(closes: list[float], ranges: list[float] | None = None) -> tuple[pd.DataFrame, pd.DataFrame]:
+    bars = bars_at([0, 1, 2, 3, 4, 5], closes, ranges=ranges)
+    return bars, bt.evaluate(bars, entries_at(bars, {0: 1}), horizons=(5,))
+
+
+def test_first_touch_reports_the_target_when_the_target_came_first() -> None:
+    bars, tr = _one_long([100.0, 101.0, 105.0, 105.0, 105.0, 105.0])
+    assert bt.first_touch(bars, tr, target=40, stop=20, horizon=5).iloc[0] == 1
+
+
+def test_first_touch_reports_the_stop_when_the_stop_came_first() -> None:
+    bars, tr = _one_long([100.0, 97.0, 105.0, 105.0, 105.0, 105.0])
+    assert bt.first_touch(bars, tr, target=40, stop=20, horizon=5).iloc[0] == -1
+
+
+def test_first_touch_is_zero_when_neither_level_was_reached() -> None:
+    bars, tr = _one_long([100.0, 101.0, 100.0, 101.0, 100.0, 101.0])
+    assert bt.first_touch(bars, tr, target=40, stop=20, horizon=5).iloc[0] == 0
+
+
+def test_a_same_bar_tie_resolves_to_the_stop() -> None:
+    # One bar whose high clears +40 and whose low clears -20. The tape's order
+    # is not in the bar, so the worse outcome is reported -- which is what
+    # makes p_target a lower bound rather than an estimate.
+    bars, tr = _one_long([100.0] + [101.0] * 5, ranges=[0.0, 20.0, 0.0, 0.0, 0.0, 0.0])
+    assert bt.first_touch(bars, tr, target=40, stop=20, horizon=5).iloc[0] == -1
+
+
+def test_first_touch_mirrors_for_a_short() -> None:
+    bars = bars_at([0, 1, 2, 3, 4, 5], [100.0] + [96.0] * 5)
+    tr = bt.evaluate(bars, entries_at(bars, {0: -1}), horizons=(5,))
+    assert bt.first_touch(bars, tr, target=40, stop=20, horizon=5).iloc[0] == 1
+
+
+def test_first_touch_is_nan_when_the_session_ends_inside_the_horizon() -> None:
+    bars = bars_at([0, 1, 2, 3], [100.0, 101.0, 500.0, 500.0],
+                   session=[SESSION] * 2 + ["next", "next"])
+    tr = bt.evaluate(bars, entries_at(bars, {0: 1}), horizons=(5,))
+    assert np.isnan(bt.first_touch(bars, tr, target=40, stop=20, horizon=5).iloc[0])
+
+
+def test_mfe_and_mae_cannot_tell_these_two_trades_apart_and_first_touch_can() -> None:
+    # Up to +50 then down to -30, against down to -30 then up to +50. Identical
+    # MFE and MAE; opposite outcomes against a 40/20 bracket. This is the whole
+    # reason the function exists -- a hit rate read off MFE scores both as wins.
+    up_first, tr_up = _one_long([100.0, 105.0, 97.0, 100.0, 100.0, 100.0])
+    down_first, tr_down = _one_long([100.0, 97.0, 105.0, 100.0, 100.0, 100.0])
+
+    assert tr_up["mfe_5m"].iloc[0] == pytest.approx(tr_down["mfe_5m"].iloc[0])
+    assert tr_up["mae_5m"].iloc[0] == pytest.approx(tr_down["mae_5m"].iloc[0])
+
+    assert bt.first_touch(up_first, tr_up, target=40, stop=20, horizon=5).iloc[0] == 1
+    assert bt.first_touch(down_first, tr_down, target=40, stop=20, horizon=5).iloc[0] == -1
+
+
+def test_reach_table_carries_n_and_flags_a_thin_cell() -> None:
+    bars, tr = _one_long([100.0, 101.0, 105.0, 105.0, 105.0, 105.0])
+    table = bt.reach_table(bars, tr, [(40, 20), (70, 20)], horizon=5)
+    assert list(table["n"]) == [1, 1]
+    assert table["thin"].all()
+    assert table.loc[0, "p_target"] == 1.0
+    assert table.loc[1, "p_target"] == 0.0  # +70 ticks is 107.0; the bar stopped at 105
+
+
+def test_the_tie_rule_is_reportable_as_a_band_not_hidden() -> None:
+    # The same ambiguous bar, read both ways. A table that showed only one of
+    # these would be stating a number bars cannot support.
+    bars, tr = _one_long([100.0] + [101.0] * 5, ranges=[0.0, 20.0, 0.0, 0.0, 0.0, 0.0])
+    assert bt.first_touch(bars, tr, target=40, stop=20, horizon=5, ties="target").iloc[0] == 1
+    row = bt.reach_table(bars, tr, [(40, 20)], horizon=5).iloc[0]
+    assert (row["p_target"], row["p_target_max"]) == (0.0, 1.0)
