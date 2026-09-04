@@ -1,7 +1,9 @@
 .token
 __pycache__/
 
-# The root .gitignore excludes data/ to keep market-data dumps out of git. These
-# are small JSON captures that the site is built from, so they belong in the repo.
+# The root .gitignore excludes data/ to keep market-data dumps out of git. The
+# small JSON captures the site and GOLD.md are built from belong in the repo;
+# the paged candle history does not -- it is hundreds of MB and reproducible.
 !data/
 data/product_list.xlsx
+data/klines/

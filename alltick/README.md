@@ -14,13 +14,15 @@ history for either book or ticks.
 ## Layout
 
 ```
-packages/catalog/extract.py   product spreadsheet -> data/catalog.json (11,228 instruments)
+packages/catalog/extract.py   product spreadsheet -> data/catalog.json (11,223 instruments)
 packages/probe/client.py      HTTP client; surfaces the undocumented 429 envelope
 packages/probe/rest.py        every REST endpoint once  -> data/rest.json
 packages/probe/entitlements.py which codes this token can read -> data/entitlements.json
 packages/probe/suspension.py  halt/resume feeds -> data/suspension.json
 packages/probe/ws.py          WebSocket subscribe + push capture -> data/ws.json
 packages/probe/gold.py        GOLD depth + cadence + aggressor measurement -> data/gold.json
+packages/probe/pull_klines.py pages candle history backwards, resumable -> data/klines/*.jsonl
+packages/edge/ohlcv_edge.py   is there anything OHLCV-only features can find?
 packages/site/build.py        data/*.json -> site/index.html
 data/reference.json           plan limits, error codes, cmd_ids, transcribed from the docs
 ```
@@ -31,7 +33,15 @@ data/reference.json           plan limits, error codes, cmd_ids, transcribed fro
 echo 'your-token' > .token     # or export ALLTICK_TOKEN
 make all                       # ~25 min on the free plan; it is mostly sleeping
 make serve                     # http://localhost:8000
+
+make klines                    # ~1.9 h: 5-minute gold back to 2022-06
+make edge                      # the test that decides whether any of this is worth buying
 ```
+
+`make klines` checkpoints after every page and stops at the free plan's daily request
+cap with a resume line; re-running the same command picks up where it left off.
+`make klines-1m` is the same pull at 1-minute resolution — ~3,070 pages, so about three
+days on the free key against roughly an hour on Basic.
 
 Python 3.12, standard library only, except `websockets` for `make stream` and `make gold`.
 

@@ -139,6 +139,46 @@ backwards is `/kline`:
 So even if the book were L2, you could not have backtested it. Book and tick data
 exist only going forward, from whenever you start capturing.
 
+## 7. Candle history is deeper than one call suggests
+
+§6 is about *book and tick* history, which does not exist. **Candle history does**, and
+`kline_timestamp_end` pages back through it. Measured by walking each interval backwards:
+
+| Interval | Reaches back to | Bars per call | Wall-clock per call |
+| :--- | :--- | ---: | ---: |
+| 1-minute | **at least 2022-06-01** | 500 | 8.3 h |
+| 15-minute | 2023-12 and earlier | ~408 | ~125 h |
+| 1-hour | 2023-12 and earlier | ~350–411 | ~400 h |
+| Daily | **2022-03-03**, and it genuinely ends there | ~357 | ~500 calendar days |
+
+The daily walk terminated cleanly: four pages reached 2022-03-03, and a fifth request ending
+at that date returned a single bar. That is the start of the series, not a paging limit. The
+1-minute series was probed at 2026-01, 2024-01 and 2022-06 and returned a full 500 bars each
+time, so intraday retention matches daily rather than being trimmed to recent months.
+
+**`query_kline_num` counts calendar slots, not bars.** Asking for 500 daily candles returns
+357 — 500 calendar days of which gold trades about 71%. Budget by wall-clock span, not by
+row count.
+
+### What a full pull costs
+
+At the free plan's one request per ten seconds and 1,000 requests per day:
+
+| Interval | Pages for 2022-06 → now | Free plan | Basic plan (1 req/s) |
+| :--- | ---: | :--- | :--- |
+| 1-minute | ~3,070 | **~3 days** (daily cap binds) | ~51 min |
+| 5-minute | ~610 | ~1.9 h | ~10 min |
+| 15-minute | ~205 | ~38 min | ~3 min |
+| Daily | 4 | ~1 min | seconds |
+
+`packages/probe/pull_klines.py` does the paging, checkpoints after every page, and stops at
+the daily cap with a resume line.
+
+**This is the one part of AllTick that is genuinely useful.** It does not change §1–§4 — the
+bars carry no order flow, and their volume is one CFD venue's — but ~4.3 years of 1-minute
+gold OHLCV, free, is a real dataset. Whether anything survives in it is a separate question,
+and `packages/edge/ohlcv_edge.py` is the test that asks it.
+
 ---
 
 ## Verdict
