@@ -73,7 +73,8 @@ from s1 import TICK_VALUE
 
 # Two-sided alpha = 0.05 at 80% power. Both terms, because the test has to
 # clear the critical value AND land past it often enough to be worth running.
-Z = 1.959964 + 0.841621
+ZA, ZB = 1.959964, 0.841621
+Z = ZA + ZB
 
 BAR_COLS = ["timestamp", "open", "high", "low", "close", "session"]
 
@@ -113,6 +114,46 @@ def mde_ticks(sigma: float, n: int) -> float:
 def n_for(sigma: float, edge: float) -> int:
     """Signals needed before `edge` ticks becomes provable. Inverse of mde_ticks."""
     return int(np.ceil(2 * (Z * sigma / edge) ** 2))
+
+
+def _se(p: float, n: int) -> float:
+    return float(np.sqrt(p * (1 - p) / n))
+
+
+def mde_rate(p0: float, n: int) -> float:
+    """Smallest hit rate `n` signals could separate from a base rate of `p0`.
+
+    The reach table's number is a RATE, so `mde_ticks` does not apply to it --
+    the noise on a proportion is p(1-p)/n, not a dispersion in ticks, and using
+    the wrong one is the kind of error that reads as a plausible answer.
+
+    One-sample, because `p0` is measured on the whole unconditional population
+    (3,438 legs at 30m, SE ~0.006) while a signal arm is tens. Treating the
+    base rate as known is the honest simplification there; treating it as a
+    second small sample would understate the power available.
+
+    Solved by iteration rather than by holding the variance at `p0`: p1 > p0
+    in this range means p1(1-p1) > p0(1-p0), so the fixed-variance shortcut
+    understates the lift needed by about a point -- small, but it errs toward
+    flattering the strategy, which is the direction that must not be free.
+
+    **Optimistic in one way that matters and is not in the arithmetic.**
+    Adjacent signals share most of their leg, and order-flow rules fire in
+    bursts, so the effective sample inside a burst is far below the count.
+    Read every number off this as a floor on what is needed.
+    """
+    p1 = p0
+    for _ in range(32):
+        p1 = min(p0 + ZA * _se(p0, n) + ZB * _se(p1, n), 1.0)
+    return p1
+
+
+def n_for_rate(p0: float, p1: float) -> int:
+    """Signals needed before a lift from `p0` to `p1` is provable. Inverse of mde_rate."""
+    if p1 <= p0:
+        raise ValueError(f"p1 must exceed p0; got {p1} <= {p0}")
+    num = ZA * np.sqrt(p0 * (1 - p0)) + ZB * np.sqrt(p1 * (1 - p1))
+    return int(np.ceil((num / (p1 - p0)) ** 2))
 
 
 def power_table(trades: pd.DataFrame, edges: tuple[float, ...], counts: tuple[int, ...]) -> pd.DataFrame:

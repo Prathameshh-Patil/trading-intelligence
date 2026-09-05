@@ -1417,6 +1417,49 @@ and `mypy` clean.
 - [ ] **Nothing is wired to it yet.** There is no producer — Gate 1 is still empty — so the log has
       no live caller, which is exactly the state it was built to be ready for.
 
+### 2026-09-05 (morning) — Gate 1's option (a) is dead on arithmetic · `horizon.py`
+
+**Gate 2's power check, run before Gate 1 rather than after** — the pipeline spec says run
+`horizon.py`'s table before training, not after, and the same logic decides whether an option is
+worth taking at all. **+40 lines in `horizon.py`, 5 tests in a new `tests/test_horizon.py`.** Suite
+**147 green**, `ruff` and `mypy` clean. **No data was touched: this is arithmetic off the base rates
+already measured, and the held-out half is still untouched.**
+
+- [x] **`mde_rate` / `n_for_rate` — the proportion pair.** The reach table's number is a RATE, so
+      `mde_ticks` does not apply to it: the noise on a proportion is p(1−p)/n, not a dispersion in
+      ticks, and using the wrong one produces a number that reads as perfectly reasonable. Solved by
+      iteration rather than holding the variance at `p0`, because the fixed-variance shortcut
+      understates the lift needed by about a point — **and it errs toward flattering the strategy,
+      which is the direction that must not be free.**
+- [x] **What 46 signals can see.** Smallest `p_target` a signal arm must hit to separate from its
+      bucket's base rate, α=0.05 two-sided, 80% power:
+
+      | bucket | p0 | n=30 | n=46 | n=100 | n=221 | n=500 |
+      | :--- | ---: | ---: | ---: | ---: | ---: | ---: |
+      | <30 | 0.108 | 0.289 | 0.252 | 0.203 | 0.170 | 0.149 |
+      | 30–40 | 0.140 | 0.337 | 0.297 | 0.244 | 0.209 | 0.185 |
+      | 40–50 | 0.155 | 0.358 | 0.317 | 0.263 | 0.226 | 0.202 |
+      | 50+ | 0.213 | 0.436 | 0.392 | 0.333 | 0.293 | 0.266 |
+      | pooled | 0.164 | 0.371 | **0.329** | 0.274 | 0.237 | 0.212 |
+
+- [x] **🔴 Option (a) cannot answer the question it is for.** At n=46 the strategy would have to hit
+      **0.329 — 2.0× the pooled base rate** — before the result is distinguishable from the null.
+      **And the bracket breaks even far below that.** `p_stop` is flat at ~0.75 across every ATR
+      bucket, so a 70/20 bracket pays at `p_target = 0.75 × 20/70 = `**`0.214`**. Proving a move from
+      0.164 to 0.214 needs **454 signals**. So the entire band **0.214 → 0.329 is a profitable
+      strategy that 46 signals would report as indistinguishable from nothing.** This is not "46 is a
+      bit thin"; it is that the test cannot see the outcome it exists to detect.
+- [x] **Cross-check that the arithmetic agrees with the measurement.** The 50+ bucket's base rate is
+      **0.213** against its own breakeven of 0.2177 — which is exactly why its measured EV came out
+      at −0.3 ticks rather than anywhere else. Two independent routes to the same number.
+- [x] **This is a data ask, not a modelling choice** — `horizon.py`'s own framing. 46 signals over 13
+      sessions is ~3.5/session; **at that rate the 19-month archive would supply ~1,400**, which
+      clears 454 comfortably. *(An extrapolation at the observed rate, not a measurement — the fire
+      rate is not a constant and roll months are not mid-cycle months.)*
+- [ ] **Gate 1 still has two live options and the call is still Varad's.** (b) restore condition A,
+      (c) treat the B/D opposition as a specification error. **What this closes is (a)**, and it
+      closes it on arithmetic rather than on preference.
+
 ---
 
 ## Next
