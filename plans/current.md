@@ -1283,6 +1283,12 @@ zero, and the zero is the finding.**
       A+B read exhaustion, C+D read continuation, and a combiner over a family that can agree is a
       different engine. **None of the three is a threshold to tune.**
 
+      ✅ **RESOLVED 2026-09-05: Varad chose (c).** (a) was closed on arithmetic that morning
+      (`horizon.py`'s rate power); (c) was taken and executed the same day — `families.py`,
+      [`analysis/FAMILIES.md`](../services/signal-data/analysis/FAMILIES.md). (b) stays open and
+      is now the more interesting of the two remaining threads, because the only positive sign in
+      the whole table is in the arm it would join.
+
 ---
 
 ### 2026-09-05 — repo architecture doc · [`docs/ARCHITECTURE.md`](../docs/ARCHITECTURE.md)
@@ -1371,7 +1377,10 @@ and `mypy` clean.
 
 - [x] **The ATR gradient is real, monotone, and does not work the way the floor's derivation
       assumed.** `p_target` climbs 0.108 → 0.213 across the buckets, but **`p_stop` is flat at
-      0.73–0.77 in every one of them.** Higher ATR does not buy fewer stop-outs; it converts
+      0.73–0.77 in every one of them.** ⚠️ **The flatness is a July artefact — corrected 5 Sep
+      by `analysis/BASE_RATES.md` §2.** Over 19 months `p_stop` is monotone (0.518 → 0.783), so
+      breakeven is per-bucket (0.148 / 0.198 / 0.211 / 0.224), not a single 0.214. The gradient
+      finding stands; the flat-`p_stop` claim does not. Higher ATR does not buy fewer stop-outs; it converts
       *neither* into *target* (`p_neither` 0.164 → 0.025). The floor's direction survives; the
       mechanism stated for it does not.
 - [x] **The tie band is narrow where it matters** — 0.164–0.179 unconditionally, so the
@@ -1416,6 +1425,126 @@ and `mypy` clean.
       than optimised away**; seeding from the full archive is the case that would need batching.
 - [ ] **Nothing is wired to it yet.** There is no producer — Gate 1 is still empty — so the log has
       no live caller, which is exactly the state it was built to be ready for.
+
+### 2026-09-05 (morning) — Gate 1's option (a) is dead on arithmetic · `horizon.py`
+
+**Gate 2's power check, run before Gate 1 rather than after** — the pipeline spec says run
+`horizon.py`'s table before training, not after, and the same logic decides whether an option is
+worth taking at all. **+40 lines in `horizon.py`, 5 tests in a new `tests/test_horizon.py`.** Suite
+**147 green**, `ruff` and `mypy` clean. **No data was touched: this is arithmetic off the base rates
+already measured, and the held-out half is still untouched.**
+
+- [x] **`mde_rate` / `n_for_rate` — the proportion pair.** The reach table's number is a RATE, so
+      `mde_ticks` does not apply to it: the noise on a proportion is p(1−p)/n, not a dispersion in
+      ticks, and using the wrong one produces a number that reads as perfectly reasonable. Solved by
+      iteration rather than holding the variance at `p0`, because the fixed-variance shortcut
+      understates the lift needed by about a point — **and it errs toward flattering the strategy,
+      which is the direction that must not be free.**
+- [x] **What 46 signals can see.** Smallest `p_target` a signal arm must hit to separate from its
+      bucket's base rate, α=0.05 two-sided, 80% power:
+
+      | bucket | p0 | n=30 | n=46 | n=100 | n=221 | n=500 |
+      | :--- | ---: | ---: | ---: | ---: | ---: | ---: |
+      | <30 | 0.108 | 0.289 | 0.252 | 0.203 | 0.170 | 0.149 |
+      | 30–40 | 0.140 | 0.337 | 0.297 | 0.244 | 0.209 | 0.185 |
+      | 40–50 | 0.155 | 0.358 | 0.317 | 0.263 | 0.226 | 0.202 |
+      | 50+ | 0.213 | 0.436 | 0.392 | 0.333 | 0.293 | 0.266 |
+      | pooled | 0.164 | 0.371 | **0.329** | 0.274 | 0.237 | 0.212 |
+
+- [x] **🔴 Option (a) cannot answer the question it is for.** At n=46 the strategy would have to hit
+      **0.329 — 2.0× the pooled base rate** — before the result is distinguishable from the null.
+      **And the bracket breaks even far below that.** `p_stop` is flat at ~0.75 across every ATR
+      bucket, so a 70/20 bracket pays at `p_target = 0.75 × 20/70 = `**`0.214`**. Proving a move from
+      0.164 to 0.214 needs **454 signals**. So the entire band **0.214 → 0.329 is a profitable
+      strategy that 46 signals would report as indistinguishable from nothing.** This is not "46 is a
+      bit thin"; it is that the test cannot see the outcome it exists to detect.
+- [x] **Cross-check that the arithmetic agrees with the measurement.** The 50+ bucket's base rate is
+      **0.213** against its own breakeven of 0.2177 — which is exactly why its measured EV came out
+      at −0.3 ticks rather than anywhere else. Two independent routes to the same number.
+- [x] **This is a data ask, not a modelling choice** — `horizon.py`'s own framing. 46 signals over 13
+      sessions is ~3.5/session; **at that rate the 19-month archive would supply ~1,400**, which
+      clears 454 comfortably. *(An extrapolation at the observed rate, not a measurement — the fire
+      rate is not a constant and roll months are not mid-cycle months.)*
+- [ ] **Gate 1 still has two live options and the call is still Varad's.** (b) restore condition A,
+      (c) treat the B/D opposition as a specification error. **What this closes is (a)**, and it
+      closes it on arithmetic rather than on preference.
+
+### 2026-09-05 (midday) — the archive-wide null · `base_rates.py`, [`analysis/BASE_RATES.md`](../services/signal-data/analysis/BASE_RATES.md)
+
+The power finding said the sample is the binding constraint and it is already on disk, so this
+measures the null over all of it. **147-line `base_rates.py` with a CLI, 4 tests, a findings doc and
+a 4 KB counts CSV.** Suite **151 green**, `ruff` and `mypy` clean. **Nothing selects, tunes or fits —
+it is the population being measured, so running it over every month costs no out-of-sample data.**
+
+- [x] **107,359 unconditional legs, Jan 2025 – Jul 2026.** Entry on every bar, long, 70/20 at 30m.
+      **No ATR bucket clears breakeven**: EV −6.42 / −4.25 / −2.97 / −1.73 ticks. The gap narrows
+      monotonically with ATR and never closes.
+- [x] **🔧 CORRECTION to yesterday's supporting number.** `p_stop` is **not** flat at ~0.75 — that was
+      a July artefact, in a high-volatility month whose low-ATR bucket held 1,013 of 6,023 legs. Over
+      19 months it is monotone **0.518 → 0.692 → 0.739 → 0.783**, so breakeven is per-bucket —
+      **0.148 / 0.198 / 0.211 / 0.224** — not one number. **Gate 1's option (a) stays closed:** n=46
+      still cannot separate anything below `p_target = 0.329`, and the highest breakeven anywhere in
+      the archive is 0.224. The finding is unchanged; the number under it moved.
+- [x] **The 5.6× monthly swing (0.0345 → 0.1916) is MIX, not the buckets moving.** Split at the
+      Oct-2025 step: `<30` 0.0485→0.1090, `30–40` 0.1177→0.1541, `40–50` 0.1607→0.1719, and
+      **`50+` 0.2000 → 0.1989 — stable to one part in two hundred across a regime change that moved
+      the headline by 2.2×.** What moved is the share of legs in `50+`: **8.9% → 54.7%**. That is the
+      strongest evidence yet that ATR is a real conditioner rather than a label.
+- [x] **A trap in the stability table, caught before it was reported.** Raw max−min for `<30` is
+      0.475 — which is **two cells, n=14 and n=24**, from months so violent almost nothing sat under
+      ATR 30. Filtered at n ≥ 200 it is 0.116. Against the 0.157 headline spread: `40–50` (0.070) and
+      `50+` (0.057) are well inside it, **but `30–40` at 0.162 is as wide as the headline** and is not
+      stabilised by ATR alone. It is also not a rare bucket.
+- [ ] **Still unconditional, and Gate 1 is still open.** No signal set exists, no threshold is
+      committed, no pass line is set. The moment a strategy is fitted, these months become the
+      population it must be held out from.
+
+### 2026-09-05 (afternoon) — Gate 1 resolved, and the split measured · `families.py`, [`analysis/FAMILIES.md`](../services/signal-data/analysis/FAMILIES.md)
+
+**Varad chose option (c): treat the B/D opposition as a specification error, split into two engines,
+measure both.** Executed the same day. **178-line `families.py` with a CLI, 4 tests, a findings doc,
+and a short-side archive null.** Suite **155 green**, `ruff` and `mypy` clean. **Training half only —
+the held-out half was not read**, and no number in the file was authored there.
+
+- [x] **No new abstraction was needed.** `engine.combine` already takes the conditions and the count,
+      so the split is a call-site decision. Nothing was added to `signals/engine.py`.
+- [x] **🔴 The result, and it is a powered null.** 70/20 at 30m against a mix- and side-matched
+      archive null:
+
+      | arm | legs | p_target | null | lift | needs | EV−cost |
+      | :--- | ---: | ---: | ---: | ---: | ---: | ---: |
+      | exhaustion `A∨B` | 393 | 0.1578 | 0.1635 | **−0.0058** | 0.2176 | −5.42 |
+      | continuation `C∨D` | 545 | 0.1651 | 0.1655 | **−0.0003** | 0.2114 | −5.18 |
+      | continuation `C∧D` | 27 | 0.1111 | 0.1755 | −0.0644 | 0.3983 | −10.66 |
+      | exhaustion `A∨B` filtered | 77 | 0.2078 | 0.1894 | **+0.0184** | 0.3217 | −2.18 |
+      | continuation `C∨D` filtered | 47 | 0.1702 | 0.1933 | −0.0231 | 0.3653 | −5.66 |
+
+      **`C∨D` is −0.0003 on 545 legs — dead on its own base rate to four decimals.** Both powered arms
+      had `needs` ≈ 0.21 against a null of ~0.164, so **a 30% relative lift would have been seen.**
+      This is *"we looked and there is nothing there"*, not *"we could not tell"* — which is exactly
+      what option (a)'s 46 signals could never have produced. **No arm is profitable**; the best is
+      −0.78 ticks, −2.18 after cost.
+- [x] **The one positive number, at its true weight.** Filtered exhaustion **+0.0184** on 77 legs.
+      Proving it needs **n ≈ 3,636** — about **600 sessions, ~2.5 years of tape**. Not evidence. It is
+      the only arm pointing up, and it is the arm **option (b) would add to.**
+- [x] **The null is mix- AND side-matched, and both mattered.** Mix, because `BASE_RATES.md` §3 showed
+      the headline swings through ATR mix — the filtered arms' nulls rise to 0.189–0.193 purely
+      because the ATR gate pushes them into higher buckets, and that rise is exactly the credit they
+      must not get. Side, because shorts beat longs in **every** bucket over the archive
+      (0.0609/0.1514/0.1874/0.2025 against 0.0563/0.1370/0.1688/0.1990), so a long-only null would
+      have understated it everywhere. `base_rates.py` gained a `--side` flag and a second 107,359-leg run.
+- [x] **🐛 A bug that looked exactly like a finding, caught before it was reported.** The first run
+      said **zero filtered signals in every arm** — which reads as a dramatic result about the filter.
+      `KAPPA_HORIZON_BARS` had been *derived* (30m ÷ 5-min bars = 6) rather than transcribed; at 6 bars
+      every regime's kappa falls to ~0.30, all three fail the 0.75 gate, and the filter passes 0 of
+      3,516 bars. The recorded value is **1**. **What caught it: the other four gates reproduced the
+      2026-09-04 record exactly** — 41.1 / 59.2 / 66.4 / 99.3% — while kappa alone read 0.0%.
+      `tests/test_families.py` now asserts kappa (0.842/0.833/0.798) and the four fire counts
+      (A 0, B 405, C 386, D 213) against that entry; the second test would have caught it instantly.
+- [ ] **What is not settled.** This says nothing about the conditions being wrong *in principle* —
+      only that these four, at these thresholds, on this half of this month, do not beat their null.
+      Held-out and the other 18 months are untouched. **Option (b) is still open and is now the more
+      interesting thread.**
 
 ---
 
