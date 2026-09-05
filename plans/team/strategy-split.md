@@ -1,0 +1,291 @@
+# Strategy track — the two-lane split
+
+**Written 2026-09-06.** Scope: the **Track B strategy programme only**, as specified by
+[`docs/strategy/ARCHITECTURE.md`](../../docs/strategy/ARCHITECTURE.md) §6. This file answers one
+question: *how do Varad and Prathamesh both work on it from today without either waiting on the
+other.*
+
+It follows the technique in [`contracts.md`](contracts.md) — freeze the type, ship the fake, never
+wait — applied to research instead of to product code.
+
+**This file does not schedule anything.** ARCHITECTURE §6 declares the track unscheduled on purpose,
+so unfunded research does not quietly eat a product week. Everything below is ordered by
+**dependency, not by date.**
+
+---
+
+## 1. Why the obvious split does not work
+
+ARCHITECTURE §6 lists seven steps. Handing out "you take 2 and 4, I'll take 3 and 6" fails on the
+first morning, for two reasons.
+
+**The steps are a chain, not a list.**
+
+```
+1 ──▶ 2 ──▶ 4 ──▶ 7          the serial spine: seam → M1 → M2 → reach
+│
+├──▶ 3                        M3 — needs atr_bp from step 1, nothing else
+├──▶ 5                        tick replay — needs only trades on disk
+└──▶ 6                        spot feed — needs Instrument from step 1
+```
+
+Steps 2, 4 and 7 are one person's work by construction: M2 is quoted against **M1's corrected
+null**, and `reach.py` is a table over both. Splitting that chain across two people means a handoff
+every few days.
+
+**And everything is blocked on step 1.** `s1.py` hardcodes `TICK = 0.10` / `TICK_VALUE = 10.0`, and
+`backtest.py`, `strategies.py`, `horizon.py`, `features/expansion.py`, `features/orderflow.py` and
+two test modules all import it. Until `TICK` is injected, every tick-denominated number in the repo
+silently assumes GC futures. Nobody can measure anything on a second instrument until that is done,
+once, by one person.
+
+## 2. The split that does work — one bucket axis each
+
+`reach.py`'s bucket key (ARCHITECTURE §3, stage 7) is:
+
+```
+(instrument × atr_bp × phase × vol_state × side)
+```
+
+**Four axes. Two of them are volatility and geometry; two are clock and breadth.** Split the axes
+and each lane owns a complete vertical — its own features, its own strategy function, its own
+measurement — importing nothing from the other lane.
+
+| | **Varad — the vol axis** (teal) | **Prathamesh — the clock axis** (blue) |
+| :--- | :--- | :--- |
+| Owns in the bucket | `atr_bp`, `vol_state` | `phase`, `instrument` |
+| Question | *What geometry, at what volatility, has positive EV?* | *Does the clock condition the outcome, and does it survive on a second instrument?* |
+| Steps (§6) | **1, 2, 4, 7** | **3, 5, 6** |
+| Strategy fn | `m1_geometry`, `m2_vol_momentum` | `m3_session_event` |
+| Features owned | `range_bp`, `rv_parkinson`, `rv_slope`, `efficiency_ratio` (+ `atr_bp`, shipped at the seam) | `session_phase`, `event_proximity`, `anchors`, `mid`, `spread_bp`, `quote_rate_z` |
+| Data | 46M GC trades, on disk | The same bars for M3; then a free spot feed |
+| Kills the lane if | M1 returns no positive-EV cell **and** M2 lands inside its own MDE | M3's profile does not survive the 2025/2026 split **and** spot spread shows no structure |
+| Cost | $0 | $0 |
+
+**The reason to split it this way, stated plainly:** ARCHITECTURE §6 says three kill conditions can
+fire on data already paid for. Run serially, finding that out takes as long as all three take. Run
+in two lanes, **the track can die in half the time** — and dying fast on free data is the single
+most valuable outcome available here.
+
+### What each lane must not touch
+
+| Module | Owner | Rule |
+| :--- | :--- | :--- |
+| `s1.py`, `backtest.py`, `horizon.py`, `base_rates.py`, `calibration.py`, `features/expansion.py` | Varad | **Shared spine.** Additive changes only, Track A's 103 tests as the regression gate. Prathamesh opens an issue; he does not open a PR against these |
+| `features/orderflow.py`, `signals/engine.py`, `families.py`, `compute_delta_cvd.py`, `regimes.py`, `features/regime_filter.py` | Track A — **parked** | Neither lane edits these. ARCHITECTURE §2 |
+| `features/portable.py`, `strategies.py` | **Both**, by function name — §4 | Fill in your own function bodies. Never reorder, never rename, never add a function without standup |
+| `instruments.py`, `reach.py` | Varad | Frozen at the seam (§3); `reach.py` is written at the rejoin (§6) |
+| `replay.py` | Prathamesh | New, standalone. Does **not** modify `backtest.first_touch` — see §5 |
+
+This keeps [`roles.md`](roles.md) intact: the signal system is still Varad's, and Prathamesh gets a
+real vertical inside it rather than a task queue.
+
+---
+
+## 3. The one wait, and it is half a day
+
+**Everything in this plan waits on step 1 exactly once.** Varad ships it before either lane starts:
+
+1. `instruments.py` — the frozen `Instrument` dataclass (ARCHITECTURE §4.2), `has_flow: False`
+   **raising**, not degrading.
+2. `TICK` injected through `s1.py` → `backtest.py` → `strategies.py` → `horizon.py` →
+   `features/expansion.py`. One commit. Track A's tests green before and after, or it is not done.
+3. `atr_bp` in `features/portable.py` — because M3 needs it and M3 is the other lane.
+4. **The signature stubs** for §4's function tables, committed raising `NotImplementedError`.
+
+Point 4 is the part that buys the independence and it is worth ten minutes' care. Committing every
+function signature on day one means two people fill in disjoint bodies in the same two files
+**without ever conflicting** — nobody is appending to a moving target. It is the same move as
+freezing `engine/types.ts` on W1D1, which `contracts.md` calls the most valuable half hour of the
+week.
+
+**Freeze it together, in one sitting, both present.** After that the lanes do not meet again until
+§6.
+
+---
+
+## 4. The two files both lanes write, split by function name
+
+Ownership is **by function**, listed here so there is never a question. `features/portable.py`:
+
+| Function | Owner | Step |
+| :--- | :--- | :--- |
+| `atr_bp` | Varad | 1 — ships at the seam |
+| `range_bp` | Varad | 2 |
+| `rv_parkinson` | Varad | 4 |
+| `rv_slope` | Varad | 4 — signed; EXPANDING / CONTRACTING / STABLE |
+| `efficiency_ratio` | Varad | 4 |
+| `session_phase` | Prathamesh | 3 — six phases, `strategy-architecture.md` §2 |
+| `event_proximity` | Prathamesh | 3 — BLS + FOMC public calendars |
+| `anchors` | Prathamesh | 3 — session open, prior close, session H/L, opening range, TWAP |
+| `mid`, `spread_bp` | Prathamesh | 6 — spot native; GC has no quote data |
+| `quote_rate_z` | Prathamesh | 6 — trailing z within instrument **and vendor** |
+
+`strategies.py` gains three functions, `(bars, *, thresholds) -> Series`, matching the existing
+shape so `backtest.evaluate` consumes them unchanged:
+
+| Function | Owner |
+| :--- | :--- |
+| `m1_geometry` | Varad |
+| `m2_vol_momentum` | Varad |
+| `m3_session_event` | Prathamesh |
+
+`m4_*` is contested (ARCHITECTURE §7) and is not stubbed. It gets a name when something decides it.
+
+**`atr` is imported from `features/expansion.py`, never re-derived** — `regime_filter.py`'s rule:
+*"Re-solving session-grouped trailing windows in a second file is how the two quietly disagree."*
+That applies across lanes with double force now that two people are writing windows.
+
+---
+
+## 5. Step 5 — tick replay, and why it is Prathamesh's but does not touch `backtest.py`
+
+Tick replay is the largest work item in the track and it is free in money (ARCHITECTURE §5). It
+needs only `timestamp, price, size`, which every month on disk carries. It goes in the clock lane
+because Varad's lane is a three-step serial chain and this one is not on anybody's critical path.
+
+**It ships as `replay.py`, standalone, producing an intrabar ordering table. It does not change
+`backtest.first_touch`.** That function currently resolves same-bar ties to the stop, which is why
+every `p_target` in `BASE_RATES.md` is a stated lower bound. Changing it is a shared-spine change
+with Track A's tests as the gate — so the replay *measures* how often the tie mattered, and the
+change to `first_touch` is Varad's, later, and only if the number says it is worth making.
+
+**Budget it before starting.** ARCHITECTURE §9 open question 5 asks for a time budget set now rather
+than halfway through. Write the number in this file before the first line of `replay.py`.
+
+**Time budget: ______ days.** *(unset — Prathamesh writes it here before starting)*
+
+---
+
+## 6. The rejoin — one day, at the end
+
+The lanes meet twice and only twice.
+
+```
+        I1                                                        I2
+  seam freeze                                                  reach.py
+   (half a day)                                                 (one day)
+        │                                                          │
+Varad   ●──▶ M1 geometry sweep ──▶ M2 vol momentum ────────────────●──▶ EV surface + null
+        │                                                          │
+Prath.  ●──▶ M3 session+event ──▶ spot feed ──▶ portable refit ────●──▶ phase profile, ×2 instruments
+                    └──▶ replay.py (float)
+```
+
+**I2 is `reach.py`.** Varad writes it, against Prathamesh's `phase` column exactly as delivered — no
+renegotiation of the phase boundaries at that point, because a boundary moved after the surface is
+visible is a fit. If the two lanes' cells disagree about anything, that is a finding, not a merge
+problem.
+
+Everywhere else in between, neither person is blocked on the other for a single hour.
+
+---
+
+## 7. What the split buys that one person working alone does not have
+
+**Cross-review of pre-commitments.** ARCHITECTURE §9 lists two places where a number could be chosen
+while looking at the answer. With two people, each pre-commits to the other, in a commit, before
+running anything. That is strictly stronger than self-commitment, and it is the one genuine
+methodological upgrade here.
+
+| Pre-commitment | Owner | Reviewed by | Due |
+| :--- | :--- | :--- | :--- |
+| M1's geometry grid — target/stop/horizon ranges | Varad | Prathamesh | Before the sweep runs |
+| `atr_bp` bucket edges | Varad | Prathamesh | Before the sweep runs |
+| `MIN_SAMPLES` per cell in `reach.py` | Varad | Prathamesh | Before any surface is looked at |
+| The six session-phase boundaries, in UTC | Prathamesh | Varad | Before M3 runs |
+| The event window, in minutes either side | Prathamesh | Varad | Before M3 runs |
+| The 2025/2026 split date | Prathamesh | Varad | Before M3 runs |
+
+"Reviewed by" means one person reads the number and says whether it looks chosen or looks fitted.
+It is five minutes and it is the whole point.
+
+---
+
+## 8. Proposed seams — ⏳ NOT FROZEN
+
+[`contracts.md`](contracts.md) changes only by all three agreeing in standup, so these two are
+drafted here rather than added there. **Put them to the room before either lane writes code.**
+
+### S8 · `Instrument` — Varad → both lanes
+
+```python
+@dataclass(frozen=True)
+class Instrument:
+    name: str                 # 'GC' | 'XAUUSD'
+    tick: float               # 0.10 | broker-dependent
+    tick_value: float | None  # USD per tick per contract; None for spot
+    session: SessionCalendar  # Globex 18:00-17:00 ET | 24x5 with a named boundary
+    anchors: tuple[str, ...]  # which M4 anchors are defined here
+    has_flow: bool            # may features/orderflow.py be read at all
+```
+
+**`has_flow: False` raises.** It does not degrade, fall back, or substitute a proxy — the same
+discipline the pipeline design applied to OCR-derived numbers, for the identical reason: a silent
+degradation produces a number that looks exactly like the real one.
+
+Every downstream function takes an `Instrument`. Nothing imports `TICK`.
+
+### S9 · The bars frame — either loader → both lanes
+
+A GC loader and a spot loader must produce the **same frame**, or the second instrument is not a
+cross-check of the first, it is a different experiment.
+
+```
+timestamp   datetime64[ns, UTC]   exchange timestamp, not receipt time
+open        float64
+high        float64
+low         float64
+close       float64
+session     category              session label, per Instrument.session
+```
+
+Spot adds `bid`, `ask` — nullable, and **null on GC is the correct value, not a gap to fill.**
+
+**Every feature, bucket and threshold downstream is in basis points of price** (ARCHITECTURE §4.6).
+GC's tick is 0.10; an MT5 broker may call a XAUUSD pip 0.01 or 0.10. A mis-scaled *display* renders
+visibly wrong; a mis-scaled *bucket* silently pools two populations and reports the average as a
+base rate. Conversion to whatever the trader's platform calls a pip happens once, at stage 9,
+labelled.
+
+**The fake, if the spot feed is late:** Prathamesh runs M3 on GC bars first. They exist, and M3 is
+non-directional and needs no quote data — so the entire clock lane is testable before a spot vendor
+is chosen. The spot feed is a *refit*, not a prerequisite.
+
+---
+
+## 9. The decision this file does not make
+
+**Whether Prathamesh's twelve-week shell schedule still stands.**
+
+[`roles.md`](roles.md) has him owning everything the user touches, and
+[`prathamesh/README.md`](prathamesh/README.md) has him in Week 1 kill-week shell work right now —
+Tauri overlay, click-through over MT5, `engine/mock.ts`. The strategy track is explicitly
+unscheduled and takes no week from `plans/team/`.
+
+Those two facts do not compose. Either:
+
+- **The clock lane is research he does alongside the shell**, in the slack his own file already
+  budgets as Float — in which case his Week 1–3 gates are unaffected and the lane moves slowly; or
+- **He is moving onto the strategy track**, in which case the overlay compositing measurement, the
+  hotkey, position memory and the Week 3 integration day lose their owner, and
+  `plans/team/prathamesh/README.md` needs rewriting rather than annotating.
+
+**This is a scheduling decision for all three of you and it is not made here.** The split above is
+correct either way — it says who owns which axis, not how many hours a week the axis gets.
+
+---
+
+## 10. The rules, collected
+
+1. **One axis each.** Varad owns `atr_bp` and `vol_state`; Prathamesh owns `phase` and the second
+   instrument. Nobody measures on the other's axis.
+2. **Step 1 is the only wait.** Half a day, both present, then the lanes do not meet until `reach.py`.
+3. **Ownership in shared files is by function name**, listed in §4. Signatures committed on day one;
+   never reordered, never renamed, never added without standup.
+4. **Neither lane edits a Track A module**, and only Varad edits the shared spine, additively, with
+   Track A's tests as the gate.
+5. **Every threshold is pre-committed to the other person, in a commit, before the run.** §7.
+6. **Basis points, never ticks**, except at stage 9's labelled display conversion.
+7. **Every lift is reported against a mix- and side-matched null, with `mde_rate` and N beside it** —
+   in both lanes, so the two lanes' results are comparable to each other and to Track A's.

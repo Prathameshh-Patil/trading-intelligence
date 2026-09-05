@@ -19,6 +19,7 @@ are unchanged in content — only when they are held moved.
 | [`roles.md`](roles.md) | Once, on day 0. Who owns which system, who decides what, how each of you fails |
 | [`contracts.md`](contracts.md) | **Before you write any code.** The six frozen seams. This is the file that makes the parallelism work |
 | [`gates.md`](gates.md) | Every Friday, 16:00 |
+| [`strategy-split.md`](strategy-split.md) | **Before touching the strategy track.** How Varad and Prathamesh split Track B one bucket axis each, and the two proposed seams (S8, S9) that make it independent |
 | [`week-00.md`](week-00.md) | Now — 26–30 Aug. Clearing the debt so Week 1 starts from zero |
 | [`week-01.md`](week-01.md) | **Fri 28 Aug, before the gap, and again on 5 Sep.** The rescheduled kill week, day by day for both engineers, and the four things Friday has to close so seven idle days cost nothing |
 | [`phase-1-kill-week.md`](phase-1-kill-week.md) | Week 1 · ~~31 Aug – 4 Sep~~ **5 – 11 Sep** · *does this project deserve to exist* |

@@ -45,6 +45,12 @@ Restated 25 Aug by system, not by task queue — see [`team/roles.md`](team/role
 | **Product, QA, ops** — `docs/qa`, copy, vendor + compliance calls, AI code review | Shreyas | Domain validation is the load-bearing part: **if Shreyas says the signal looks wrong, that stops the sprint.** Manual: [`team/shreyas/`](team/shreyas/README.md) |
 | Deployment, hosting | Varad, Week 5 | Railway or Fly + Supabase + Cloudflare Pages. **Not Vercel** — Hobby prohibits commercial use, and a checkout button counts |
 
+**Track B — the strategy track — is split by bucket axis, not by task.** Varad owns the vol axis
+(`atr_bp`, `vol_state`); Prathamesh owns the clock axis (`phase`, the second instrument). One
+half-day seam freeze, then neither waits on the other until `reach.py`.
+[`team/strategy-split.md`](team/strategy-split.md). **Unscheduled — it takes no product week, and
+whether Prathamesh's shell weeks move is still open (§9).**
+
 **This reassigns two items below.** The Databento pull (#6) and the delta/CVD work (A1) move from
 Prathamesh to Varad, because signal work is now one person's system. `apps/extension` moves from
 Varad to Prathamesh for the same reason.

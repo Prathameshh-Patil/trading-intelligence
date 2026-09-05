@@ -23,6 +23,11 @@ A frozen contract changes only by all three agreeing in standup, and the change 
 commit that updates the type, the fake, the real implementation and both consumers together**.
 Never half. `plans/current.md` already carries this rule for the analyze contract; these six join it.
 
+**Two more are drafted and not yet frozen.** [`strategy-split.md`](strategy-split.md) §8 proposes
+**S8 · `Instrument`** and **S9 · the bars frame** for the Track B strategy programme. They are
+written there rather than here precisely because this file changes only in standup. Put them to the
+room before either strategy lane writes code.
+
 ---
 
 ## S1 · Tick record — Varad → everyone

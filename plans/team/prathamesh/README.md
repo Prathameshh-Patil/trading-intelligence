@@ -15,6 +15,13 @@ yourself, real implementations swapped in on two scheduled days.
 
 **Your ramp into backend:** [`ramp.md`](ramp.md).
 
+**Strategy track (Track B), from 6 Sep:** [`../strategy-split.md`](../strategy-split.md). You own
+the **clock axis** — `phase` and the second instrument — which is §6 steps **3, 5, 6**: M3's session
+and event conditioning, the tick replay, and the free spot feed. It is a complete vertical: your own
+features, your own strategy function, your own measurement, importing nothing from Varad's lane
+after the day-one seam freeze. **Whether this replaces shell weeks or runs alongside them as Float
+is not decided** — [`../strategy-split.md`](../strategy-split.md) §9.
+
 **Your failure mode:** polishing the UI while the engine is unproven. The UI is already good — it
 survived a full port and a browser-extension rewrite. Concretely: in Weeks 1–3, if you are in a CSS
 file for more than an hour, stop and take the Float item.

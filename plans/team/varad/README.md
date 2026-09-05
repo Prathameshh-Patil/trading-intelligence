@@ -11,6 +11,11 @@ Postgres, auth, keys, metering, webhooks.
 
 **Read before you write any code:** [`../contracts.md`](../contracts.md).
 
+**Strategy track (Track B), from 6 Sep:** [`../strategy-split.md`](../strategy-split.md). You own
+the **vol axis** — `atr_bp` and `vol_state` — which is §6 steps **1, 2, 4, 7**: the portability
+seam, M1's geometry sweep, M2's vol momentum, and `reach.py`. Step 1 is the only thing either lane
+waits on, so it is the first thing you ship. Not scheduled against a product week.
+
 **Your failure mode:** falling in love with a signal and never running the null test. The mechanical
 guard is [`thresholds.md`](thresholds.md) — **you commit the threshold on Thursday morning of Week 1,
 before you look at any results.** A threshold chosen after seeing the distribution is not a
