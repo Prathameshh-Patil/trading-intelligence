@@ -1371,7 +1371,10 @@ and `mypy` clean.
 
 - [x] **The ATR gradient is real, monotone, and does not work the way the floor's derivation
       assumed.** `p_target` climbs 0.108 → 0.213 across the buckets, but **`p_stop` is flat at
-      0.73–0.77 in every one of them.** Higher ATR does not buy fewer stop-outs; it converts
+      0.73–0.77 in every one of them.** ⚠️ **The flatness is a July artefact — corrected 5 Sep
+      by `analysis/BASE_RATES.md` §2.** Over 19 months `p_stop` is monotone (0.518 → 0.783), so
+      breakeven is per-bucket (0.148 / 0.198 / 0.211 / 0.224), not a single 0.214. The gradient
+      finding stands; the flat-`p_stop` claim does not. Higher ATR does not buy fewer stop-outs; it converts
       *neither* into *target* (`p_neither` 0.164 → 0.025). The floor's direction survives; the
       mechanism stated for it does not.
 - [x] **The tie band is narrow where it matters** — 0.164–0.179 unconditionally, so the
@@ -1459,6 +1462,36 @@ already measured, and the held-out half is still untouched.**
 - [ ] **Gate 1 still has two live options and the call is still Varad's.** (b) restore condition A,
       (c) treat the B/D opposition as a specification error. **What this closes is (a)**, and it
       closes it on arithmetic rather than on preference.
+
+### 2026-09-05 (midday) — the archive-wide null · `base_rates.py`, [`analysis/BASE_RATES.md`](../services/signal-data/analysis/BASE_RATES.md)
+
+The power finding said the sample is the binding constraint and it is already on disk, so this
+measures the null over all of it. **147-line `base_rates.py` with a CLI, 4 tests, a findings doc and
+a 4 KB counts CSV.** Suite **151 green**, `ruff` and `mypy` clean. **Nothing selects, tunes or fits —
+it is the population being measured, so running it over every month costs no out-of-sample data.**
+
+- [x] **107,359 unconditional legs, Jan 2025 – Jul 2026.** Entry on every bar, long, 70/20 at 30m.
+      **No ATR bucket clears breakeven**: EV −6.42 / −4.25 / −2.97 / −1.73 ticks. The gap narrows
+      monotonically with ATR and never closes.
+- [x] **🔧 CORRECTION to yesterday's supporting number.** `p_stop` is **not** flat at ~0.75 — that was
+      a July artefact, in a high-volatility month whose low-ATR bucket held 1,013 of 6,023 legs. Over
+      19 months it is monotone **0.518 → 0.692 → 0.739 → 0.783**, so breakeven is per-bucket —
+      **0.148 / 0.198 / 0.211 / 0.224** — not one number. **Gate 1's option (a) stays closed:** n=46
+      still cannot separate anything below `p_target = 0.329`, and the highest breakeven anywhere in
+      the archive is 0.224. The finding is unchanged; the number under it moved.
+- [x] **The 5.6× monthly swing (0.0345 → 0.1916) is MIX, not the buckets moving.** Split at the
+      Oct-2025 step: `<30` 0.0485→0.1090, `30–40` 0.1177→0.1541, `40–50` 0.1607→0.1719, and
+      **`50+` 0.2000 → 0.1989 — stable to one part in two hundred across a regime change that moved
+      the headline by 2.2×.** What moved is the share of legs in `50+`: **8.9% → 54.7%**. That is the
+      strongest evidence yet that ATR is a real conditioner rather than a label.
+- [x] **A trap in the stability table, caught before it was reported.** Raw max−min for `<30` is
+      0.475 — which is **two cells, n=14 and n=24**, from months so violent almost nothing sat under
+      ATR 30. Filtered at n ≥ 200 it is 0.116. Against the 0.157 headline spread: `40–50` (0.070) and
+      `50+` (0.057) are well inside it, **but `30–40` at 0.162 is as wide as the headline** and is not
+      stabilised by ATR alone. It is also not a rare bucket.
+- [ ] **Still unconditional, and Gate 1 is still open.** No signal set exists, no threshold is
+      committed, no pass line is set. The moment a strategy is fitted, these months become the
+      population it must be held out from.
 
 ---
 
