@@ -164,6 +164,22 @@ reads as fourteen seconds from it. The event arm fired on **every bar** and stil
 perfectly well-formed boolean Series of the right length and dtype. `_epoch_ns` pins the unit;
 `test_proximity_is_the_same_answer_at_any_index_resolution` pins the fix.
 
+### Cost of the run, measured before launching it
+
+Varad's rule from `strategy-precommit.md` §1 — *"measure one month before launching 19"* — applies
+to this lane too, and the answer is the opposite of his:
+
+| | M3 (`m3_profile.py`) | M1's sweep |
+| :--- | ---: | ---: |
+| `first_touch` iterations | ~110,000 | ~32,000,000 |
+| Measured | **4.6 s / month** | not yet |
+| Projected, 19 months | **~1.4 minutes** | the open question |
+
+**M3 is cheap and can be re-run freely.** It enters every bar once, at one bracket, and the three
+cuts are made by *grouping* rather than by re-running. The vectorisation risk R4 names is M1's
+alone, and nothing in this lane argues for touching `first_touch` — which is just as well, since it
+is shared spine and Varad's (§2).
+
 ### Smoke test — 2026-07, the one month on disk
 
 Plumbing, not a result. Reported here so the next person does not re-run it.
