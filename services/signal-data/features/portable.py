@@ -28,11 +28,19 @@ bodies in this file and none of that works against a moving target.
 
 from __future__ import annotations
 
+import numpy as np
 import pandas as pd
 
 from features.expansion import atr
 from instruments import Instrument
 
+# --------------------------------------------------------------------------
+# The two lanes' pre-committed numbers -- split.md §7. Both sets are frozen in
+# code, in a commit, AHEAD of the run that reads them, and both are ordered
+# here the way §4 splits this file: the vol axis, then the clock axis.
+# --------------------------------------------------------------------------
+
+# --- Varad, the vol axis --------------------------------------------------
 # The bucket axis of `reach.py`'s key, committed 2026-09-06 BEFORE any surface
 # was computed -- `plans/team/strategy-precommit.md` §2, which carries the
 # derivation. These are the pooled quartiles of the 19-month archive (6.79 /
@@ -47,6 +55,59 @@ from instruments import Instrument
 # editing it means going and amending the commitment, in a commit, with the
 # measurement that moved it.
 ATR_BP_EDGES = (0.0, 7.0, 10.0, 14.0, float("inf"))
+
+# --- Prathamesh, the clock axis -------------------------------------------
+# Argued in `plans/team/prathamesh/clock-lane.md`; frozen here. Same rule as
+# the edges above: a number changed after a surface is visible is a fit.
+
+# `strategy-architecture.md` §2 gives the six phases in ET wall clock, and ET
+# wall clock is what is frozen -- NOT a fixed UTC offset. split.md §7 asks for
+# "the boundaries in UTC" and this is a deliberate departure from its wording:
+# the London and NY opens are human working hours and they follow local DST, so
+# a frozen UTC number is an hour wrong for the five months of the archive that
+# sit in EST (2025-11 .. 2026-03) and would pool two populations in one bucket
+# -- the §4.6 error, arriving through the clock. The UTC equivalents under both
+# regimes are tabulated in clock-lane.md.
+PHASE_TZ = "America/New_York"
+
+# Right-open edges in minutes past ET midnight, and the phase each interval
+# closes. **Asia appears twice because it spans midnight** -- 18:00 to 02:00 is
+# one liquidity regime on two calendar dates, and cutting it at midnight would
+# file the same regime under two bucket keys.
+_PHASE_EDGES = (0, 120, 180, 480, 570, 810, 1080, 1440)
+_PHASE_CUTS = ("Asia", "Asia-London", "London", "London-NY", "NY", "NY-Asia", "Asia")
+
+# The canonical order, and the categorical's category order, so that
+# `groupby(observed=False)` yields all six cells even where a frame is missing
+# one. A phase absent from a result table is a fact; a phase silently absent
+# from the table's index is a hole nobody sees.
+PHASES = ("Asia", "Asia-London", "London", "London-NY", "NY", "NY-Asia")
+
+# The opening range is a band, not an instant, so its length is a threshold and
+# is pre-committed like the rest. Thirty minutes is the conventional reading and
+# it is one `atr_bp` window, which keeps the two comparable.
+OPENING_RANGE = pd.Timedelta(minutes=30)
+
+# What `anchors` knows how to compute. `Instrument.anchors` is the authority on
+# which of these are DEFINED for an instrument; this is the authority on which
+# are implemented at all, and a name in the first but not the second raises.
+_ANCHORS = frozenset(
+    {"session_open", "prior_close", "session_high", "session_low", "opening_range", "twap"}
+)
+
+
+def _epoch_ns(idx: pd.DatetimeIndex) -> np.ndarray:
+    """A tz-aware index as nanoseconds since the epoch, at a PINNED resolution.
+
+    Spelling the unit out is not decoration. `DatetimeIndex.asi8` returns the
+    index's OWN resolution, and pandas infers that from how the index was
+    built -- nanoseconds off `read_parquet`, microseconds off `pd.Timestamp`.
+    Comparing those integers against a nanosecond window silently divides
+    every gap by a thousand, so a bar four hours from a release reads as
+    fourteen seconds from it, and the result is still a well-formed boolean
+    Series of exactly the right length.
+    """
+    return idx.to_numpy(dtype="datetime64[ns]").astype("int64")
 
 
 def to_bp(move: pd.Series, price: pd.Series) -> pd.Series:
@@ -123,8 +184,47 @@ def session_phase(bars: pd.DataFrame, inst: Instrument) -> pd.Series:
     commit, before M3 runs** (split.md §7). A boundary moved after the EV
     surface is visible is a fit, and `reach.py` is written against this column
     exactly as delivered. Step 3.
+
+    **Frozen in ET wall clock, not in UTC** -- see `PHASE_TZ` for why, and
+    `clock-lane.md` for both UTC mappings. The consequence is visible and
+    intended: 12:00 UTC is London-NY in July and London in January, because
+    08:00 in New York is what the boundary means.
+
+    Returns a categorical carrying all six `PHASES` whether or not the frame
+    exercises them, so a bucket table has a row for a phase that never fired.
+
+    **`inst` is unused today and the signature keeps it anyway.** Two reasons,
+    and neither is signature inertia. The boundaries are ET wall clock and
+    identical on GC and spot -- which is precisely what admits this feature to
+    a file whose entry rule is "computable on both instruments". And the
+    reference zone becomes a property of the instrument the moment S8's
+    recorded amendment is undone and `session_shift: pd.Timedelta` grows into
+    a real calendar; that is where it will be read from.
+
+    Using `inst.session_shift` to *check* the phases against the instrument's
+    own session boundary was tried and rejected: GC's +2h rolls the session
+    date at 22:00 UTC, which is 18:00 ET in summer -- exactly the Asia open --
+    but 17:00 ET in winter, an hour inside NY-Asia. The check fails for five
+    months of the archive on the DST hole `s1.SESSION_SHIFT` already
+    documents, which is a fact about that shift and not about any instrument.
+    It is recorded in clock-lane.md as a finding for the room instead.
     """
-    raise NotImplementedError("session_phase -- Prathamesh, step 3")
+    idx = pd.DatetimeIndex(bars.index)
+    if idx.tz is None:
+        raise ValueError(
+            f"{inst.name}: bars are indexed by a naive timestamp. A phase is a wall-clock "
+            "fact, and reading a naive index as UTC is a guess that mislabels every bar "
+            "by however much the guess was wrong."
+        )
+    et = idx.tz_convert(PHASE_TZ)
+    cut = pd.cut(
+        et.hour * 60 + et.minute,
+        bins=_PHASE_EDGES,
+        labels=_PHASE_CUTS,
+        right=False,
+        ordered=False,
+    )
+    return pd.Series(pd.Categorical(cut, categories=PHASES), index=bars.index, name="phase")
 
 
 def event_proximity(
@@ -136,8 +236,57 @@ def event_proximity(
     public, both free, and both known in advance, which is what makes this
     usable live rather than only in a backtest. The window is pre-committed
     (split.md §7). Step 3.
+
+    Symmetric, because the signature carries one number. §2's table is not:
+    NFP and CPI run 08:25-08:40 (-5/+10) and FOMC 14:00-14:30 (0/+30). The
+    pre-committed ±15 covers the first with margin and the front half of the
+    second; clock-lane.md carries the argument and what it costs.
+
+    **Measured on the bar's own timestamp, which is its OPEN.** `backtest.py`
+    fills at the bar's CLOSE, so a bar marked True is one whose entry lands
+    between `window_minutes - 1` before and `window_minutes + 1` after. That
+    one minute is smaller than any boundary this is used to draw and is noted
+    rather than corrected, because correcting it would make the feature's
+    definition depend on the bar size it is computed at.
+
+    **An empty calendar raises rather than returning all-False.** Every bar
+    "far from an event" and "no calendar loaded" are the same output and
+    different facts -- and the second silently moves every release bar into
+    the null. `calendars.require_coverage` is the other half of that guard and
+    catches the harder case, a calendar that is real but does not reach these
+    months.
     """
-    raise NotImplementedError("event_proximity -- Prathamesh, step 3")
+    if window_minutes <= 0:
+        raise ValueError(f"window_minutes must be positive, got {window_minutes}")
+
+    cal = pd.DatetimeIndex(calendar)
+    if cal.empty:
+        raise ValueError(
+            "empty release calendar. Every bar would read as far from an event, which is "
+            "indistinguishable from a genuinely quiet stretch and puts every release in "
+            "the null. See calendars.py."
+        )
+    idx = pd.DatetimeIndex(bars.index)
+    if cal.tz is None or idx.tz is None:
+        raise ValueError("both the calendar and the bar index must be tz-aware")
+
+    # Both sides through `_epoch_ns`, and read its docstring before changing
+    # either -- the resolution trap it describes is silent and total.
+    events = np.sort(_epoch_ns(cal))
+    stamps = _epoch_ns(idx)
+    after = np.searchsorted(events, stamps)
+
+    # Distance to the nearest release on either side. The sentinel is the int64
+    # ceiling so an index with nothing before or after it loses the minimum
+    # cleanly, without a NaN turning the comparison into a silent False.
+    ceiling = np.iinfo(np.int64).max
+    before = np.where(after > 0, stamps - events[np.maximum(after - 1, 0)], ceiling)
+    ahead = np.where(after < len(events), events[np.minimum(after, len(events) - 1)] - stamps, ceiling)
+
+    gap = np.minimum(before, ahead)
+    return pd.Series(
+        gap <= window_minutes * 60 * 1_000_000_000, index=bars.index, name="near_event"
+    )
 
 
 def anchors(bars: pd.DataFrame, inst: Instrument) -> pd.DataFrame:
@@ -149,8 +298,71 @@ def anchors(bars: pd.DataFrame, inst: Instrument) -> pd.DataFrame:
     defined**: a 24x5 spot instrument's "session open" is a named boundary
     somebody chose, not a bell, and an anchor that means something different on
     the second instrument is worse than one that is absent. Step 3.
+
+    **Causality here is a cumulative, not a shift.** `session_high` at bar k is
+    the highest high of bars 0..k INCLUSIVE, which is what a trader watching
+    the tape has; `bars.groupby(...)["high"].max()` broadcast back is the
+    session's final high on every bar of the session, and it is the same shape,
+    the same dtype and a perfect forecast. The two differ only in a result
+    table, and only by being right.
+
+    **`opening_range` is one name and two columns**, `opening_range_high` and
+    `opening_range_low`, which is the one place this departs from the "one
+    column each" the signature implies. An opening range is a band; collapsing
+    it to a midpoint discards the only thing it is consulted for. It is NaN
+    until the band has closed -- a bar twelve minutes into the session cannot
+    know the thirty-minute range, and a session shorter than `OPENING_RANGE`
+    has none at all rather than a partial one.
+
+    **An anchor `inst.anchors` names and this function does not implement
+    raises.** Returning the frame short a column is how a downstream `.get`
+    turns a missing anchor into a default and reports it as a measurement.
     """
-    raise NotImplementedError("anchors -- Prathamesh, step 3")
+    unknown = [a for a in inst.anchors if a not in _ANCHORS]
+    if unknown:
+        raise ValueError(
+            f"{inst.name} declares anchors this function does not compute: {unknown}. "
+            f"Known: {sorted(_ANCHORS)}. An anchor that means something different on the "
+            "second instrument is worse than one that is absent -- so add it deliberately."
+        )
+
+    by_session = bars.groupby("session", sort=False)
+    stamps = pd.Series(bars.index, index=bars.index)
+    opened = stamps.groupby(bars["session"], sort=False).transform("first")
+    # Right-open, so the bar exactly at open+30m is the first one that can see
+    # the completed band -- and is therefore the first with a value.
+    forming = stamps < opened + OPENING_RANGE
+
+    out: dict[str, pd.Series] = {}
+    for name in inst.anchors:
+        if name == "session_open":
+            out[name] = by_session["open"].transform("first")
+        elif name == "prior_close":
+            # NaN through the first session, which is correct: there is no
+            # prior close on the first day of the archive, and carrying the
+            # session's own close backwards would be a perfect one.
+            out[name] = bars["session"].map(by_session["close"].last().shift(1)).astype("float64")
+        elif name == "session_high":
+            out[name] = by_session["high"].cummax()
+        elif name == "session_low":
+            out[name] = by_session["low"].cummin()
+        elif name == "opening_range":
+            out["opening_range_high"] = (
+                bars["high"].where(forming).groupby(bars["session"], sort=False).transform("max").where(~forming)
+            )
+            out["opening_range_low"] = (
+                bars["low"].where(forming).groupby(bars["session"], sort=False).transform("min").where(~forming)
+            )
+        elif name == "twap":
+            # Time-weighted over the bars that EXIST. `minute_bars` drops
+            # minutes with no trades, so every present bar is exactly one
+            # minute and the expanding mean is already time-weighted -- but a
+            # minute with no trade has no price to weight, and inventing the
+            # previous close for it would weight a dead market as though it
+            # had traded there.
+            out[name] = by_session["close"].cumsum() / (by_session.cumcount() + 1)
+
+    return pd.DataFrame(out, index=bars.index)
 
 
 def mid(quotes: pd.DataFrame) -> pd.Series:

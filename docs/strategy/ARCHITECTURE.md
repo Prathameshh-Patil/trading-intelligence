@@ -319,7 +319,7 @@ number **without spending anything**, so the estimate is available for free when
 | :--- | :--- | :--- | :--- |
 | 1 | `instruments.py`; inject `TICK`; `atr_bp` | The portability seam | ✅ **6 Sep** |
 | 2 | **M1** geometry sweep, 19 months | The EV surface — **the null everything else is quoted against** | ❌ |
-| 3 | **M3** session + event, with the 2025/2026 split | Clock profile, or a clean negative | ❌ |
+| 3 | **M3** session + event, with the 2025/2026 split | Clock profile, or a clean negative | ⚠️ **code 6 Sep; run blocked on data** |
 | 4 | **M2** vol momentum, against M1's corrected null | Second conditioning dimension for stage 7 | ❌ |
 | 5 | Tick replay from trades on disk | Intrabar ordering — unblocks M4b **and** the intrabar-stop question `regime_filter.py` raised | ❌ |
 | 6 | Route 2 spot feed; portable regime refit | Cross-instrument validation | ❌ |
@@ -330,7 +330,20 @@ it, `atr_bp`, and every §4.3 / §4.4 signature committed raising `NotImplemente
 165 green, `ruff` and `mypy` clean. Two named deviations from S8 as drafted, both recorded in
 `plans/team/strategy-split.md` §8 and neither yet put to the room.
 
-**Steps 1–5 need no new data, no feed and no vendor decision.** If M1 returns no positive-EV cell
+**Step 3's code shipped 6 Sep** — `session_phase`, `event_proximity` and `anchors` in
+`features/portable.py`, `m3_session_event` in `strategies.py`, and `calendars.py` +
+`reference/us_releases.csv` carrying the BLS and FOMC schedules **transcribed rather than derived**
+(the 2025 shutdown moved September's payrolls to 20 Nov and deleted October's entirely, so a
+first-Friday rule is wrong on this archive in both directions). Suite 197 green, `ruff` and `mypy`
+clean. The four pre-committed numbers are in `plans/team/prathamesh/clock-lane.md`, ahead of any
+run, and one of them — the phase boundaries frozen in **ET wall clock rather than UTC** — is a
+recorded departure from `strategy-split.md` §7 that the room has to sign.
+
+**The run is blocked and the blocker is data, not code.** Only `2026-07` is on the machine —
+1.6M rows of the manifest's 46M. §6's split needs all 19 months and one month cannot be split.
+
+**Steps 1–5 need no new data, no feed and no vendor decision** — provided the archive §4.1 lists is
+actually present, which today it is not: If M1 returns no positive-EV cell
 and M2 and M3 both land inside their own MDE, **that is three kill conditions firing on data already
 paid for** — worth knowing before the spot-vendor question is reopened.
 

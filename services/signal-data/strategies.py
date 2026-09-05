@@ -282,5 +282,50 @@ def m3_session_event(
 
     The six phase boundaries in UTC, the event window, and the split date are
     all pre-committed to Varad before this runs (split.md §7).
+
+    `phases` is the arm being tested and it is deliberately a parameter rather
+    than a constant: the claim "London-NY carries a lift" is one call and the
+    claim "Asia does not" is another, against the same null, and neither gets
+    to quietly become the other. Passing `()` runs the event arm alone.
+
+    `event_window_minutes=0` runs the phase arm alone. **Zero is off, not
+    "instant only"** -- a zero-width window matches a bar only on an exact
+    nanosecond and would report the event arm as dead rather than as absent.
+
+    The two arms are OR'd, per §4.4's "fire inside `phases`, or near an event".
+    They are separable by the two switches above, and clock-lane.md pre-commits
+    that all three cuts -- phase-only, event-only, and the union -- are
+    reported together, so the union cannot be chosen after the fact as the one
+    that looked best.
+
+    The calendar is not a parameter and cannot be. The signature is frozen
+    (split.md §3 point 4) and `calendars.load()` is the right answer anyway:
+    the BLS and FOMC schedules are public fact, not a tunable, and a caller
+    free to pass its own calendar is a caller free to drop the releases that
+    went the wrong way.
     """
-    raise NotImplementedError("M3 -- step 3, and the phase boundaries are pre-committed first")
+    # Imported inside the body on purpose. `features.expansion` imports
+    # `_align` and `_window` from this module, so a module-level import of
+    # `features.portable` -- which imports expansion -- closes a cycle through
+    # a partially initialised `strategies`. Hoisting `_window` into its own
+    # module would fix it properly and is a shared-spine change, which is
+    # Varad's (split.md §2). This is the clock lane's cost of not touching it.
+    from calendars import load as load_calendar
+    from features.portable import PHASES, event_proximity, session_phase
+
+    unknown = [p for p in phases if p not in PHASES]
+    if unknown:
+        raise ValueError(
+            f"unknown phases {unknown}; known: {list(PHASES)}. A misspelled phase never "
+            "fires, and a strategy that never fires reads as a phase with no edge."
+        )
+    if event_window_minutes < 0:
+        raise ValueError(f"event_window_minutes must be >= 0, got {event_window_minutes}")
+    if not phases and not event_window_minutes:
+        raise ValueError("both arms are off; this fires on nothing and measures nothing")
+
+    fires = session_phase(bars, inst).isin(phases).to_numpy()
+    if event_window_minutes:
+        near = event_proximity(bars, load_calendar(), window_minutes=event_window_minutes)
+        fires = fires | near.to_numpy()
+    return pd.Series(np.where(fires, 1, 0), index=bars.index).astype("int64")

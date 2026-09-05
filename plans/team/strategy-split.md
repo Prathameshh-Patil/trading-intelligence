@@ -76,6 +76,8 @@ most valuable outcome available here.
 | `features/portable.py`, `strategies.py` | **Both**, by function name — §4 | Fill in your own function bodies. Never reorder, never rename, never add a function without standup |
 | `instruments.py`, `reach.py` | Varad | Frozen at the seam (§3); `reach.py` is written at the rejoin (§6) |
 | `replay.py` | Prathamesh | New, standalone. Does **not** modify `backtest.first_touch` — see §5 |
+| `calendars.py`, `reference/us_releases.csv` | Prathamesh | New, standalone, added 6 Sep. The BLS/FOMC schedule `event_proximity` reads. **Transcribed, never generated** — see §11 |
+| `tests/test_clock.py` | Prathamesh | New. The clock lane's tests live in their own module so neither lane rebases the other's test file |
 
 This keeps [`roles.md`](roles.md) intact: the signal system is still Varad's, and Prathamesh gets a
 real vertical inside it rather than a task queue.
@@ -144,9 +146,9 @@ Ownership is **by function**, listed here so there is never a question. `feature
 | `rv_parkinson` | Varad | 4 |
 | `rv_slope` | Varad | 4 — signed; EXPANDING / CONTRACTING / STABLE |
 | `efficiency_ratio` | Varad | 4 |
-| `session_phase` | Prathamesh | 3 — six phases, `strategy-architecture.md` §2 |
-| `event_proximity` | Prathamesh | 3 — BLS + FOMC public calendars |
-| `anchors` | Prathamesh | 3 — session open, prior close, session H/L, opening range, TWAP |
+| `session_phase` | Prathamesh | 3 — six phases, `strategy-architecture.md` §2 — ✅ **6 Sep** |
+| `event_proximity` | Prathamesh | 3 — BLS + FOMC public calendars — ✅ **6 Sep** |
+| `anchors` | Prathamesh | 3 — session open, prior close, session H/L, opening range, TWAP — ✅ **6 Sep** |
 | `mid`, `spread_bp` | Prathamesh | 6 — spot native; GC has no quote data |
 | `quote_rate_z` | Prathamesh | 6 — trailing z within instrument **and vendor** |
 
@@ -157,7 +159,7 @@ shape so `backtest.evaluate` consumes them unchanged:
 | :--- | :--- |
 | `m1_geometry` | Varad |
 | `m2_vol_momentum` | Varad |
-| `m3_session_event` | Prathamesh |
+| `m3_session_event` | Prathamesh — ✅ **6 Sep** |
 
 `m4_*` is contested (ARCHITECTURE §7) and is not stubbed. It gets a name when something decides it.
 
@@ -217,20 +219,31 @@ while looking at the answer. With two people, each pre-commits to the other, in 
 running anything. That is strictly stronger than self-commitment, and it is the one genuine
 methodological upgrade here.
 
-**They live in [`strategy-precommit.md`](strategy-precommit.md).** Varad's three are filled and
-committed; Prathamesh's three are empty blocks in the same file.
+**They live in [`strategy-precommit.md`](strategy-precommit.md).** All seven are now filled and
+committed — Varad's three on 6 Sep, Prathamesh's four the same day, each before the run that reads
+them.
 
 | Pre-commitment | Owner | Reviewed by | Due | Status |
 | :--- | :--- | :--- | :--- | :--- |
 | M1's geometry grid — target/stop/horizon ranges | Varad | Prathamesh | Before the sweep runs | ✅ **6 Sep** — 6×4×3 = 72 points, in multiples of the bar's own ATR |
 | `atr_bp` bucket edges | Varad | Prathamesh | Before the sweep runs | ✅ **6 Sep** — `(0, 7, 10, 14, ∞)` bp, the archive's pooled quartiles rounded |
 | `MIN_SAMPLES` per cell in `reach.py` | Varad | Prathamesh | Before any surface is looked at | ✅ **6 Sep** — **400**, from `n_for_rate(0.1644, 0.224)` |
-| The six session-phase boundaries, in UTC | Prathamesh | Varad | Before M3 runs | ⏳ unset |
-| The event window, in minutes either side | Prathamesh | Varad | Before M3 runs | ⏳ unset |
-| The 2025/2026 split date | Prathamesh | Varad | Before M3 runs | ⏳ unset |
+| The six session-phase boundaries | Prathamesh | Varad | Before M3 runs | ✅ **6 Sep** — **in ET wall clock, not UTC**; both mappings in `prathamesh/clock-lane.md` §1 |
+| The event window, in minutes either side | Prathamesh | Varad | Before M3 runs | ✅ **6 Sep** — **±15**, covering §2's BLS window with margin |
+| The 2025/2026 split date | Prathamesh | Varad | Before M3 runs | ✅ **6 Sep** — 2025-01…09 against 2025-10…2026-07, per ARCHITECTURE §6 |
+| The opening-range length | Prathamesh | Varad | Before M3 runs | ✅ **6 Sep** — **30 minutes**; a fourth, added because `anchors` computes a range and a range has a length |
 
 "Reviewed by" means one person reads the number and says whether it looks chosen or looks fitted.
 It is five minutes and it is the whole point.
+
+**Prathamesh's four are committed — [`prathamesh/clock-lane.md`](prathamesh/clock-lane.md), 6 Sep,
+ahead of any run.** They are ±15 minutes, the 2025-01–09 / 2025-10–2026-07 split, a 30-minute
+opening range, and the six boundaries **in ET wall clock rather than in UTC** — which is a
+departure from this table's wording and is the one of the four that needs Varad's eye rather than
+his nod. The short version: the London and NY opens follow local DST, so a frozen UTC number is an
+hour wrong for the five EST months of the archive (2025-11 – 2026-03) and pools London into
+London-NY for all of them. That is §4.6's unit error arriving through the clock. Both UTC mappings
+are tabulated there. **Varad's three are still open, and M1 cannot run until they are.**
 
 ---
 
@@ -329,3 +342,51 @@ correct either way — it says who owns which axis, not how many hours a week th
 6. **Basis points, never ticks**, except at stage 9's labelled display conversion.
 7. **Every lift is reported against a mix- and side-matched null, with `mde_rate` and N beside it** —
    in both lanes, so the two lanes' results are comparable to each other and to Track A's.
+
+---
+
+## 11. Clock lane — what landed, 2026-09-06
+
+**Step 3's code is built and green; step 3's run is blocked on data.** Full detail and the four
+pre-committed numbers are in [`prathamesh/clock-lane.md`](prathamesh/clock-lane.md); this is the
+summary the room needs.
+
+**197 tests green** (165 after the seam, 32 new), `ruff` and `mypy` clean. `session_phase`,
+`event_proximity` and `anchors` have bodies; `m3_session_event` has a body; `calendars.py` and
+`reference/us_releases.csv` are new and standalone. **Nothing in Varad's column was touched** —
+`range_bp`, `rv_parkinson`, `rv_slope` and `efficiency_ratio` still raise `NotImplementedError`,
+and the frozen order in §4 is unchanged. The split held: two people, two disjoint sets of function
+bodies, one file, no conflict.
+
+**Four things about it that are decisions, not transcription, and that the room has to sign:**
+
+- **The phase boundaries are frozen in ET wall clock, not in UTC**, against §7's wording. The
+  reason is §4.6's: a frozen UTC number is an hour wrong for the five EST months of the archive and
+  pools London into London-NY across all of them, invisibly, with six rows in the table and an N in
+  every cell. Both UTC mappings are tabulated in clock-lane.md §1.
+- **The release calendar is transcribed from BLS and the Fed, not generated from a rule.** This is
+  not fastidiousness — the rule is wrong on this exact archive, in both directions at once. There
+  is **no October 2025 Employment Situation**; September's landed **2025-11-20**, seven weeks late,
+  and September CPI landed **2025-10-24**. "First Friday, 08:30 ET" marks a quiet Friday as
+  payrolls *and* leaves the highest-volatility gold bar of that quarter in the null. Three
+  assertions in `test_clock.py` pin it, and extending the CSV means extending `COVERAGE` with it.
+- **`opening_range` is one anchor name and two columns**, high and low. A band collapsed to a
+  midpoint loses the only thing it is consulted for.
+- **`m3_session_event` imports `features.portable` inside the function body.** `features/expansion`
+  imports `_align` and `_window` from `strategies`, so a module-level import closes a cycle.
+  Hoisting those two helpers into their own module is the real fix and it is a shared-spine change,
+  which is Varad's (§2). The deferred import is the clock lane's cost of not reaching into it, and
+  it is one comment long.
+
+**A finding that is not about this lane.** `s1.SESSION_SHIFT`'s +2h rolls the session date at
+22:00 UTC — 18:00 ET in summer, exactly the Asia open, but **17:00 ET in winter, an hour inside
+`NY-Asia`**. For five months of the archive a bar's `session` and its `phase` disagree about which
+day it belongs to. `reach.py` keys on `phase` and not on `session`, so the rejoin is unaffected —
+but it is the same DST hole `s1.py` documents, and it closes in the same commit that turns
+`session_shift` into the calendar S8 drafted. clock-lane.md §6.
+
+**⛔ The blocker, and it is the only one.** Only `2026-07` is on this machine — 1,616,772 rows of
+the manifest's 46,034,813, and the iCloud backup path is empty here too. **§7's split needs all 19
+months, and one month cannot be split.** M3 on July alone is not a weak version of the result; the
+split *is* the test. Restoring the archive is the next thing this lane needs and the only thing it
+needs.

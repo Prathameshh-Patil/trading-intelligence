@@ -1,7 +1,8 @@
 # Track B pre-commitments — the numbers, written before the runs
 
 **Scope: the six thresholds in [`strategy-split.md`](strategy-split.md) §7.** Three are Varad's and
-are **filled and committed below, 2026-09-06**. Three are Prathamesh's and are left as empty blocks
+are **filled and committed below, 2026-09-06**. Prathamesh's were filled the same day, plus a
+fourth nobody had listed. What follows was originally written as three empty blocks
 with the same structure — the same move §5 made with the tick-replay time budget.
 
 **The mechanism is the git timestamp and nothing else.** [`varad/thresholds.md`](varad/thresholds.md)
@@ -19,9 +20,10 @@ the one genuine methodological upgrade the split buys (§7).
 | 1 | M1's geometry grid — target / stop / horizon | Varad | Prathamesh | ✅ **committed 2026-09-06** |
 | 2 | `atr_bp` bucket edges | Varad | Prathamesh | ✅ **committed 2026-09-06** |
 | 3 | `MIN_SAMPLES` per cell in `reach.py` | Varad | Prathamesh | ✅ **committed 2026-09-06** |
-| 4 | The six session-phase boundaries, in UTC | Prathamesh | Varad | ⏳ **unset** |
-| 5 | The event window, in minutes either side | Prathamesh | Varad | ⏳ **unset** |
-| 6 | The 2025/2026 split date | Prathamesh | Varad | ⏳ **unset** |
+| 4 | The six session-phase boundaries | Prathamesh | Varad | ⚠️ **committed 2026-09-06 — in ET, not UTC. Needs Varad's eye, not his nod** |
+| 5 | The event window, in minutes either side | Prathamesh | Varad | ✅ **committed 2026-09-06** |
+| 6 | The 2025/2026 split date | Prathamesh | Varad | ✅ **committed 2026-09-06** |
+| 7 | The opening-range length | Prathamesh | Varad | ✅ **committed 2026-09-06** — a fourth, not in the original six |
 
 **Where the numbers live in code.** `ATR_BP_EDGES` is in `features/portable.py`, because that is
 where `atr_bp` is and a test fails if it drifts from what is written here. The grid and
@@ -282,55 +284,141 @@ qualify.
 
 ---
 
-## 4 · Session-phase boundaries, in UTC — Prathamesh
+## 4 · Session-phase boundaries — Prathamesh, committed 2026-09-06
 
-**Due before M3 runs.** Six phases, `strategy-architecture.md` §2. Reviewed by Varad.
+**⚠️ Committed in ET wall clock, not in UTC — which is a departure from the heading this block
+was given, and from the argument written underneath it. That is the one number here that needs
+Varad's eye rather than his nod.**
+
+### The numbers
 
 ```
-phase 1  ______  –  ______ UTC     name: ______
-phase 2  ______  –  ______ UTC     name: ______
-phase 3  ______  –  ______ UTC     name: ______
-phase 4  ______  –  ______ UTC     name: ______
-phase 5  ______  –  ______ UTC     name: ______
-phase 6  ______  –  ______ UTC     name: ______
+Asia          18:00 – 02:00 ET     = 22:00 – 06:00 UTC (EDT)  /  23:00 – 07:00 (EST)
+Asia-London   02:00 – 03:00 ET     = 06:00 – 07:00 UTC (EDT)  /  07:00 – 08:00 (EST)
+London        03:00 – 08:00 ET     = 07:00 – 12:00 UTC (EDT)  /  08:00 – 13:00 (EST)
+London-NY     08:00 – 09:30 ET     = 12:00 – 13:30 UTC (EDT)  /  13:00 – 14:30 (EST)
+NY            09:30 – 13:30 ET     = 13:30 – 17:30 UTC (EDT)  /  14:30 – 18:30 (EST)
+NY-Asia       13:30 – 18:00 ET     = 17:30 – 22:00 UTC (EDT)  /  18:30 – 23:00 (EST)
 ```
 
-**Why:** ______
+Left-inclusive: 09:30 ET is the first bar of `NY`, not the last of `London-NY`.
+Frozen in `features/portable.py` as `PHASE_TZ`, `_PHASE_EDGES` and `PHASES`.
 
-**What result makes the phase axis dead:** ______
+### Why — and the argument this block made for UTC, answered
 
-Two things worth knowing before writing them. **`reach.py` is written against this column exactly as
-delivered** (split.md §6) — a boundary moved after the surface is visible is a fit, so these are the
-boundaries. And **the archive crosses DST**: `s1.py`'s `SESSION_SHIFT` is a fixed +2h that assumes
-the summer Globex window, and `ohlcv_edge.py` already cut sessions on gaps instead *because the
-break moves*. A UTC boundary is stable; a "London open" that is not pinned to UTC is not.
+The block as written said: *"A UTC boundary is stable; a 'London open' that is not pinned to UTC is
+not."* **That is true and it is not the property that matters.** A frozen UTC boundary is stable in
+its *number* and unstable in its *referent*. 12:00 UTC is 08:00 in New York from March to November
+and 07:00 from November to March. Freeze the number and the bucket labelled `London-NY` holds the
+NY handoff for seven months of the archive and the middle of the London session for the other five
+— **one label, two populations, the average reported as a base rate.** That is §4.6's unit error,
+arriving through the clock instead of through the tick, and it is invisible downstream for the same
+reason: the table still has six rows and every cell still has an N.
 
-## 5 · The event window, in minutes either side — Prathamesh
+Five of the archive's nineteen months are EST (2025-11 … 2026-03). This is not an edge case.
+
+**On the two supporting facts, which point the other way on inspection.** `s1.SESSION_SHIFT`'s
+fixed +2h *is* a summer assumption — and `s1.py`'s own docstring calls it a hole that a real
+exchange calendar has to close. It is a known defect, so citing it as precedent generalises the
+defect rather than the design. And `ohlcv_edge.py` cutting sessions on gaps **because the break
+moves** is the same observation as this one: the market's clock moves in UTC, so a UTC constant
+does not track it.
+
+**What it costs, stated plainly:** the UTC instant of a boundary moves twice a year. Nothing
+downstream pins on it — `reach.py` consumes the phase *label*, not the boundary — so the cost is
+that this table needs two columns instead of one. That is the whole price.
+
+**One accepted imprecision.** London and New York change DST on different dates, ~3 weeks apart in
+March and ~1 in November. Inside those windows "London 03:00 ET" is not London's 08:00 local.
+Following two zones means two calendars and a phase table that is not one clock; not worth it for
+~4 weeks of 19 months, and written down rather than discovered.
+
+### What result makes the phase axis dead
+
+**No phase's `p_target` separates from the ATR-matched, side-matched null by more than that cell's
+own `mde_rate`, on both halves of §6's split.** Specifically dead, not merely quiet:
+
+- A phase that clears its MDE on the pooled archive but **changes sign or loses the lift across the
+  split** is a description of 2025 and the axis does not survive on it.
+- A lift that only appears with the event arm OR'd in is an **event** finding, not a phase finding,
+  which is why §5 of `prathamesh/clock-lane.md` pre-commits that all three cuts — phase-only,
+  event-only, union — are reported together every run.
+
+If the phase axis is dead, `reach.py`'s bucket key loses one of its four axes and that is a real
+result: it makes every surviving cell larger and the `MIN_SAMPLES`=400 problem §3 accepts in advance
+correspondingly easier.
+
+### My honest prediction, written before the run
+
+**`London-NY` and `NY` carry a magnitude difference that survives; the direction-free `p_target`
+lift does not clear MDE in any phase.** `horizon.py` already measured GC as a directional random
+walk at 5/15/30m and `ohlcv_edge.py` reproduced that on spot to within 0.4%. The clock changes how
+much gold moves, and I expect it changes almost nothing about which way. If that is right, M3's
+value is as a **conditioning axis for the bracket**, not as an entry filter — which is what stage 7
+wants from it anyway.
+
+## 5 · The event window — Prathamesh, committed 2026-09-06
 
 **Due before M3 runs.** BLS + FOMC public calendars. Reviewed by Varad.
 
 ```
-window = ______ minutes either side of a release
+window = 15 minutes either side of a release
 ```
 
-**Why:** ______
+**Why.** `strategy-architecture.md` §2's table is asymmetric per event — NFP and CPI run 08:25–08:40
+(−5/+10), FOMC 14:00–14:30 (0/+30) — and `event_proximity`'s committed signature carries one
+symmetric number. ±15 covers the BLS window with margin on both sides and the front half of FOMC's.
 
-## 6 · The 2025/2026 split date — Prathamesh
+**What it costs, and the direction it costs it in:** the back fifteen minutes of the FOMC reaction
+land in the non-event population. That **biases against the event arm** — it pollutes the null with
+event bars and thins the signal cell. That is the right direction for a number nobody should be able
+to talk themselves into.
+
+**The release list is transcribed from BLS and the Fed, never generated** — `calendars.py`,
+`reference/us_releases.csv`. The rule "first Friday, 08:30 ET" is wrong on this exact archive in
+both directions at once: there is **no October 2025 Employment Situation at all**, September's
+landed **2025-11-20**, and September CPI landed **2025-10-24**. A generated calendar marks a quiet
+Friday as payrolls *and* leaves the highest-volatility gold bar of that quarter in the null.
+`calendars.require_coverage` catches the other half — an uncovered month returns all-False, which is
+byte-identical to a genuinely quiet month and is not the same fact.
+
+## 6 · The 2025/2026 split date — Prathamesh, committed 2026-09-06
 
 **Due before M3 runs.** Reviewed by Varad.
 
 ```
-split at ______
+split at 2025-10  —  train 2025-01…09  against  held 2025-10…2026-07
 ```
 
-**Why:** ______
+**Why.** **The proposed date is adopted unchanged, and that is the entire justification.**
+ARCHITECTURE §4.4 proposes it, `BASE_RATES.md` §3 measured the step at exactly that seam — pooled
+monthly `p_target` runs 0.082 before and 0.178 after — and §2's mix table above is the same break
+from the other side, with `<7`'s share collapsing from 0.693 in 2025-08 to 0.027 by 2026-03.
 
-ARCHITECTURE §4.4 proposes **2025-01–09 against 2025-10–2026-07**, and `BASE_RATES.md` §3 measured
-the step at exactly that seam — pooled monthly `p_target` runs 0.082 before it and 0.178 after. §2's
-mix table above is the same break seen from the other side: `<7`'s share collapses from a 2025-08
-high of 0.693 to 0.027 by 2026-03. **Adopting the proposed date needs no justification; moving it
-does**, because a split date chosen after seeing which one the profile survives is the fit this
-whole file is built to prevent.
+As this block already says: adopting the proposed date needs no justification, moving it does. It is
+frozen as the module constant `SPLIT` in `m3_profile.py`, **not as a command-line argument**, because
+a split date that can be passed at the prompt is a split date that can be tried twice.
+
+---
+
+## 7 · The opening-range length — Prathamesh, committed 2026-09-06
+
+**A fourth, not in the original six.** `features.portable.anchors` computes an opening range, and an
+opening range has a length, so it is a threshold and it is committed like the rest rather than
+sitting as a literal in a function body.
+
+```
+OPENING_RANGE = 30 minutes
+```
+
+**Why.** The conventional reading, and it is one `atr_bp` window, which keeps the two comparable.
+
+**Two properties that are the point, not the length.** It is **NaN until the band has closed** — a
+bar twelve minutes into the session cannot know the thirty-minute range — and a session shorter than
+30 minutes has **no** opening range rather than a partial one, because a 12-minute range reported in
+a column labelled 30-minute is a different quantity wearing the same name. And it emits **two**
+columns, `opening_range_high` and `opening_range_low`: a band collapsed to its midpoint loses the
+only thing it is ever consulted for.
 
 ---
 
