@@ -1,11 +1,12 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { BackIcon } from "./ui/Icons";
+import { BackIcon, CrosshairIcon } from "./ui/Icons";
 import { RulePill, Toast } from "./ui/components";
 import { viewVariants } from "./ui/motion";
 import "./ui/theme.css";
 
+import { useClickThrough } from "./lib/clickThrough";
 import { computeStats, evaluateRules, riskLevel } from "./lib/rules";
 import {
   addJournalEntry,
@@ -55,6 +56,15 @@ const isSameDay = (a: number, b: number) => {
 export default function SidePanel() {
   const [view, setView] = useState<ViewKey>("home");
   const [direction, setDirection] = useState(1);
+
+  const clickThrough = useClickThrough();
+
+  // Diagnostic aid: an opaque panel makes click-through untestable, because
+  // there is nothing under it to aim at. Faded while armed so what is being
+  // clicked is actually visible; see the CSS rule for the caveat.
+  useEffect(() => {
+    document.body.classList.toggle("click-through-armed", clickThrough.enabled);
+  }, [clickThrough.enabled]);
 
   const [rules, setRules] = useState<TradeRule[]>([]);
   const [journal, setJournal] = useState<JournalEntry[]>([]);
@@ -309,6 +319,19 @@ export default function SidePanel() {
         </AnimatePresence>
 
         <div className="spacer" data-tauri-drag-region />
+
+        <button
+          className={`click-through-btn${clickThrough.enabled ? " armed" : ""}`}
+          onClick={clickThrough.toggle}
+          title={
+            clickThrough.enabled
+              ? "Click-through armed — every click reaches MT5 behind this window. Press ⌘⇧K anywhere to disarm."
+              : "Arm click-through — pass every click on this window through to MT5"
+          }
+          aria-pressed={clickThrough.enabled}
+        >
+          <CrosshairIcon size={14} />
+        </button>
 
         <RulePill
           level={level}

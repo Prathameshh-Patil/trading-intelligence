@@ -1170,3 +1170,45 @@ body.standalone .shell {
   color: #fff;
   font-weight: 600;
 }
+
+/* ------------------------------------------------------------------ */
+/* Click-through toggle (W1D3)                                        */
+/* ------------------------------------------------------------------ */
+
+.click-through-btn {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  flex: none;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--surface);
+  color: var(--text-faint);
+  cursor: pointer;
+}
+
+.click-through-btn:hover {
+  color: var(--text-dim);
+  background: var(--surface-hi);
+}
+
+/* Armed: every click on this window passes through to MT5, including on this
+   button — the whole window ignores mouse events at once, there is no
+   per-pixel exception (see clickThrough.ts). Escape disarms, not another
+   click; the colour is a status light, not an affordance. */
+.click-through-btn.armed {
+  color: var(--green);
+  border-color: rgba(52, 211, 153, 0.45);
+  background: rgba(52, 211, 153, 0.14);
+}
+
+/* Diagnostic/testing aid, W1D3: while click-through is armed, let the panel
+   fade so the trader (or, right now, a debugging session) can actually see
+   what is being clicked on underneath. The opaque-panel decision documented
+   above the .shell rule still stands for normal use -- this only applies
+   while armed, which is already a distinct, deliberate mode. */
+body.click-through-armed .shell {
+  opacity: 0.12;
+  transition: opacity 0.15s ease;
+}

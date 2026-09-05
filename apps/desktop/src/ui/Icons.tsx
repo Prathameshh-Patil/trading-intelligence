@@ -111,3 +111,11 @@ export const RefreshIcon = ({ size = 15, className }: IconProps) => (
     <path d="M20 5v6h-6" />
   </svg>
 );
+
+/** W1D3's click-through toggle. */
+export const CrosshairIcon = ({ size = 15, className }: IconProps) => (
+  <svg {...base(size)} className={className}>
+    <circle cx="12" cy="12" r="7" />
+    <path d="M12 2v4M12 18v4M2 12h4M18 12h4" />
+  </svg>
+);
