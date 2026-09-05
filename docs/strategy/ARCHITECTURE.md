@@ -391,13 +391,19 @@ measured.
 
 1. **Is the product still an order-flow product?** §1.1's tension. The information claim holds; the
    edge measurement came back flat. Varad's and Shreyas's, and it interacts with licensing.
-2. **Does M1's geometry grid get committed before the sweep, and by whom.** The one place in this
-   track where a number could be chosen while looking at the answer.
+2. ~~**Does M1's geometry grid get committed before the sweep, and by whom.**~~ **ANSWERED 6 Sep —
+   Varad, in `plans/team/strategy-precommit.md` §1, reviewed by Prathamesh.** 72 points, in
+   multiples of the bar's own ATR rather than in bp or ticks, because the archive's own
+   committed 70/20 bracket ranges over 5× in ATR terms between its quietest and loudest months.
+   A pass line and a written prediction went in with it.
 3. **Does a Dukascopy XAUUSD download complete from this machine.** Recorded unreachable once
    (`DELTA_CVD_FINDINGS.md` §4), never retested. Ten minutes, and step one of §7.
-4. **`MIN_SAMPLES` per cell in `reach.py`**, committed before any surface is looked at. The existing
-   floor is 30; a four-dimensional bucket will produce many thin cells, and the honest answer there
-   is no forecast, not a wide one.
+4. ~~**`MIN_SAMPLES` per cell in `reach.py`**~~ **ANSWERED 6 Sep — 400**, `strategy-precommit.md`
+   §3. Derived, not picked: `horizon.n_for_rate(0.1644, 0.224)` = 327, where 0.1644 is the pooled
+   archive null and 0.224 the highest per-bucket breakeven in it, rounded up. At the existing
+   floor of 30 a cell needs a **+126%** relative lift before it can say anything, so a 30-leg
+   cell is noise with a number attached. Many cells will return `forecast: null` and that is the
+   correct answer, not a gap.
 5. **How much time the tick replay (step 5) gets** before it is called too expensive. Free in money,
    largest work item here — a budget set now is worth more than one set halfway through.
 

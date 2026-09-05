@@ -1583,6 +1583,43 @@ either side.** **The clock lane is unblocked and can start on `session_phase` to
       bucket edges, `MIN_SAMPLES` for `reach.py`. Due **before** the sweep runs and before any
       surface is looked at, committed to Prathamesh. Nothing about step 2 starts until they exist.
 
+### 2026-09-06 (later) — three thresholds committed before the run · [`plans/team/strategy-precommit.md`](team/strategy-precommit.md)
+
+**`strategy-split.md` §7's three Varad numbers are filled, derived, and committed with a git
+timestamp earlier than any result.** Reviewed by Prathamesh; his three are empty blocks in the same
+file. **Nothing that reads an outcome was run — no EV surface exists.** Everything below comes from
+the `atr_bp` distribution over the archive and the power arithmetic already in `horizon.py`, which
+is the class of statistic `BASE_RATES.md` says costs no out-of-sample data.
+
+- [x] **🔴 The measurement that decided all three: Track A's tick buckets are not stable in basis
+      points.** Over 109,875 bars, gold ran 2,732.90 → 5,036.80 and **30 ticks went from 10.98 bp to
+      5.96 bp — a 1.84× drift in one labelled bucket.** The same effect through the committed
+      bracket: **70 ticks is 4.24× the month's median ATR in 2025-01 and 0.84× in 2026-03.**
+      `thresholds_selector.md` Part B's 70/20 was several different trades wearing one name. This is
+      ARCHITECTURE §4.6's pooling error measured in our own data.
+- [x] **M1's geometry grid — 72 points, in multiples of the bar's own ATR.** target
+      {0.75, 1, 1.5, 2, 3, 4} × stop {0.5, 0.75, 1, 1.5} × horizon {15, 30, 60}m. Multiples, because
+      that is the only form that means the same thing in every bucket and can transfer to spot. **A
+      pass line (n ≥ 400 · EV − cost > 0 · `p_target` > `mde_rate`) and a written prediction went in
+      with it** — the prediction is that **no cell clears the cost floor.**
+- [x] **`atr_bp` edges `(0, 7, 10, 14, ∞)`** — the archive's pooled quartiles (6.79/9.65/13.87)
+      rounded, giving shares 0.270/0.259/0.227/0.245. In `features/portable.py` as `ATR_BP_EDGES`
+      with a test that fails if it drifts. ⚠️ **The mix swings hard** — 2025-08 puts 69% of bars in
+      `<7`, 2026-03 puts 66% in `14+` — so the sweep pools counts across the archive and never
+      averages monthly rates.
+- [x] **`reach.py`'s `MIN_SAMPLES` = 400, derived not picked.** `n_for_rate(0.1644, 0.224) = 327`,
+      rounded up: 0.1644 is the pooled archive null, 0.224 the highest per-bucket breakeven in it.
+      **At the existing floor of 30 a cell needs a +126% relative lift before it can say anything**,
+      and nothing here has ever produced one near that. Many cells will return `forecast: null` and
+      that is correct behaviour. `backtest.MIN_SAMPLES = 30` is unchanged — it is Track A's
+      reporting flag, a different object.
+- [x] **ARCHITECTURE §9 open questions 2 and 4 are closed.** Q3 (Dukascopy reachability) and Q5 (the
+      tick-replay budget) stay open and are not Varad's.
+- [ ] **⚠️ Named before it bites: the sweep is ~32M `first_touch` iterations** and `first_touch` is a
+      Python loop over `bars.loc` slices. **Measure one month before launching 19**; if the
+      projection runs past a few hours, vectorise it first — additive shared-spine change, Track A's
+      tests as the gate, tie-to-stop semantics untouched.
+
 ---
 
 ## Next

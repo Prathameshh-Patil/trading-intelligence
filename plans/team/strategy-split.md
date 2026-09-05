@@ -217,14 +217,17 @@ while looking at the answer. With two people, each pre-commits to the other, in 
 running anything. That is strictly stronger than self-commitment, and it is the one genuine
 methodological upgrade here.
 
-| Pre-commitment | Owner | Reviewed by | Due |
-| :--- | :--- | :--- | :--- |
-| M1's geometry grid — target/stop/horizon ranges | Varad | Prathamesh | Before the sweep runs |
-| `atr_bp` bucket edges | Varad | Prathamesh | Before the sweep runs |
-| `MIN_SAMPLES` per cell in `reach.py` | Varad | Prathamesh | Before any surface is looked at |
-| The six session-phase boundaries, in UTC | Prathamesh | Varad | Before M3 runs |
-| The event window, in minutes either side | Prathamesh | Varad | Before M3 runs |
-| The 2025/2026 split date | Prathamesh | Varad | Before M3 runs |
+**They live in [`strategy-precommit.md`](strategy-precommit.md).** Varad's three are filled and
+committed; Prathamesh's three are empty blocks in the same file.
+
+| Pre-commitment | Owner | Reviewed by | Due | Status |
+| :--- | :--- | :--- | :--- | :--- |
+| M1's geometry grid — target/stop/horizon ranges | Varad | Prathamesh | Before the sweep runs | ✅ **6 Sep** — 6×4×3 = 72 points, in multiples of the bar's own ATR |
+| `atr_bp` bucket edges | Varad | Prathamesh | Before the sweep runs | ✅ **6 Sep** — `(0, 7, 10, 14, ∞)` bp, the archive's pooled quartiles rounded |
+| `MIN_SAMPLES` per cell in `reach.py` | Varad | Prathamesh | Before any surface is looked at | ✅ **6 Sep** — **400**, from `n_for_rate(0.1644, 0.224)` |
+| The six session-phase boundaries, in UTC | Prathamesh | Varad | Before M3 runs | ⏳ unset |
+| The event window, in minutes either side | Prathamesh | Varad | Before M3 runs | ⏳ unset |
+| The 2025/2026 split date | Prathamesh | Varad | Before M3 runs | ⏳ unset |
 
 "Reviewed by" means one person reads the number and says whether it looks chosen or looks fitted.
 It is five minutes and it is the whole point.

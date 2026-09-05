@@ -157,3 +157,11 @@ def test_the_unwritten_bodies_refuse_rather_than_return_something() -> None:
             fn(bars)
     for name in ("m1_geometry", "m2_vol_momentum", "m3_session_event"):
         assert callable(getattr(st, name)), "committed on day one, filled in later"
+
+
+def test_the_committed_atr_bp_edges_have_not_drifted() -> None:
+    # A tripwire, not a derivation. The reasoning is in
+    # plans/team/strategy-precommit.md §2 and the numbers are the archive's
+    # pooled quartiles rounded; this asserts nobody edits them without going
+    # back to that file. A threshold that can be changed silently is not one.
+    assert pt.ATR_BP_EDGES == (0.0, 7.0, 10.0, 14.0, float("inf"))

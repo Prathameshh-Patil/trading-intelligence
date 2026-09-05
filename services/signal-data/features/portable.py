@@ -33,6 +33,21 @@ import pandas as pd
 from features.expansion import atr
 from instruments import Instrument
 
+# The bucket axis of `reach.py`'s key, committed 2026-09-06 BEFORE any surface
+# was computed -- `plans/team/strategy-precommit.md` §2, which carries the
+# derivation. These are the pooled quartiles of the 19-month archive (6.79 /
+# 9.65 / 13.87 over 109,875 bars) rounded to whole basis points.
+#
+# **Basis points, not ticks, and the archive says why rather than the rule.**
+# Track A's fixed tick edges drifted 1.84x in what they meant as gold ran from
+# 2,732 to 5,037: 30 ticks is 10.98 bp in 2025-01 and 5.96 bp in 2026-02. One
+# labelled bucket, two populations, and the average reported as a base rate.
+#
+# tests/test_instruments.py fails if this line changes. That is the point --
+# editing it means going and amending the commitment, in a commit, with the
+# measurement that moved it.
+ATR_BP_EDGES = (0.0, 7.0, 10.0, 14.0, float("inf"))
+
 
 def to_bp(move: pd.Series, price: pd.Series) -> pd.Series:
     """A price-denominated quantity as basis points of the price it moved from.
