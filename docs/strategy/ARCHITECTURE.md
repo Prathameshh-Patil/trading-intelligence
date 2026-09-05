@@ -1,0 +1,414 @@
+# Strategy-track architecture — the L1 pipeline, end to end
+
+**Written 2026-09-06.** Scope: the **strategy track** only — the L1-only, two-instrument research
+programme settled by [`strategy-reconciliation.md`](strategy-reconciliation.md).
+
+**This is a second track, not a replacement.** [`docs/ARCHITECTURE.md`](../ARCHITECTURE.md) remains
+the map of the whole system — the product, the seams, the vendors, the shell. Where the two
+disagree about the *product*, that file wins. This file is authoritative only about **how the
+strategy work is laid out and what it is allowed to touch.**
+
+Nothing described past §6 is built. Where something exists on disk it is named with its file; where
+it does not, it says so.
+
+---
+
+## 0. The two tracks, in one table
+
+| | **Track A — order flow** | **Track B — strategy (this file)** |
+| :--- | :--- | :--- |
+| Question | Does GC order flow carry a tradeable edge? | Does *anything* computable from L1 carry one, on both instruments? |
+| Core features | delta, CVD, absorption, footprint, book | price, spread, quote rate, time |
+| Instruments | GC futures only | GC **and** spot XAUUSD |
+| Data | Databento `trades` (46M rows, 19 months, on disk) | The same 46M rows, plus a free spot feed |
+| Status | **PARKED 2026-09-06** | **ACTIVE** |
+| Cost to proceed | `mbp-1` / book data, unpriced | **$0** — see §5 |
+| Code | `features/orderflow.py`, `signals/engine.py`, `families.py`, `compute_delta_cvd.py` | `features/portable.py`, `reach.py`, `instruments.py` — **none of these exist yet** |
+
+**Both tracks share one measurement stack** — `backtest.py`, `horizon.py`, `base_rates.py`,
+`calibration.py` — and that sharing is the point. It is what makes the two tracks' results
+comparable when Track A restarts.
+
+---
+
+## 1. Why the split happened, stated from the evidence
+
+Not a change of mind. Three measurements, in this repo, forced it.
+
+**1. The four order-flow conditions carried no edge, at power.**
+[`FAMILIES.md`](../../services/signal-data/analysis/FAMILIES.md): the exhaustion arm landed at
+**−0.0058** on 393 legs and the continuation arm at **−0.0003** on 545, against a mix- and
+side-matched null, where `mde_rate` says **a 30% relative lift would have been detected at 80%
+power.** That is "we looked and there is nothing there", not "we could not tell".
+
+**2. Order flow does not exist on spot gold.** No centralised tape, no aggregate volume, no
+aggressor. So a strategy built on CVD is a GC-only strategy, and every cross-instrument check —
+the strongest validation available here — is closed off by construction.
+
+**3. The cross-instrument check has already caught something.** `horizon.py` measured GC as a random
+walk at 5/15/30m; `ohlcv_edge.py` reproduced it on spot gold **to within 0.4%**, through different
+code on a different vendor's data. That is two independent confirmations of the same fact, and it is
+only possible for features that exist on both instruments.
+
+**What this does not say.** `FAMILIES.md` §5 is explicit and it is quoted here so the parking is
+not over-read:
+
+> **Does not:** say the conditions are wrong in principle — only that these four, at these
+> thresholds, on this half of this month, do not beat their null.
+
+**Track A is parked, not killed.** Four conditions at one set of thresholds on one month's training
+half is a narrow result. It is enough to stop spending the next month there; it is not enough to
+conclude the tape holds nothing.
+
+### 1.1 The tension this creates, named rather than smoothed over
+
+[`docs/ARCHITECTURE.md`](../ARCHITECTURE.md) §1 states the product thesis as order flow:
+
+> `delta` and `cvd` are the numbers a screenshot can never contain […] **That is the whole wedge.**
+
+Track B does not use them. So the honest statement of the position today is:
+
+- The *information* claim is still true — a chart genuinely cannot show CVD, and two sessions with
+  identical OHLC genuinely can have opposite CVD.
+- But **an information advantage that does not produce edge is not yet a product**, and the one
+  measurement made of that edge came back flat.
+
+**That is a product decision, not an architecture decision, and this file does not make it.** It is
+Varad's and Shreyas's, it interacts with the licensing question, and §9 carries it as open. What
+this file does is make sure the two tracks stay separable so the decision can be made later on
+evidence rather than on sunk code.
+
+---
+
+## 2. What "parked" means, exactly
+
+Precision here is what stops parking from turning into rot.
+
+**Nothing is deleted, moved, or rewritten.** `features/orderflow.py`, `signals/engine.py`,
+`families.py`, `compute_delta_cvd.py`, `regimes.py` and every test over them stay exactly as they
+are, green, in place.
+
+**No Track B work may modify a Track A module.** If Track B needs something a Track A file has, it
+is *imported* if it is portable, or *reimplemented in `features/portable.py`* if it is not. The one
+exception is a shared module named in §4 — `backtest.py`, `horizon.py`, `base_rates.py`,
+`calibration.py`, `s1.py` — and changes to those are additive only, with Track A's tests as the
+regression gate.
+
+**`features/orderflow.py` gains one line in its docstring: `VENUE-SPECIFIC — GC only`.** That is
+the whole code change parking requires.
+
+**Track A's open threads are recorded, not resolved:** Gate 1's option (b) (restoring condition A —
+the one arm whose sign was positive), Part C of `thresholds_selector.md`, and the filtered
+exhaustion arm that needs ~2.5 years of tape to call either way. They are still open. They are just
+not being worked.
+
+---
+
+## 3. The pipeline, end to end
+
+```
+                          ┌──────────────────────────────────────┐
+                          │  TRACK A — PARKED                    │
+                          │  features/orderflow.py  (GC only)    │
+                          │  signals/engine.py · families.py     │
+                          │  delta · cvd · absorption · footprint│
+                          └──────────────────────────────────────┘
+                                          ╎
+                                          ╎  no edge at power (FAMILIES.md)
+                                          ╎  + does not exist on spot
+                                          ╎  ── rejoins at §8 ──
+                                          ╎
+  ┌────────────────────────────────────────────────────────────────────────────┐
+  │  1 · SOURCES                                                               │
+  ├────────────────────────────────────────────────────────────────────────────┤
+  │  GC futures — Databento `trades`          │  Spot XAUUSD — free L1          │
+  │  46,034,813 rows · 19 months · ON DISK    │  Dukascopy or MT5 demo · TBD    │
+  │  timestamp, price, size, aggressor_side   │  bid, ask, timestamp            │
+  └────────────────────────────────────────────────────────────────────────────┘
+                     │                                    │
+                     ▼                                    ▼
+  ┌────────────────────────────────────────────────────────────────────────────┐
+  │  2 · NORMALISE            instruments.py  ·  NEW                           │
+  │  tick size · session calendar · anchors · has_flow · bp conversion         │
+  │  ── everything downstream is in BASIS POINTS, never ticks ──               │
+  └────────────────────────────────────────────────────────────────────────────┘
+                                     │
+                                     ▼
+  ┌────────────────────────────────────────────────────────────────────────────┐
+  │  3 · FEATURES             features/portable.py  ·  NEW                     │
+  │  mid · spread_bp · quote_rate_z · atr_bp · rv_parkinson · rv_slope         │
+  │  efficiency_ratio · session_phase · event_proximity · anchors              │
+  │  ── computable on BOTH instruments, or it does not belong here ──          │
+  └────────────────────────────────────────────────────────────────────────────┘
+                                     │
+                                     ▼
+  ┌────────────────────────────────────────────────────────────────────────────┐
+  │  4 · STRATEGIES           strategies.py (extended)  ·  NEW FUNCTIONS       │
+  │                                                                            │
+  │   M1 geometry      M2 vol momentum    M3 session+event   M4 contested      │
+  │   (non-direct.)    (magnitude)        (non-direct.)      (see §7)          │
+  └────────────────────────────────────────────────────────────────────────────┘
+                                     │
+                                     ▼
+  ┌────────────────────────────────────────────────────────────────────────────┐
+  │  5 · LEGS                 backtest.py  ·  EXISTS, UNCHANGED                │
+  │  clock horizons · session-bounded · MFE/MAE signed in the trade's favour   │
+  │  first_touch: same-bar ties resolve to the STOP (p_target is a lower bound)│
+  └────────────────────────────────────────────────────────────────────────────┘
+                                     │
+                                     ▼
+  ┌────────────────────────────────────────────────────────────────────────────┐
+  │  6 · NULL + POWER         base_rates.py · horizon.py  ·  EXIST             │
+  │  mix- and side-matched null  ·  mde_rate(null, n) beside every lift        │
+  └────────────────────────────────────────────────────────────────────────────┘
+                                     │
+                                     ▼
+  ┌────────────────────────────────────────────────────────────────────────────┐
+  │  7 · REACH TABLE          reach.py  ·  NEW                                 │
+  │  P(target before stop) per (instrument × atr_bp × phase × vol_state × side)│
+  │  → this IS PipForecast.bucket. Below MIN_SAMPLES the answer is null.       │
+  └────────────────────────────────────────────────────────────────────────────┘
+                                     │
+                                     ▼
+  ┌────────────────────────────────────────────────────────────────────────────┐
+  │  8 · CALIBRATION          calibration.py  ·  EXISTS, UNCHANGED             │
+  │  append-only · settle() cannot invent history · reliability diagram        │
+  │  "when it says 61%, does it happen 61% of the time"                        │
+  └────────────────────────────────────────────────────────────────────────────┘
+                                     │
+                                     ▼
+  ┌────────────────────────────────────────────────────────────────────────────┐
+  │  9 · PRODUCT SURFACE      services/api → apps/desktop  ·  UNCHANGED SEAM   │
+  │  S7 PipForecast: side · pDirection · forecast · reasoning · tradeable      │
+  │  no guaranteedPips · no lot size · forecast:null is a valid common answer  │
+  └────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Stages 5, 6, 8 and 9 already exist and do not change.** That is the case for this track being
+cheap: the measurement stack was built instrument-agnostic, and the only genuinely new modules are
+2, 3, 4 and 7.
+
+---
+
+## 4. Stage by stage
+
+### 4.1 Sources
+
+GC is on disk and paid for: **46,034,813 trades, 19 months, Jan 2025 – Jul 2026 contiguous**, hashes
+in [`gc_data_manifest.md`](../../services/signal-data/analysis/gc_data_manifest.md). Every month is
+the `trades` schema — **there is no quote data anywhere in this repo**, which is the finding that
+set this track's budget (`strategy-reconciliation.md` §3).
+
+Spot is not chosen yet. Route 2 (`strategy-reconciliation.md` §7.3) says take a free bid/ask feed —
+Dukascopy historical ticks first, MT5 demo as fallback. **Dukascopy reachability is unverified from
+this machine** and step one of that route is a ten-minute check that a download completes.
+
+### 4.2 `instruments.py` — the one new abstraction
+
+```python
+@dataclass(frozen=True)
+class Instrument:
+    name: str                 # 'GC' | 'XAUUSD'
+    tick: float               # 0.10 | broker-dependent
+    tick_value: float | None  # USD per tick per contract; None for spot
+    session: SessionCalendar  # Globex 18:00-17:00 ET | 24x5 with a named boundary
+    anchors: tuple[str, ...]  # which M4 anchors are defined here
+    has_flow: bool            # may features/orderflow.py be read at all
+```
+
+**Why it must exist before anything else.** `s1.py` hardcodes `TICK = 0.10` and `TICK_VALUE = 10.0`,
+and **every tick-denominated number in the repo flows through those two lines** — `backtest.py`,
+`strategies.py`, `horizon.py`, `features/expansion.py`, `features/orderflow.py` and two test
+modules. Until `TICK` is injected rather than imported, the entire measurement stack silently
+assumes GC.
+
+**`has_flow` is a hard boundary, not a hint.** Reading `features/orderflow` on an instrument where
+it is `False` **raises**. It does not degrade, fall back, or substitute a proxy. This is the same
+discipline the pipeline design applied to OCR-derived numbers — *not as a fallback when the feed is
+down, not as a cross-check, not behind a flag* — for the identical reason: a silent degradation
+produces a number that looks exactly like the real one.
+
+### 4.3 `features/portable.py` — the intersection, and nothing else
+
+The admission rule is one sentence: **if it cannot be computed on both instruments, it does not go
+in this file.**
+
+| Feature | From | Note |
+| :--- | :--- | :--- |
+| `mid`, `spread_bp` | quotes | Spot native; GC needs quote data it does not have (§7) |
+| `quote_rate_z` | quotes | **Trailing z-score within instrument and vendor, never a raw threshold** |
+| `atr_bp`, `range_bp` | OHLC | Basis points, not ticks — §4.6 |
+| `rv_parkinson`, `rv_slope` | OHLC | Signed slope gives EXPANDING / CONTRACTING / STABLE |
+| `efficiency_ratio` | OHLC | Directional move over total path |
+| `session_phase` | clock | Six phases, from `strategy-architecture.md` §2 |
+| `event_proximity` | public calendar | BLS release schedule, Fed FOMC dates |
+| `anchors` | OHLC + calendar | session open, prior close, session H/L, opening range, TWAP |
+
+`atr` already exists in `features/expansion.py` and is imported, not re-derived — the same rule
+`regime_filter.py` states: *"Re-solving session-grouped trailing windows in a second file is how the
+two quietly disagree."*
+
+### 4.4 Strategies
+
+Four functions in `strategies.py`, not a new package. Each takes `(bars, *, thresholds)` and returns
+a Series in the shape the existing conditions use, so `backtest.evaluate` consumes them unchanged.
+
+**M1 · geometry frontier** — non-directional. Sweeps `(target, stop, horizon)` per
+`(atr_bp bucket × phase × side)` over 19 months, entering every bar. Returns an EV surface.
+**Runs first**, because M2's brackets are read off it rather than guessed.
+
+**M2 · vol momentum and compression** — non-directional, predicts *magnitude*. Signed `rv_slope`
+against the ATR-matched null; output is `P(|move| ≥ T within H)` feeding stage 7 as a second
+conditioning dimension. Highest prior of the four: vol clustering is well-established outside this
+repo, and it does not contradict `horizon.py` — a random walk in **direction** can have entirely
+predictable **scale**, and only the first was tested.
+
+**M3 · session and event conditioning** — non-directional, needs no market data. Six-phase profile
+plus the event calendar, reported per `(atr_bp × phase)` cell, then **split 2025-01–09 against
+2025-10–2026-07** to check the profile survives the volatility regime change — the way the 50+ ATR
+bucket held **0.2000 → 0.1989** while the headline moved 2.2×. A profile that does not survive that
+split is a description of 2025, not a feature.
+
+**M4 · contested** — path-dependent exits, anchor reversion, or the adverse-selection filter. §7.
+
+### 4.5 Stages 5, 6, 8 — unchanged, and that is the point
+
+`backtest.py` (clock horizons, session-bounded legs, MFE/MAE, `first_touch` resolving ties to the
+stop), `horizon.py` (`mde_rate`, the sigma/power table), `base_rates.py` (the null) and
+`calibration.py` (append-only, `settle` cannot invent history) are **already instrument-agnostic**
+once `TICK` is injected. **This track adds no requirement to any of them.**
+
+### 4.6 The unit rule, stated once and enforced everywhere
+
+**Every bucket, threshold and feature in this track is in basis points of price.**
+
+GC's tick is 0.10. An MT5 broker may call a XAUUSD pip 0.01 or 0.10 — a 10× spread in what "40"
+means. A 40-tick ATR bucket is a $4.00 move on GC and could be $0.40 on spot. At gold near $2,400
+that $4.00 is ~16.7 bp, and **16.7 bp means the same thing on both instruments and on both sides of
+a contract roll.**
+
+This is the input-side twin of the pipeline design's §6.4 display trap, and it is the more dangerous
+of the two: a mis-scaled *display* renders visibly wrong, a mis-scaled *bucket* silently pools two
+different populations and reports the average as a base rate.
+
+Conversion to whatever the trader's platform calls a pip happens **once, at stage 9**, labelled.
+
+---
+
+## 5. Cost, and why the whole track is $0
+
+| Stage | Data | Cost |
+| :--- | :--- | :--- |
+| 1 GC source | on disk, already paid | **$0** |
+| 1 spot source | free feed (Dukascopy / MT5 demo) | **$0** |
+| 2–4 normalise, features, M1–M3 | derived | **$0** |
+| 4 M4 · path-dependent exit | on disk — `timestamp, price, size` is enough to order MFE against retracement | **$0**, tooling unbuilt |
+| 4 M4 · adverse-selection filter | needs `mbp-1` + `tbbo` on GC | **the only paid item** — routed around, §7 |
+| 5–9 | existing modules | **$0** |
+
+**Nothing in the build order at §6 is bought.** The `mbp-1` question is deferred, not answered: it
+gets priced only if the free spot test (§7) says spread structure is worth having. Both
+`pull_tbbo_validate.py --estimate-only` and `pull_futures_trades.py`'s cost-estimate flow return a
+number **without spending anything**, so the estimate is available for free whenever it is wanted.
+
+---
+
+## 6. Build order and status
+
+| | Step | Produces | Exists? |
+| :--- | :--- | :--- | :--- |
+| 1 | `instruments.py`; inject `TICK`; `atr_bp` | The portability seam | ❌ |
+| 2 | **M1** geometry sweep, 19 months | The EV surface — **the null everything else is quoted against** | ❌ |
+| 3 | **M3** session + event, with the 2025/2026 split | Clock profile, or a clean negative | ❌ |
+| 4 | **M2** vol momentum, against M1's corrected null | Second conditioning dimension for stage 7 | ❌ |
+| 5 | Tick replay from trades on disk | Intrabar ordering — unblocks M4b **and** the intrabar-stop question `regime_filter.py` raised | ❌ |
+| 6 | Route 2 spot feed; portable regime refit | Cross-instrument validation | ❌ |
+| 7 | `reach.py` | `PipForecast.bucket`, served | ❌ |
+
+**Steps 1–5 need no new data, no feed and no vendor decision.** If M1 returns no positive-EV cell
+and M2 and M3 both land inside their own MDE, **that is three kill conditions firing on data already
+paid for** — worth knowing before the spot-vendor question is reopened.
+
+**On the held-out half.** Steps 2 and 3 are population statistics — nothing selects, tunes or fits —
+so by `BASE_RATES.md`'s own reasoning they cost no out-of-sample data. Step 4 selects, and runs on
+the training half only. The held-out half is spent once, at the end, on whatever is still alive.
+
+**This track is not scheduled.** It takes no week from `plans/team/`, and saying so is deliberate —
+the same move `2026-09-05-live-signal-pipeline-design.md` §8 made, so unscheduled research does not
+quietly eat a product week.
+
+---
+
+## 7. The one open experiment
+
+**Does top-of-book spread carry enough structure to filter on?**
+
+On GC, quote data costs money **and** the variable is probably degenerate — GC sits at exactly one
+tick the overwhelming majority of the time, which would make `spread_z` a z-score of a near-constant
+with unstable tails. On spot, quotes **are** the entire feed: free, and spread genuinely moves.
+
+So the test runs on spot, for nothing. **Route 2, Varad's call, 6 Sep.**
+
+**The caveat that survives it:** spot spread is a **broker pricing decision, not a market outcome** —
+a dealer widens on its own risk policy and its own client flow, so two brokers disagree about the
+same instant. The result is a legitimate yes/no on *whether spread structure predicts anything*. It
+is **not** a threshold that transfers to GC or to another broker, and it must never be read as one.
+
+---
+
+## 8. How the tracks rejoin
+
+Track A restarts on one of three triggers, and the architecture is shaped so that none of them
+requires a rewrite:
+
+1. **Track B finds a conditioning structure** — a vol state, a session phase — and the question
+   becomes whether order flow adds anything *inside* that bucket. This is the most likely path and
+   the most informative: `families.py` measured flow against a **pooled** null, and a bucket-matched
+   one is a different and fairer test.
+2. **Gate 1's option (b)** — restoring condition A. Still open, and it lands in the one arm whose
+   sign was positive (+0.0184 on 77 legs, needing n ≈ 3,636 to prove).
+3. **Enough tape accumulates** for the filtered exhaustion arm — roughly 2.5 years at its observed
+   firing rate.
+
+**When it restarts, flow enters as a veto layer.** It may suppress a Track B signal on GC; it may
+never create one and never flip a side.
+
+**That rule is what keeps the two tracks comparable.** If flow could create signals, GC and spot
+would be running different strategies under one name, every cross-instrument comparison would be
+meaningless, and the first time spot underperformed nobody could say whether it was the instrument
+or the missing feature. Purely subtractive flow means the **signal set is identical on both
+instruments** and only the **filtering** differs — which is a difference that can actually be
+measured.
+
+---
+
+## 9. Open questions this file does not answer
+
+1. **Is the product still an order-flow product?** §1.1's tension. The information claim holds; the
+   edge measurement came back flat. Varad's and Shreyas's, and it interacts with licensing.
+2. **Does M1's geometry grid get committed before the sweep, and by whom.** The one place in this
+   track where a number could be chosen while looking at the answer.
+3. **Does a Dukascopy XAUUSD download complete from this machine.** Recorded unreachable once
+   (`DELTA_CVD_FINDINGS.md` §4), never retested. Ten minutes, and step one of §7.
+4. **`MIN_SAMPLES` per cell in `reach.py`**, committed before any surface is looked at. The existing
+   floor is 30; a four-dimensional bucket will produce many thin cells, and the honest answer there
+   is no forecast, not a wide one.
+5. **How much time the tick replay (step 5) gets** before it is called too expensive. Free in money,
+   largest work item here — a budget set now is worth more than one set halfway through.
+
+---
+
+## 10. The rules, collected
+
+Everything above reduces to seven lines. If only this section survives, it is the load-bearing part.
+
+1. **Portable or it does not belong in `features/portable.py`.** Both instruments, or neither.
+2. **Basis points, never ticks**, everywhere except stage 9's labelled display conversion.
+3. **`has_flow: False` raises. It never degrades.**
+4. **No threshold has a default** — same as `strategies.py` and `regime_filter.py`. A number chosen
+   while looking at the answer is a fit, not a filter.
+5. **Every lift is reported against a mix- and side-matched null, with `mde_rate` beside it**, and
+   with its N.
+6. **Track B never modifies a Track A module.** Shared modules change additively, with Track A's
+   tests as the gate.
+7. **Flow is a veto layer when it returns.** It may suppress; it may never create or flip.

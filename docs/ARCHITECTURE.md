@@ -10,6 +10,15 @@ those disagree, those win and this one is stale.
 
 ---
 
+> **Two tracks since 2026-09-06.** This file describes the system as a whole and states the product
+> thesis as order flow (§1). That thesis's core measurement came back flat — `FAMILIES.md` put both
+> arms on their own matched null at −0.0058 and −0.0003, at power that would have caught a 30%
+> relative lift — so the **order-flow track is parked** and an **L1-only strategy track** is active
+> beside it. Its architecture, its `has_flow` boundary, and the rules that keep the two separable are
+> in [`docs/strategy/ARCHITECTURE.md`](strategy/ARCHITECTURE.md). **Parked means nothing is deleted
+> and no Track A module is modified.** Whether the *product* is still an order-flow product is open,
+> and that file does not answer it either.
+
 ## 1. What the project is trying to achieve
 
 **A retail order-flow tool for gold futures, sold to ten paying subscribers by 27 Nov 2026.**
