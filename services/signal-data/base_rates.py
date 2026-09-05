@@ -49,10 +49,16 @@ def month_counts(
     edges: list[float],
     atr_window: str,
     atr_min_bars: int,
+    side: int = 1,
 ) -> pd.DataFrame:
-    """Per-ATR-bucket outcome counts for one month of ticks. Counts, not rates."""
+    """Per-ATR-bucket outcome counts for one month of ticks. Counts, not rates.
+
+    `side` matters and is not a symmetry. Gold trended over this archive, so a
+    short's base rate is its own number -- comparing a two-sided signal arm to
+    a long-only null would credit the arm with the drift.
+    """
     bars = resample_bars(minute_bars(load_ticks(path)), bar_size)
-    trades = evaluate(bars, pd.Series(1, index=bars.index), horizons=(horizon,))
+    trades = evaluate(bars, pd.Series(side, index=bars.index), horizons=(horizon,))
     trades["outcome"] = first_touch(bars, trades, target=target, stop=stop, horizon=horizon)
     measured = atr(bars, window=atr_window, min_bars=atr_min_bars).reindex(trades["t"])
     trades["bucket"] = pd.cut(measured.to_numpy(), edges)
@@ -89,6 +95,7 @@ def main() -> None:
     p.add_argument("--atr-min-bars", type=int, default=6)
     p.add_argument("--edges", type=float, nargs="+", default=[0, 30, 40, 50, 1e9])
     p.add_argument("--out", type=Path, help="write per-month per-bucket counts to CSV")
+    p.add_argument("--side", type=int, choices=[1, -1], default=1, help="+1 long, -1 short")
     a = p.parse_args()
 
     months = sorted(d for d in a.data.iterdir() if (d / "gc_trades.parquet").exists())
@@ -100,7 +107,7 @@ def main() -> None:
         counts = month_counts(
             month / "gc_trades.parquet",
             target=a.target, stop=a.stop, horizon=a.horizon, bar_size=a.bar_size,
-            edges=a.edges, atr_window=a.atr_window, atr_min_bars=a.atr_min_bars,
+            edges=a.edges, atr_window=a.atr_window, atr_min_bars=a.atr_min_bars, side=a.side,
         )
         per_month[month.name] = counts
         total = counts if total is None else total.add(counts, fill_value=0)
@@ -110,7 +117,8 @@ def main() -> None:
               flush=True)
 
     assert total is not None
-    print(f"\n=== pooled, {len(months)} months, {a.target:g}/{a.stop:g} at {a.horizon}m ===")
+    side_name = "long" if a.side > 0 else "short"
+    print(f"\n=== pooled, {len(months)} months, {side_name}, {a.target:g}/{a.stop:g} at {a.horizon}m ===")
     print(rates(total).round(4).to_string())
 
     monthly = pd.Series(

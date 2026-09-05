@@ -1283,6 +1283,12 @@ zero, and the zero is the finding.**
       A+B read exhaustion, C+D read continuation, and a combiner over a family that can agree is a
       different engine. **None of the three is a threshold to tune.**
 
+      ✅ **RESOLVED 2026-09-05: Varad chose (c).** (a) was closed on arithmetic that morning
+      (`horizon.py`'s rate power); (c) was taken and executed the same day — `families.py`,
+      [`analysis/FAMILIES.md`](../services/signal-data/analysis/FAMILIES.md). (b) stays open and
+      is now the more interesting of the two remaining threads, because the only positive sign in
+      the whole table is in the arm it would join.
+
 ---
 
 ### 2026-09-05 — repo architecture doc · [`docs/ARCHITECTURE.md`](../docs/ARCHITECTURE.md)
@@ -1492,6 +1498,53 @@ it is the population being measured, so running it over every month costs no out
 - [ ] **Still unconditional, and Gate 1 is still open.** No signal set exists, no threshold is
       committed, no pass line is set. The moment a strategy is fitted, these months become the
       population it must be held out from.
+
+### 2026-09-05 (afternoon) — Gate 1 resolved, and the split measured · `families.py`, [`analysis/FAMILIES.md`](../services/signal-data/analysis/FAMILIES.md)
+
+**Varad chose option (c): treat the B/D opposition as a specification error, split into two engines,
+measure both.** Executed the same day. **178-line `families.py` with a CLI, 4 tests, a findings doc,
+and a short-side archive null.** Suite **155 green**, `ruff` and `mypy` clean. **Training half only —
+the held-out half was not read**, and no number in the file was authored there.
+
+- [x] **No new abstraction was needed.** `engine.combine` already takes the conditions and the count,
+      so the split is a call-site decision. Nothing was added to `signals/engine.py`.
+- [x] **🔴 The result, and it is a powered null.** 70/20 at 30m against a mix- and side-matched
+      archive null:
+
+      | arm | legs | p_target | null | lift | needs | EV−cost |
+      | :--- | ---: | ---: | ---: | ---: | ---: | ---: |
+      | exhaustion `A∨B` | 393 | 0.1578 | 0.1635 | **−0.0058** | 0.2176 | −5.42 |
+      | continuation `C∨D` | 545 | 0.1651 | 0.1655 | **−0.0003** | 0.2114 | −5.18 |
+      | continuation `C∧D` | 27 | 0.1111 | 0.1755 | −0.0644 | 0.3983 | −10.66 |
+      | exhaustion `A∨B` filtered | 77 | 0.2078 | 0.1894 | **+0.0184** | 0.3217 | −2.18 |
+      | continuation `C∨D` filtered | 47 | 0.1702 | 0.1933 | −0.0231 | 0.3653 | −5.66 |
+
+      **`C∨D` is −0.0003 on 545 legs — dead on its own base rate to four decimals.** Both powered arms
+      had `needs` ≈ 0.21 against a null of ~0.164, so **a 30% relative lift would have been seen.**
+      This is *"we looked and there is nothing there"*, not *"we could not tell"* — which is exactly
+      what option (a)'s 46 signals could never have produced. **No arm is profitable**; the best is
+      −0.78 ticks, −2.18 after cost.
+- [x] **The one positive number, at its true weight.** Filtered exhaustion **+0.0184** on 77 legs.
+      Proving it needs **n ≈ 3,636** — about **600 sessions, ~2.5 years of tape**. Not evidence. It is
+      the only arm pointing up, and it is the arm **option (b) would add to.**
+- [x] **The null is mix- AND side-matched, and both mattered.** Mix, because `BASE_RATES.md` §3 showed
+      the headline swings through ATR mix — the filtered arms' nulls rise to 0.189–0.193 purely
+      because the ATR gate pushes them into higher buckets, and that rise is exactly the credit they
+      must not get. Side, because shorts beat longs in **every** bucket over the archive
+      (0.0609/0.1514/0.1874/0.2025 against 0.0563/0.1370/0.1688/0.1990), so a long-only null would
+      have understated it everywhere. `base_rates.py` gained a `--side` flag and a second 107,359-leg run.
+- [x] **🐛 A bug that looked exactly like a finding, caught before it was reported.** The first run
+      said **zero filtered signals in every arm** — which reads as a dramatic result about the filter.
+      `KAPPA_HORIZON_BARS` had been *derived* (30m ÷ 5-min bars = 6) rather than transcribed; at 6 bars
+      every regime's kappa falls to ~0.30, all three fail the 0.75 gate, and the filter passes 0 of
+      3,516 bars. The recorded value is **1**. **What caught it: the other four gates reproduced the
+      2026-09-04 record exactly** — 41.1 / 59.2 / 66.4 / 99.3% — while kappa alone read 0.0%.
+      `tests/test_families.py` now asserts kappa (0.842/0.833/0.798) and the four fire counts
+      (A 0, B 405, C 386, D 213) against that entry; the second test would have caught it instantly.
+- [ ] **What is not settled.** This says nothing about the conditions being wrong *in principle* —
+      only that these four, at these thresholds, on this half of this month, do not beat their null.
+      Held-out and the other 18 months are untouched. **Option (b) is still open and is now the more
+      interesting thread.**
 
 ---
 
