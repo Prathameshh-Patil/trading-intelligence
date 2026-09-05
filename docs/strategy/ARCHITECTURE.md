@@ -23,7 +23,7 @@ it does not, it says so.
 | Data | Databento `trades` (46M rows, 19 months, on disk) | The same 46M rows, plus a free spot feed |
 | Status | **PARKED 2026-09-06** | **ACTIVE** |
 | Cost to proceed | `mbp-1` / book data, unpriced | **$0** — see §5 |
-| Code | `features/orderflow.py`, `signals/engine.py`, `families.py`, `compute_delta_cvd.py` | `features/portable.py`, `reach.py`, `instruments.py` — **none of these exist yet** |
+| Code | `features/orderflow.py`, `signals/engine.py`, `families.py`, `compute_delta_cvd.py` | `instruments.py` and `features/portable.py` — **both landed 6 Sep**, `reach.py` does not exist |
 
 **Both tracks share one measurement stack** — `backtest.py`, `horizon.py`, `base_rates.py`,
 `calibration.py` — and that sharing is the point. It is what makes the two tracks' results
@@ -317,13 +317,18 @@ number **without spending anything**, so the estimate is available for free when
 
 | | Step | Produces | Exists? |
 | :--- | :--- | :--- | :--- |
-| 1 | `instruments.py`; inject `TICK`; `atr_bp` | The portability seam | ❌ |
+| 1 | `instruments.py`; inject `TICK`; `atr_bp` | The portability seam | ✅ **6 Sep** |
 | 2 | **M1** geometry sweep, 19 months | The EV surface — **the null everything else is quoted against** | ❌ |
 | 3 | **M3** session + event, with the 2025/2026 split | Clock profile, or a clean negative | ❌ |
 | 4 | **M2** vol momentum, against M1's corrected null | Second conditioning dimension for stage 7 | ❌ |
 | 5 | Tick replay from trades on disk | Intrabar ordering — unblocks M4b **and** the intrabar-stop question `regime_filter.py` raised | ❌ |
 | 6 | Route 2 spot feed; portable regime refit | Cross-instrument validation | ❌ |
 | 7 | `reach.py` | `PipForecast.bucket`, served | ❌ |
+
+**Step 1 shipped 6 Sep** — `instruments.py`, `TICK` injected through every module that imported
+it, `atr_bp`, and every §4.3 / §4.4 signature committed raising `NotImplementedError`. Suite
+165 green, `ruff` and `mypy` clean. Two named deviations from S8 as drafted, both recorded in
+`plans/team/strategy-split.md` §8 and neither yet put to the room.
 
 **Steps 1–5 need no new data, no feed and no vendor decision.** If M1 returns no positive-EV cell
 and M2 and M3 both land inside their own MDE, **that is three kill conditions firing on data already

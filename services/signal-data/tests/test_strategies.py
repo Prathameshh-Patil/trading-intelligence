@@ -24,7 +24,9 @@ from conftest import NEXT, SESSION, bars_at, noise, ticks_at
 
 import backtest as bt
 import strategies as st
-from s1 import TICK
+from instruments import GC
+
+TICK = GC.tick
 
 
 # --------------------------------------------------------------------------
@@ -65,7 +67,7 @@ def test_no_feature_reads_a_bar_later_than_its_own() -> None:
     for feature in (
         lambda b: st.delta_z(b, window="30min", min_bars=5),
         lambda b: st.cvd_slope(b, window="30min", min_bars=5),
-        lambda b: st.absorption(b),
+        lambda b: st.absorption(b, GC),
     ):
         before, after = feature(bars).iloc[:50], feature(later).iloc[:50]
         pd.testing.assert_series_equal(before, after)
@@ -101,7 +103,7 @@ def test_absorption_fades_heavy_delta_that_did_not_move_price() -> None:
     # 900 contracts bought into a bar one tick wide. The buyers got filled and
     # price went nowhere, so the resting seller won: fade it.
     bars = bars_at([0, 1, 2], [100.0] * 3, deltas=[10, 900, 10], ranges=[0.5, 0.1, 0.5])
-    sig = st.absorption_fade(bars, min_ratio=500.0, min_delta=100)
+    sig = st.absorption_fade(bars, GC, min_ratio=500.0, min_delta=100)
     assert sig.iloc[1] == -1
     assert sig.iloc[0] == 0 and sig.iloc[2] == 0
 
@@ -112,7 +114,7 @@ def test_a_dead_bar_is_not_absorption() -> None:
     # were 5- and 6-lot bars in the Globex-open dead zone. Absorption means
     # SIZE that failed to move price, so the size floor is load-bearing.
     bars = bars_at([0, 1], [100.0, 100.0], deltas=[5, 900], ranges=[0.1, 0.1])
-    sig = st.absorption_fade(bars, min_ratio=5.0, min_delta=100)
+    sig = st.absorption_fade(bars, GC, min_ratio=5.0, min_delta=100)
     assert sig.iloc[0] == 0, "five contracts is an empty market, not absorption"
     assert sig.iloc[1] == -1
 
@@ -121,7 +123,7 @@ def test_absorption_survives_a_bar_that_never_moved() -> None:
     # high == low is a real bar and the purest absorption there is. It must
     # not divide by zero and it must not become inf.
     bars = bars_at([0], [100.0], deltas=[900], ranges=[0.0])
-    assert np.isfinite(st.absorption(bars)).all()
+    assert np.isfinite(st.absorption(bars, GC)).all()
 
 
 def test_footprint_stacks_on_the_buy_side() -> None:
@@ -132,10 +134,10 @@ def test_footprint_stacks_on_the_buy_side() -> None:
         rows += [(0, p, 400, "B"), (0, p - TICK, 10, "A")]
     ticks = ticks_at(rows)
     bars = bars_at([0], [100.2], deltas=[1170], ranges=[0.3])
-    sig = st.footprint_stack(ticks, bars, ratio=3.0, min_stack=3)
+    sig = st.footprint_stack(ticks, bars, GC, ratio=3.0, min_stack=3)
     assert sig.iloc[0] == 1
 
-    assert (st.footprint_stack(ticks, bars, ratio=3.0, min_stack=4) == 0).all(), "four stacked levels do not exist"
+    assert (st.footprint_stack(ticks, bars, GC, ratio=3.0, min_stack=4) == 0).all(), "four stacked levels do not exist"
 
 
 def test_a_lone_print_with_nothing_opposite_is_not_an_imbalance() -> None:
@@ -143,7 +145,7 @@ def test_a_lone_print_with_nothing_opposite_is_not_an_imbalance() -> None:
     # divide-by-nothing must not read as infinite imbalance.
     ticks = ticks_at([(0, 100.0, 5, "B")])
     bars = bars_at([0], [100.0], deltas=[5])
-    assert (st.footprint_stack(ticks, bars, ratio=3.0, min_stack=1) == 0).all()
+    assert (st.footprint_stack(ticks, bars, GC, ratio=3.0, min_stack=1) == 0).all()
 
 
 # --------------------------------------------------------------------------
@@ -163,8 +165,8 @@ def test_no_strategy_has_a_default_threshold() -> None:
     for call in (
         lambda: st.delta_outlier(bars),  # type: ignore[call-arg]
         lambda: st.cvd_divergence(bars),  # type: ignore[call-arg]
-        lambda: st.absorption_fade(bars),  # type: ignore[call-arg]
-        lambda: st.footprint_stack(ticks, bars),  # type: ignore[call-arg]
+        lambda: st.absorption_fade(bars, GC),  # type: ignore[call-arg]
+        lambda: st.footprint_stack(ticks, bars, GC),  # type: ignore[call-arg]
     ):
         with pytest.raises(TypeError, match="required keyword-only"):
             call()
@@ -175,4 +177,4 @@ def test_signals_are_valid_input_to_the_backtest_harness() -> None:
     sig = st.delta_outlier(bars, window="30min", min_bars=10, z=1.0)
     assert set(sig.unique()) <= {-1, 0, 1}
     assert sig.index.equals(bars.index)
-    bt.evaluate(bars, sig, horizons=(5,))  # raises if the index contract is broken
+    bt.evaluate(bars, sig, GC, horizons=(5,))  # raises if the index contract is broken

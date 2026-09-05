@@ -33,6 +33,7 @@ from collections.abc import Callable
 import pandas as pd
 
 import backtest as bt
+from instruments import Instrument
 
 type Thresholds = dict[str, float | int | str]
 type Candidate = tuple[Callable[..., pd.Series], Thresholds]
@@ -71,6 +72,7 @@ def perturb(thresholds: Thresholds, k: float) -> Thresholds:
 def run(
     candidates: dict[str, Candidate],
     bars: pd.DataFrame,
+    inst: Instrument,
     *,
     horizons: tuple[int, ...] = bt.HORIZONS,
     seed: int = 0,
@@ -103,9 +105,9 @@ def run(
             variants["filtered"] = decision_filter(entries, bars)
 
         for variant, sides in variants.items():
-            trades = bt.evaluate(bars, sides, horizons)
+            trades = bt.evaluate(bars, sides, inst, horizons)
             for h in horizons:
                 rows.append(
-                    {"strategy": name, "variant": variant, "horizon": h, **bt.summarize(trades, h)}
+                    {"strategy": name, "variant": variant, "horizon": h, **bt.summarize(trades, inst, h)}
                 )
     return pd.DataFrame(rows)

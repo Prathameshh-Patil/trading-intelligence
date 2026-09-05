@@ -53,6 +53,7 @@ import pandas as pd
 
 from features.expansion import atr, bar_range, body_ratio
 from features.orderflow import cvd_slope
+from instruments import GC
 from strategies import _align, _sides, _window
 
 
@@ -128,8 +129,8 @@ def range_expansion(
     denominator. That is the conservative direction, and it avoids a second
     windowing convention living next to the one `regime_filter` gates on.
     """
-    wide = bar_range(bars) >= mult * atr(bars, window=atr_window, min_bars=atr_min_bars)
-    strong = body_ratio(bars) >= body_min
+    wide = bar_range(bars, GC) >= mult * atr(bars, GC, window=atr_window, min_bars=atr_min_bars)
+    strong = body_ratio(bars, GC) >= body_min
     direction = np.sign(bars["close"] - bars["open"])
     return _sides(wide & strong & (direction > 0), wide & strong & (direction < 0), bars)
 

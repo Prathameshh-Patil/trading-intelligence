@@ -35,6 +35,7 @@ import pandas as pd
 
 from backtest import evaluate, first_touch
 from features.expansion import atr
+from instruments import GC
 from regimes import resample_bars
 from s1 import load_ticks, minute_bars
 
@@ -57,10 +58,11 @@ def month_counts(
     short's base rate is its own number -- comparing a two-sided signal arm to
     a long-only null would credit the arm with the drift.
     """
+    # GC is pinned, not injected: `path` is an S1 parquet and only GC produces one.
     bars = resample_bars(minute_bars(load_ticks(path)), bar_size)
-    trades = evaluate(bars, pd.Series(side, index=bars.index), horizons=(horizon,))
-    trades["outcome"] = first_touch(bars, trades, target=target, stop=stop, horizon=horizon)
-    measured = atr(bars, window=atr_window, min_bars=atr_min_bars).reindex(trades["t"])
+    trades = evaluate(bars, pd.Series(side, index=bars.index), GC, horizons=(horizon,))
+    trades["outcome"] = first_touch(bars, trades, GC, target=target, stop=stop, horizon=horizon)
+    measured = atr(bars, GC, window=atr_window, min_bars=atr_min_bars).reindex(trades["t"])
     trades["bucket"] = pd.cut(measured.to_numpy(), edges)
 
     done = trades.dropna(subset=["outcome", "bucket"])

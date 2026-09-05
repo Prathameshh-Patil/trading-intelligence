@@ -1,5 +1,9 @@
 """Layer 3's order-flow features: what the flow did, and where price sits.
 
+**VENUE-SPECIFIC -- GC only.** ARCHITECTURE §2. Spot gold has no tape, no
+aggregate volume and no aggressor, so nothing in this file is computable
+there; `instruments.require_flow` is what says so out loud.
+
 Week 1 D2, `plans/team/week-01.md` §3. **D2 says import, do not re-derive**,
 and three of the four names here are that import: `delta_z`, `cvd_slope` and
 `absorption` already exist in `strategies.py`, tested, with the session-window
@@ -19,7 +23,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from s1 import TICK
+from instruments import Instrument, require_flow
 from strategies import _align, _window, absorption, cvd_slope, delta_z
 
 __all__ = [
@@ -88,11 +92,12 @@ def vwap(bars: pd.DataFrame) -> pd.Series:
     return traded / volume.where(volume > 0)
 
 
-def vwap_distance(bars: pd.DataFrame) -> pd.Series:
-    """Close minus session VWAP, in TICKS. Signed: above is positive.
+def vwap_distance(bars: pd.DataFrame, inst: Instrument) -> pd.Series:
+    """Close minus session VWAP, in TICKS of `inst`. Signed: above is positive.
 
     This is the feature; `vwap` is the intermediate. A raw VWAP is ~4,000 and
     its distribution says nothing, which matters because D2's deliverable is
     every feature's distribution and one of them would have been unreadable.
     """
-    return (bars["close"] - vwap(bars)) / TICK
+    require_flow(inst)
+    return (bars["close"] - vwap(bars)) / inst.tick

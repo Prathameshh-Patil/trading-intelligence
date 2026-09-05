@@ -19,8 +19,7 @@ from pathlib import Path
 
 import pandas as pd
 
-TICK = 0.10          # GC minimum price increment
-TICK_VALUE = 10.0    # USD per tick per contract (100 troy oz)
+from instruments import GC
 
 # Both encodings map here. The exchange codes are what the S1 parquet carries;
 # the long names are what pull_futures_trades.py writes. Keeping one table means
@@ -35,10 +34,13 @@ DTYPES = {
     "aggressor_side": "category",
 }
 
-# Globex gold runs 18:00 -> 17:00 ET. Under EDT that is 22:00 -> 21:00 UTC, so
-# +2h rolls a session onto the calendar date a trader would file it under. A
-# month crossing DST needs a real exchange calendar instead.
-SESSION_SHIFT = pd.Timedelta(hours=2)
+# This is the S1 GC loader, so the instrument is pinned rather than injected:
+# a Databento `trades` parquet for GC is not a frame any other instrument
+# produces. What used to live here as TICK now lives in instruments.py, and
+# nothing imports it -- see that module's docstring for why. The session shift
+# stays reachable under its old name because regimes.py reads it, but it is
+# GC's, defined once, in the seam.
+SESSION_SHIFT = GC.session_shift
 
 
 def load_ticks(path: Path) -> pd.DataFrame:

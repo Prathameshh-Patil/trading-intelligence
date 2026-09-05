@@ -17,16 +17,23 @@ from __future__ import annotations
 
 import pandas as pd
 
-from s1 import TICK
+from instruments import Instrument
 from strategies import _align, _window
 
 
-def atr(bars: pd.DataFrame, *, window: str, min_bars: int) -> pd.Series:
-    """Average true range over a trailing clock window, in TICKS.
+def atr(bars: pd.DataFrame, inst: Instrument, *, window: str, min_bars: int) -> pd.Series:
+    """Average true range over a trailing clock window, in TICKS of `inst`.
 
     Ticks because every threshold in this project is in ticks (Part A, A7).
     A filter that quietly used points would be a factor-of-ten error visible
     only as a surprising pass rate.
+
+    **`inst` is required and has no default.** A tick imported rather than
+    passed is the assumption `instruments.py` exists to delete: at 40 ticks
+    this reads as a $4.00 move on GC and could be $0.40 on spot, and the two
+    are indistinguishable in the output. Track B wants this in basis points
+    and calls `features.portable.atr_bp`, which wraps this rather than
+    re-deriving it.
 
     True range needs the previous close, which is NaN at each session's first
     bar -- so that bar's range is high-low, which is the right answer rather
@@ -42,20 +49,20 @@ def atr(bars: pd.DataFrame, *, window: str, min_bars: int) -> pd.Series:
         axis=1,
     ).max(axis=1)
     rolled = _window(bars.assign(_tr=tr), "_tr", window, min_bars).mean()
-    return _align(rolled, bars) / TICK
+    return _align(rolled, bars) / inst.tick
 
 
-def bar_range(bars: pd.DataFrame) -> pd.Series:
-    """High minus low, in ticks.
+def bar_range(bars: pd.DataFrame, inst: Instrument) -> pd.Series:
+    """High minus low, in ticks of `inst`.
 
     No window and no session grouping: a bar's own range is the one feature
     here that cannot be contaminated by its neighbours, which is why it is
     worth having next to ATR rather than folded into it.
     """
-    return (bars["high"] - bars["low"]) / TICK
+    return (bars["high"] - bars["low"]) / inst.tick
 
 
-def body_ratio(bars: pd.DataFrame) -> pd.Series:
+def body_ratio(bars: pd.DataFrame, inst: Instrument) -> pd.Series:
     """Body as a fraction of range: |close - open| / (high - low).
 
     Near 1 the bar went one way and held it; near 0 it travelled and gave it
@@ -63,5 +70,5 @@ def body_ratio(bars: pd.DataFrame) -> pd.Series:
     closes on its open is not expansion, it is a fight, and ATR alone cannot
     tell the two apart.
     """
-    span = (bars["high"] - bars["low"]).clip(lower=TICK)
+    span = (bars["high"] - bars["low"]).clip(lower=inst.tick)
     return (bars["close"] - bars["open"]).abs() / span

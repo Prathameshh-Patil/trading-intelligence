@@ -70,6 +70,7 @@ import pandas as pd
 
 from features.expansion import atr
 from features.orderflow import cvd_persistence
+from instruments import GC
 
 
 def regime_survival(bars: pd.DataFrame, *, horizon_bars: int) -> pd.Series:
@@ -169,7 +170,7 @@ def passes(
             )
             >= persistence_min
         )
-        & (atr(bars, window=atr_window, min_bars=atr_min_bars) >= atr_min)
+        & (atr(bars, GC, window=atr_window, min_bars=atr_min_bars) >= atr_min)
         & trend_aligned(bars, span=ema_span)
         & session_interior(bars, edge_minutes=edge_minutes)
     )

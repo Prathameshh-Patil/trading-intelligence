@@ -25,6 +25,13 @@ Three traps, all of which produce signal series that look entirely plausible:
     Windows are clock-based offsets, matching `backtest.py`'s horizons.
   * A window that spans the overnight break scores NY against Asia. Windows
     are grouped by session and restart at the boundary.
+
+**Every tick-denominated function here takes an `Instrument`** -- see
+`instruments.py` -- and the two that also read flow call `require_flow` first.
+That guard is not redundant with the missing column it would otherwise trip
+over: an MT5 spot feed carries a `volume` column holding a TICK COUNT, so a
+frame from a flow-less instrument can satisfy every column check and still
+have no aggregate volume in it. The KeyError is luck; the guard is the rule.
 """
 
 from __future__ import annotations
@@ -33,7 +40,7 @@ import numpy as np
 import pandas as pd
 from pandas.api.typing import RollingGroupby
 
-from s1 import TICK
+from instruments import Instrument, require_flow
 
 
 def _window(bars: pd.DataFrame, col: str, window: str, min_bars: int) -> RollingGroupby:
@@ -81,18 +88,19 @@ def cvd_slope(bars: pd.DataFrame, *, window: str, min_bars: int) -> pd.Series:
     return _align(r.apply(lambda a: a[-1] - a[0], raw=True), bars)
 
 
-def absorption(bars: pd.DataFrame) -> pd.Series:
+def absorption(bars: pd.DataFrame, inst: Instrument) -> pd.Series:
     """Contracts traded per tick of price movement.
 
     A bar that closed where it opened and never traded away is the purest
     absorption there is, so the range floors at one tick. Dividing by zero
     would turn the strongest case into `inf` and then into a dropped row.
     """
-    span = ((bars["high"] - bars["low"]) / TICK).clip(lower=1.0)
+    require_flow(inst)
+    span = ((bars["high"] - bars["low"]) / inst.tick).clip(lower=1.0)
     return bars["delta"].abs() / span
 
 
-def bar_imbalance(ticks: pd.DataFrame, *, ratio: float) -> pd.DataFrame:
+def bar_imbalance(ticks: pd.DataFrame, inst: Instrument, *, ratio: float) -> pd.DataFrame:
     """Per-bar diagonal footprint imbalance: buy volume at a price against sell
     volume one tick below it, which is the comparison footprint charts draw.
 
@@ -103,10 +111,11 @@ def bar_imbalance(ticks: pd.DataFrame, *, ratio: float) -> pd.DataFrame:
     A level with nothing resting opposite is skipped rather than counted as
     infinite imbalance: one lone print is not a stack.
     """
+    require_flow(inst)
     cell = (
         ticks.assign(
             bar=ticks["timestamp"].dt.floor("1min"),
-            lvl=(ticks["price"] / TICK).round().astype("int64"),
+            lvl=(ticks["price"] / inst.tick).round().astype("int64"),
             buy=ticks["delta"].clip(lower=0),
             sell=(-ticks["delta"]).clip(lower=0),
         )
@@ -156,7 +165,9 @@ def cvd_divergence(
     return _sides((bars["close"] <= lo) & (flow >= min_slope), (bars["close"] >= hi) & (flow <= -min_slope), bars)
 
 
-def absorption_fade(bars: pd.DataFrame, *, min_ratio: float, min_delta: float) -> pd.Series:
+def absorption_fade(
+    bars: pd.DataFrame, inst: Instrument, *, min_ratio: float, min_delta: float
+) -> pd.Series:
     """Fade. A bar trading at least `min_ratio` contracts per tick of range, on
     at least `min_delta` contracts of one-sided flow, means aggressors got
     filled and price did not follow: take the opposite side of the delta.
@@ -173,12 +184,12 @@ def absorption_fade(bars: pd.DataFrame, *, min_ratio: float, min_delta: float) -
     trapped. Part B is where that gets decided, and if it is continuation this
     function is one sign change.
     """
-    heavy = (absorption(bars) >= min_ratio) & (bars["delta"].abs() >= min_delta)
+    heavy = (absorption(bars, inst) >= min_ratio) & (bars["delta"].abs() >= min_delta)
     return pd.Series(np.where(heavy, -np.sign(bars["delta"]), 0), index=bars.index).astype("int64")
 
 
 def footprint_stack(
-    ticks: pd.DataFrame, bars: pd.DataFrame, *, ratio: float, min_stack: int
+    ticks: pd.DataFrame, bars: pd.DataFrame, inst: Instrument, *, ratio: float, min_stack: int
 ) -> pd.Series:
     """Continuation. At least `min_stack` price levels inside the bar where
     buy volume is `ratio` times the sell volume one tick below, and no level
@@ -190,9 +201,86 @@ def footprint_stack(
     Counts levels, not runs. Consecutive stacking is the stricter reading and
     is not implemented -- it is a different rule with its own Part B block.
     """
-    imb = bar_imbalance(ticks, ratio=ratio).reindex(bars.index).fillna(0)
+    imb = bar_imbalance(ticks, inst, ratio=ratio).reindex(bars.index).fillna(0)
     return _sides(
         (imb["buy_imb"] >= min_stack) & (imb["sell_imb"] == 0),
         (imb["sell_imb"] >= min_stack) & (imb["buy_imb"] == 0),
         bars,
     )
+
+
+# --------------------------------------------------------------------------
+# Track B. SIGNATURES COMMITTED, BODIES NOT WRITTEN -- strategy-split.md §3
+# point 4 and §4.
+#
+# These three exist as stubs on day one so two people can fill in disjoint
+# bodies in this file without either appending to a moving target. Order,
+# names and parameter lists change only at standup; `m4_*` is contested
+# (ARCHITECTURE §7) and is deliberately absent rather than reserved.
+#
+# **All three are NON-DIRECTIONAL, and that changes what the return value
+# means.** They return +1 where the rule fires and 0 where it does not, never
+# -1, so `backtest.evaluate` consumes them unchanged -- but the `move_*`
+# columns it produces are then a signed quantity for an unsigned claim, and
+# the measurement reads |move|, `mfe` and the reach table off them. Reading a
+# hit rate off `move > 0` here is answering a question none of the three asks.
+# --------------------------------------------------------------------------
+def m1_geometry(bars: pd.DataFrame, inst: Instrument, *, side: int) -> pd.Series:
+    """M1, the geometry frontier: enter every bar, and let the sweep decide.
+
+    ARCHITECTURE §4.4. The rule has no entry condition on purpose -- M1 asks
+    what `(target, stop, horizon)` has positive EV per
+    `(atr_bp x phase x side)`, which is a property of the tape rather than of
+    a signal. **It runs first because M2's brackets are read off its surface
+    rather than guessed**, and because its output is the corrected null every
+    later lift in this track is quoted against.
+
+    The grid is swept at the CALL SITE, through `backtest.reach_table` over
+    the bucketed legs. It is not a parameter here, and it must be committed to
+    Prathamesh in a commit before the sweep runs (split.md §7) -- a grid
+    widened after the surface is visible is a fit with extra steps.
+    """
+    raise NotImplementedError("M1 -- step 2, and the geometry grid is pre-committed first")
+
+
+def m2_vol_momentum(
+    bars: pd.DataFrame, inst: Instrument, *, window: str, min_bars: int, slope_min: float
+) -> pd.Series:
+    """M2, vol momentum and compression: fire where realized vol is EXPANDING.
+
+    ARCHITECTURE §4.4. Signed `rv_slope` over the trailing `window`, against
+    the ATR-matched null -- `slope_min` is the cut that separates EXPANDING
+    from STABLE, and its mirror below zero is CONTRACTING. The claim is about
+    MAGNITUDE, `P(|move| >= T within H)`, which is why the return is +1/0.
+
+    **This does not contradict `horizon.py`.** A price series that is a random
+    walk in direction can have entirely predictable scale, and only the first
+    of those was measured. That is the highest prior of the four candidates
+    and it is also the one most likely to be already in the price of the
+    bracket, so the null is the thing to get right here, not the feature.
+
+    Runs on the training half only: it selects, so it costs out-of-sample data
+    (ARCHITECTURE §6).
+    """
+    raise NotImplementedError("M2 -- step 4, and it waits on M1's corrected null")
+
+
+def m3_session_event(
+    bars: pd.DataFrame, inst: Instrument, *, phases: tuple[str, ...], event_window_minutes: int
+) -> pd.Series:
+    """M3, session and event conditioning: fire inside `phases`, or near an event.
+
+    ARCHITECTURE §4.4. Prathamesh's, and the clock lane's whole vertical --
+    `session_phase` and `event_proximity` come from `features/portable.py`.
+    Needs no market data beyond the bars already on disk, which is what makes
+    the entire clock lane testable before a spot vendor is chosen.
+
+    **The result is only a finding if it survives the 2025-01..09 against
+    2025-10..2026-07 split**, the way the 50+ ATR bucket held 0.2000 -> 0.1989
+    while the headline moved 2.2x. A phase profile that does not survive it is
+    a description of 2025.
+
+    The six phase boundaries in UTC, the event window, and the split date are
+    all pre-committed to Varad before this runs (split.md §7).
+    """
+    raise NotImplementedError("M3 -- step 3, and the phase boundaries are pre-committed first")

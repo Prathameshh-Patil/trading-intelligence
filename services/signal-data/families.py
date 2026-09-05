@@ -41,6 +41,7 @@ import signals.engine as en
 from features.expansion import atr
 from features.regime_filter import passes, regime_kappa
 from horizon import mde_rate
+from instruments import GC
 
 # D3's committed thresholds, transcribed from daily_updates/2026-09-04.md.
 # Windows are borrowed, not invented: B and C run on `cvd_divergence`'s Part B
@@ -104,12 +105,14 @@ def archive_rates(long_csv: Path, short_csv: Path) -> pd.Series:
 def measure(bars: pd.DataFrame, entries: pd.Series, rates: pd.Series, *, target: float,
             stop: float, horizon: int) -> dict[str, float]:
     """One arm: what it did, what the matched null says it should have done."""
-    trades = bt.evaluate(bars, entries, horizons=(horizon,))
+    trades = bt.evaluate(bars, entries, GC, horizons=(horizon,))
     if trades.empty:
         return {"signals": 0, "legs": 0}
 
-    trades["outcome"] = bt.first_touch(bars, trades, target=target, stop=stop, horizon=horizon)
-    measured = atr(bars, window=RANGE["atr_window"], min_bars=RANGE["atr_min_bars"])  # type: ignore[arg-type]
+    trades["outcome"] = bt.first_touch(
+        bars, trades, GC, target=target, stop=stop, horizon=horizon
+    )
+    measured = atr(bars, GC, window=RANGE["atr_window"], min_bars=RANGE["atr_min_bars"])  # type: ignore[arg-type]
     trades["bucket"] = pd.cut(measured.reindex(trades["t"]).to_numpy(), EDGES).astype(str)
     done = trades.dropna(subset=["outcome"])
     if done.empty:

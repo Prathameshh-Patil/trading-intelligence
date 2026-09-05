@@ -1,6 +1,6 @@
 # Trading Intelligence — Current Plan
 
-Live tracker: who owns what, what is done, what is next. **Last updated: 2026-09-03.**
+Live tracker: who owns what, what is done, what is next. **Last updated: 2026-09-06.**
 
 > **The twelve-week schedule lives in [`plans/team/`](team/README.md).** This file stays the live
 > status tracker — what is done, what is open, who owns it. `plans/team/` is the day-by-day
@@ -1551,6 +1551,37 @@ the held-out half was not read**, and no number in the file was authored there.
       only that these four, at these thresholds, on this half of this month, do not beat their null.
       Held-out and the other 18 months are untouched. **Option (b) is still open and is now the more
       interesting thread.**
+
+### 2026-09-06 — the portability seam, and `TICK` stops being an import · `instruments.py`, `features/portable.py` · [`daily_updates/2026-09-06.md`](../daily_updates/2026-09-06.md)
+
+**Step 1 of `docs/strategy/ARCHITECTURE.md` §6 — the only thing either lane of the strategy track
+waits on — shipped the same day the split was written.** Suite **165 green** (155 before, 10 new),
+`ruff` and `mypy` clean across 37 files. **Track A's tests were the regression gate and were green
+either side.** **The clock lane is unblocked and can start on `session_phase` today.**
+
+- [x] **`instruments.py`, and `TICK` is gone from `s1.py`.** It was never a constant — it was an
+      assumption about which instrument was being measured, imported by `backtest.py`,
+      `strategies.py`, `horizon.py`, `features/expansion.py` and `features/orderflow.py`, and **an
+      import cannot be wrong out loud.** Every tick-denominated function now takes an `Instrument`;
+      `tests/test_instruments.py` asserts the name no longer exists on `s1`.
+- [x] **`atr_bp` ships, wrapping `expansion.atr` rather than re-deriving it** — `regime_filter.py`'s
+      rule, which carries double force with two people writing trailing windows. On the same bars
+      `atr` answers 20.0 ticks for GC and 200.0 for a 0.01-tick instrument; `atr_bp` answers 200.0 bp
+      for both. That is §4.6's argument, and it is now a test.
+- [x] **14 signatures committed raising `NotImplementedError`**, in `strategy-split.md` §4's order,
+      with a test asserting the order. This is what buys the independence: two people fill in
+      disjoint bodies in the same two files without either appending to a moving target.
+- [ ] **⚠️ Three decisions in it that the room has not signed.** `XAUUSD` is deliberately **not**
+      defined — Route 2 has no vendor and a spot tick is broker-dependent, so a placeholder would put
+      a guessed number in the seam. S8's `session: SessionCalendar` shipped as
+      `session_shift: pd.Timedelta`, recorded as an amendment in `strategy-split.md` §8, which is
+      still marked NOT FROZEN. And **the parked Track A modules were touched, one line each** —
+      `signals/engine.py`, `features/regime_filter.py`, `families.py` now pass `GC` explicitly,
+      because the alternative to a required argument is a GC default, which is the silent assumption
+      the seam removes.
+- [ ] **Next, and it is Varad's:** the three §7 pre-commitments — M1's geometry grid, the `atr_bp`
+      bucket edges, `MIN_SAMPLES` for `reach.py`. Due **before** the sweep runs and before any
+      surface is looked at, committed to Prathamesh. Nothing about step 2 starts until they exist.
 
 ---
 

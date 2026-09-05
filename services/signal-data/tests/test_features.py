@@ -16,7 +16,9 @@ from conftest import NEXT, SESSION, bars_at
 
 from features import expansion as ex
 from features import orderflow as of
-from s1 import TICK
+from instruments import GC
+
+TICK = GC.tick
 
 
 # --------------------------------------------------------------------------
@@ -24,12 +26,12 @@ from s1 import TICK
 # --------------------------------------------------------------------------
 def test_atr_is_in_ticks_not_price() -> None:
     bars = bars_at(list(range(10)), [100.0] * 10, ranges=[2.0] * 10)
-    assert ex.atr(bars, window="5min", min_bars=3).dropna().round(6).eq(20.0).all()
+    assert ex.atr(bars, GC, window="5min", min_bars=3).dropna().round(6).eq(20.0).all()
 
 
 def test_atr_has_no_value_until_the_window_is_full() -> None:
     bars = bars_at(list(range(10)), [100.0] * 10, ranges=[2.0] * 10)
-    a = ex.atr(bars, window="5min", min_bars=5)
+    a = ex.atr(bars, GC, window="5min", min_bars=5)
     assert a.iloc[:4].isna().all()
     assert a.iloc[4:].notna().all()
 
@@ -41,7 +43,7 @@ def test_atr_does_not_measure_the_gap_across_a_session_break() -> None:
         ranges=[2.0] * 8,
         session=[SESSION] * 4 + [NEXT] * 4,
     )
-    assert ex.atr(bars, window="5min", min_bars=1).iloc[4] == 20.0
+    assert ex.atr(bars, GC, window="5min", min_bars=1).iloc[4] == 20.0
 
 
 def test_regime_filter_uses_the_same_atr() -> None:
@@ -56,7 +58,7 @@ def test_regime_filter_uses_the_same_atr() -> None:
 # --------------------------------------------------------------------------
 def test_bar_range_is_ticks() -> None:
     bars = bars_at([0, 1, 2], [100.0] * 3, ranges=[0.5, 2.0, 6.0])
-    assert list(ex.bar_range(bars).round(6)) == [5.0, 20.0, 60.0]
+    assert list(ex.bar_range(bars, GC).round(6)) == [5.0, 20.0, 60.0]
 
 
 def test_body_ratio_spans_zero_to_one() -> None:
@@ -66,7 +68,7 @@ def test_body_ratio_spans_zero_to_one() -> None:
     full = bars.copy()
     full.loc[full.index[0], "open"] = 99.0
     full.loc[full.index[0], "close"] = 101.0
-    r = ex.body_ratio(full)
+    r = ex.body_ratio(full, GC)
     assert r.iloc[0] == 1.0, "open at the low, close at the high"
     assert r.iloc[1] == 0.0, "open equals close is a doji"
 
@@ -74,8 +76,8 @@ def test_body_ratio_spans_zero_to_one() -> None:
 def test_a_zero_range_bar_is_zero_not_infinite() -> None:
     # Gold prints these: one price, never traded away. 0/0 must not be inf.
     bars = bars_at([0], [100.0], ranges=[0.0])
-    assert ex.body_ratio(bars).iloc[0] == 0.0
-    assert np.isfinite(ex.body_ratio(bars)).all()
+    assert ex.body_ratio(bars, GC).iloc[0] == 0.0
+    assert np.isfinite(ex.body_ratio(bars, GC)).all()
 
 
 # --------------------------------------------------------------------------
@@ -113,7 +115,7 @@ def test_vwap_reanchors_at_the_session_boundary() -> None:
 
 def test_vwap_distance_is_signed_ticks() -> None:
     bars = bars_at([0, 1], [100.0, 100.5])
-    d = of.vwap_distance(bars)
+    d = of.vwap_distance(bars, GC)
     assert d.iloc[0] == 0.0, "the first bar of a session sits on its own VWAP"
     assert d.iloc[1] > 0, "a close above the session average is positive"
     assert round(d.iloc[1], 6) == round(
@@ -173,4 +175,4 @@ def test_absorption_is_still_contracts_per_tick() -> None:
     # Guarding the re-export, not re-testing strategies.py: 400 contracts of
     # one-sided flow across a 20-tick bar is 20 contracts per tick.
     bars = bars_at([0], [100.0], deltas=[400], ranges=[2.0])
-    assert of.absorption(bars).iloc[0] == 20.0
+    assert of.absorption(bars, GC).iloc[0] == 20.0

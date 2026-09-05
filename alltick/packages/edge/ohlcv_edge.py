@@ -40,10 +40,14 @@ import pandas as pd
 REPO = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO / "services" / "signal-data"))
 
-# Imported after the path insert above; s1.TICK is 0.10, so every move below
-# reads in GC-tick equivalents and is directly comparable to horizon.py.
+# Imported after the path insert above. GC's tick is deliberate on spot data:
+# every move below reads in GC-tick equivalents, which is what makes the number
+# directly comparable to horizon.py's. It comes from the seam rather than a
+# literal so the comparison names the instrument it is borrowing from.
 import backtest
-from s1 import TICK
+from instruments import GC
+
+TICK = GC.tick
 
 HORIZONS = backtest.HORIZONS
 SESSION_GAP = pd.Timedelta(minutes=45)  # gold's daily break is 60m; weekends are longer
@@ -94,7 +98,7 @@ def check_against_backtest(bars: pd.DataFrame, fwd: pd.DataFrame, n: int = 300) 
     sample = bars.index[::max(len(bars) // n, 1)]
     entries = pd.Series(0, index=bars.index, dtype="int64")
     entries.loc[sample] = 1
-    trades = backtest.evaluate(bars, entries).set_index("t")
+    trades = backtest.evaluate(bars, entries, GC).set_index("t")
     for h in HORIZONS:
         a = trades[f"move_{h}m"]
         b = fwd.loc[a.index, f"move_{h}m"]

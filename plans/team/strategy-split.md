@@ -82,7 +82,7 @@ real vertical inside it rather than a task queue.
 
 ---
 
-## 3. The one wait, and it is half a day
+## 3. The one wait, and it is half a day — ✅ SHIPPED 2026-09-06
 
 **Everything in this plan waits on step 1 exactly once.** Varad ships it before either lane starts:
 
@@ -101,6 +101,35 @@ week.
 
 **Freeze it together, in one sitting, both present.** After that the lanes do not meet again until
 §6.
+
+### What landed — 2026-09-06
+
+All four points, one commit, **165 tests green** (155 before, 10 new on the seam), `ruff` and
+`mypy` clean. **The clock lane is unblocked and can start on `session_phase` today.**
+
+| Point | Where |
+| :--- | :--- |
+| 1 · `Instrument`, `has_flow: False` raising | `services/signal-data/instruments.py` — `GC` defined, **`XAUUSD` deliberately not** |
+| 2 · `TICK` injected | `s1.py` no longer exports it; `backtest.py`, `strategies.py`, `horizon.py`, `features/expansion.py`, `features/orderflow.py` all take an `Instrument`. **A sixth importer neither §1 nor ARCHITECTURE §4.2 listed:** `alltick/packages/edge/ohlcv_edge.py`, the spot cross-check, which borrows GC's tick on purpose and now takes it from the seam |
+| 3 · `atr_bp` | `features/portable.py`, wrapping `expansion.atr` rather than re-deriving it |
+| 4 · Signature stubs | 10 in `features/portable.py` (12 names; `to_bp` and `atr_bp` ship with bodies) and `m1_geometry` / `m2_vol_momentum` / `m3_session_event` in `strategies.py`, all raising `NotImplementedError`; the names and their frozen order are asserted by `tests/test_instruments.py` |
+
+**Three things about it that are decisions, not transcription, and that the room has to sign:**
+
+- **`XAUUSD` is not in `instruments.py`.** Route 2 has not picked a vendor and a spot tick is
+  broker-dependent — 0.01 or 0.10 — which is the exact 10x error §4.6 exists to prevent. A
+  placeholder would put a guessed number in the seam. The tests use a local fixture instead.
+- **The parked Track A modules were touched after all**, in one line each: `signals/engine.py`,
+  `features/regime_filter.py` and `families.py` now pass `GC` explicitly to `atr` / `bar_range` /
+  `body_ratio`. There is no way to make the tick a required argument without it, and the
+  alternative — a GC default — reintroduces exactly the silent assumption the seam removes.
+  Track A is GC-only by declaration (ARCHITECTURE §0), so the pin is now visible in the code
+  rather than hidden in an import. Track A's tests are green either side.
+- **`require_flow` guards three functions, not every flow function.** `absorption`,
+  `bar_imbalance` and `vwap_distance` — the ones that carry an `Instrument` anyway. The rest
+  read a `delta` column a flow-less frame does not have. That is not the same protection: an
+  MT5 spot feed ships a `volume` column holding a **tick count**, so the missing-column error is
+  luck rather than a rule. `tests/test_instruments.py` pins the three.
 
 ---
 
@@ -202,7 +231,7 @@ It is five minutes and it is the whole point.
 
 ---
 
-## 8. Proposed seams — ⏳ NOT FROZEN
+## 8. Proposed seams — ⏳ NOT FROZEN (S8 is now built; it is still not frozen)
 
 [`contracts.md`](contracts.md) changes only by all three agreeing in standup, so these two are
 drafted here rather than added there. **Put them to the room before either lane writes code.**
@@ -219,6 +248,14 @@ class Instrument:
     anchors: tuple[str, ...]  # which M4 anchors are defined here
     has_flow: bool            # may features/orderflow.py be read at all
 ```
+
+**⚠️ Amendment, as built 6 Sep: `session: SessionCalendar` shipped as
+`session_shift: pd.Timedelta`.** There is no calendar type in this repo and nothing yet needs one —
+the only session logic that exists is the +2h shift `s1.py` applies to roll a Globex date onto the
+day a trader files it under, and "24x5 with a named boundary" is the same shape. A type with one
+implementation and no second consumer is the abstraction this project deletes on sight. **It earns
+its own type when a second instrument needs more than an offset — which is also when the DST hole
+`s1.py` already documents has to be closed.** Everything else in S8 shipped verbatim.
 
 **`has_flow: False` raises.** It does not degrade, fall back, or substitute a proxy — the same
 discipline the pipeline design applied to OCR-derived numbers, for the identical reason: a silent

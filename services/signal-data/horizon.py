@@ -69,7 +69,7 @@ import numpy as np
 import pandas as pd
 
 from backtest import HORIZONS, MIN_SAMPLES, evaluate
-from s1 import TICK_VALUE
+from instruments import GC
 
 # Two-sided alpha = 0.05 at 80% power. Both terms, because the test has to
 # clear the critical value AND land past it often enough to be worth running.
@@ -198,12 +198,14 @@ def main() -> None:
     a = p.parse_args()
 
     bars = load_bars(a.bars)
-    trades = evaluate(bars, pd.Series(1, index=bars.index))
+    # GC is pinned here rather than injected: this file's MEASURED block is
+    # a GC result and its CLI reads a GC bar frame off disk.
+    trades = evaluate(bars, pd.Series(1, index=bars.index), GC)
     table = power_table(trades, (a.cost_ticks, *a.edges), tuple(a.counts))
 
     print(f"\n{len(bars)} bars, {bars.index[0].date()} -> {bars.index[-1].date()}, "
           f"{bars['session'].nunique()} sessions, entry on every bar (the null's population)")
-    print(f"cost floor {a.cost_ticks} ticks = ${a.cost_ticks * TICK_VALUE:.2f} round trip\n")
+    print(f"cost floor {a.cost_ticks} ticks = ${a.cost_ticks * GC.tick_value:.2f} round trip\n")
     with pd.option_context("display.width", 200, "display.max_columns", 50):
         print(table.T)
     print("\nmde_nN is the smallest mean edge, in ticks, that N signals could separate from a")

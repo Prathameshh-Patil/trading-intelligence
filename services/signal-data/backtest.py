@@ -23,7 +23,7 @@ from typing import Literal
 import numpy as np
 import pandas as pd
 
-from s1 import TICK, TICK_VALUE
+from instruments import Instrument
 
 HORIZONS = (5, 15, 30)  # minutes
 MIN_SAMPLES = 30        # design §6.5: below this, report but do not act
@@ -36,9 +36,12 @@ def session_ends(bars: pd.DataFrame) -> pd.Series:
 
 
 def evaluate(
-    bars: pd.DataFrame, entries: pd.Series, horizons: tuple[int, ...] = HORIZONS
+    bars: pd.DataFrame,
+    entries: pd.Series,
+    inst: Instrument,
+    horizons: tuple[int, ...] = HORIZONS,
 ) -> pd.DataFrame:
-    """One row per entry: realized move at each horizon, plus MFE/MAE, in ticks.
+    """One row per entry: realized move at each horizon, plus MFE/MAE, in ticks of `inst`.
 
     `entries` is aligned to `bars.index` and carries the side: +1 long, -1
     short, 0 no trade. Horizons never cross a session boundary -- a position
@@ -72,14 +75,14 @@ def evaluate(
             if leg.empty or ends[bars.at[t, "session"]] < mark:
                 row[f"move_{h}m"] = row[f"mfe_{h}m"] = row[f"mae_{h}m"] = np.nan
                 continue
-            row[f"move_{h}m"] = side * (leg["close"].iloc[-1] - entry) / TICK
+            row[f"move_{h}m"] = side * (leg["close"].iloc[-1] - entry) / inst.tick
             # MFE is the best it ever looked, MAE the worst. Both stay signed
             # in the trade's own favour direction, so MAE is negative only when
             # the trade actually went adverse -- a trade that never did has a
             # positive MAE, and flooring it at zero would hide exactly the
             # trades that need no stop.
-            row[f"mfe_{h}m"] = side * ((leg["high"].max() if side > 0 else leg["low"].min()) - entry) / TICK
-            row[f"mae_{h}m"] = side * ((leg["low"].min() if side > 0 else leg["high"].max()) - entry) / TICK
+            row[f"mfe_{h}m"] = side * ((leg["high"].max() if side > 0 else leg["low"].min()) - entry) / inst.tick
+            row[f"mae_{h}m"] = side * ((leg["low"].min() if side > 0 else leg["high"].max()) - entry) / inst.tick
         rows.append(row)
 
     cols = ["t", "side", "entry", "bars_seen"]
@@ -87,8 +90,15 @@ def evaluate(
     return pd.DataFrame(rows, columns=cols)
 
 
-def summarize(trades: pd.DataFrame, horizon: int = HORIZONS[0]) -> dict[str, float]:
-    """Distribution of one horizon's outcome. Never a point estimate alone."""
+def summarize(
+    trades: pd.DataFrame, inst: Instrument, horizon: int = HORIZONS[0]
+) -> dict[str, float]:
+    """Distribution of one horizon's outcome. Never a point estimate alone.
+
+    `expectancy_usd` is NaN where the instrument has no `tick_value` -- USD per
+    tick per contract is a futures fact and spot has no contract. NaN rather
+    than the tick number repeated, which would read as dollars.
+    """
     m = trades[f"move_{horizon}m"].dropna()
     if m.empty:
         return {"n": 0, "thin": True}
@@ -103,20 +113,25 @@ def summarize(trades: pd.DataFrame, horizon: int = HORIZONS[0]) -> dict[str, flo
         "p10": float(p10),
         "p90": float(p90),
         "expectancy_ticks": float(m.mean()),
-        "expectancy_usd": float(m.mean() * TICK_VALUE),
+        "expectancy_usd": float(m.mean() * inst.tick_value) if inst.tick_value is not None else np.nan,
         "mfe_median": float(trades[f"mfe_{horizon}m"].median()),
         "mae_median": float(trades[f"mae_{horizon}m"].median()),
     }
 
 
-def report(trades: pd.DataFrame, horizons: tuple[int, ...] = HORIZONS) -> pd.DataFrame:
+def report(
+    trades: pd.DataFrame, inst: Instrument, horizons: tuple[int, ...] = HORIZONS
+) -> pd.DataFrame:
     """The metric set across horizons, one row each, N always present."""
-    return pd.DataFrame([summarize(trades, h) for h in horizons], index=[f"{h}m" for h in horizons])
+    return pd.DataFrame(
+        [summarize(trades, inst, h) for h in horizons], index=[f"{h}m" for h in horizons]
+    )
 
 
 def first_touch(
     bars: pd.DataFrame,
     trades: pd.DataFrame,
+    inst: Instrument,
     *,
     target: float,
     stop: float,
@@ -159,8 +174,8 @@ def first_touch(
             continue
         fav = (leg["high"] if side > 0 else leg["low"]).to_numpy()
         adv = (leg["low"] if side > 0 else leg["high"]).to_numpy()
-        hit_target = np.flatnonzero(side * (fav - entry) >= target * TICK)
-        hit_stop = np.flatnonzero(side * (adv - entry) <= -stop * TICK)
+        hit_target = np.flatnonzero(side * (fav - entry) >= target * inst.tick)
+        hit_stop = np.flatnonzero(side * (adv - entry) <= -stop * inst.tick)
         if not len(hit_target) and not len(hit_stop):
             out.append(0)
         elif not len(hit_stop):
@@ -177,6 +192,7 @@ def first_touch(
 def reach_table(
     bars: pd.DataFrame,
     trades: pd.DataFrame,
+    inst: Instrument,
     pairs: Sequence[tuple[float, float]],
     horizon: int = HORIZONS[0],
 ) -> pd.DataFrame:
@@ -191,9 +207,11 @@ def reach_table(
     """
     rows = []
     for target, stop in pairs:
-        touch = first_touch(bars, trades, target=target, stop=stop, horizon=horizon).dropna()
+        touch = first_touch(
+            bars, trades, inst, target=target, stop=stop, horizon=horizon
+        ).dropna()
         best = first_touch(
-            bars, trades, target=target, stop=stop, horizon=horizon, ties="target"
+            bars, trades, inst, target=target, stop=stop, horizon=horizon, ties="target"
         ).dropna()
         n = len(touch)
         rows.append(
