@@ -180,10 +180,10 @@ def efficiency_ratio(bars: pd.DataFrame, *, window: str, min_bars: int) -> pd.Se
 def session_phase(bars: pd.DataFrame, inst: Instrument) -> pd.Series:
     """Which of the six phases each bar sits in. `strategy-architecture.md` §2.
 
-    **The six boundaries are in UTC and are pre-committed to Varad, in a
-    commit, before M3 runs** (split.md §7). A boundary moved after the EV
-    surface is visible is a fit, and `reach.py` is written against this column
-    exactly as delivered. Step 3.
+    **The six boundaries are pre-committed to Varad, in a commit, before M3
+    runs** (split.md §7) and were reviewed and signed off on 6 Sep. A boundary
+    moved after the EV surface is visible is a fit, and `reach.py` is written
+    against this column exactly as delivered. Step 3.
 
     **Frozen in ET wall clock, not in UTC** -- see `PHASE_TZ` for why, and
     `clock-lane.md` for both UTC mappings. The consequence is visible and

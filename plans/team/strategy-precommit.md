@@ -160,13 +160,31 @@ order-flow arms flat at power. If something does clear it, I expect it at **shor
 0.75× target is roughly three quarters of one bar's range and the round trip is a real fraction of
 that. **Being wrong here is the useful outcome; record it either way.**
 
-### One engineering constraint, named now
+### One engineering constraint — ✅ MEASURED 2026-09-06, and it does not bind
 
-The sweep as committed is ~**32 million** `first_touch` iterations (219,750 legs × 72 points × 2 for
-the tie band). `first_touch` is a Python loop over `bars.loc` slices. **Measure it on one month
-before launching 19** — Prime's rule, and this repo's. If the projection is more than a few hours,
-vectorise `first_touch` first. That is a shared-spine change: additive, Varad's, Track A's tests as
-the gate, and it must not change the tie-to-stop semantics that make every `p_target` a lower bound.
+The sweep as committed is ~**31 million** `first_touch` iterations (107,359 legs × 72 points × 2 for
+the tie band × 2 sides), and `first_touch` is a Python loop over `bars.loc` slices. The commitment
+said measure one month before launching 19 rather than guess. Measured on 2026-07 — 6,276 bars,
+6,253 legs, grouped `(atr_bp bucket × phase)` exactly as the sweep will:
+
+```
+6 grid points, 288 first_touch calls : 12.2s      -> 2.03s per grid point
+one month,  72 points, one side      : 2.4 min
+19 months,  72 points, one side      : 46.4 min
+19 months,  72 points, BOTH sides    : 1.55 HOURS
+```
+
+**Under two hours, so `first_touch` is not vectorised and the shared spine is not touched.** Cost is
+linear in legs and effectively free in the number of groups — splitting 4 buckets into 24
+`(bucket × phase)` cells changed the total by 1%, so the per-call `session_ends` rebuild is not
+where the time goes. 2026-07 is ~8% larger than the archive's average month, so the projection errs
+long.
+
+**One thing the timing run showed that matters more than the runtime.** At `(bucket × phase)` on a
+single month the cells run **min 1, max 727 legs**. Pooled over 19 months that is roughly 19 to
+13,800 — so §3's `MIN_SAMPLES = 400` will disqualify a large minority of cells outright, exactly as
+that section accepted in advance, and the sweep **must** pool across the archive rather than report
+per month.
 
 ---
 

@@ -24,7 +24,8 @@ import numpy as np
 import pandas as pd
 
 from instruments import Instrument, require_flow
-from strategies import _align, _window, absorption, cvd_slope, delta_z
+from strategies import absorption, cvd_slope, delta_z
+from windows import align, trailing
 
 __all__ = [
     "absorption",
@@ -67,8 +68,8 @@ def cvd_persistence(bars: pd.DataFrame, *, window: str, min_bars: int) -> pd.Ser
     diverge on one with gaps, which is the dropped-minute trap `strategies.py`
     documents -- this version is the one that survives it.
     """
-    r = _window(bars, "delta", window, min_bars)
-    return _align(r.apply(_persistence, raw=True), bars)
+    r = trailing(bars, "delta", window, min_bars)
+    return align(r.apply(_persistence, raw=True), bars)
 
 
 def vwap(bars: pd.DataFrame) -> pd.Series:

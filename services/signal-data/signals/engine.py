@@ -54,7 +54,8 @@ import pandas as pd
 from features.expansion import atr, bar_range, body_ratio
 from features.orderflow import cvd_slope
 from instruments import GC
-from strategies import _align, _sides, _window
+from strategies import _sides
+from windows import align, trailing
 
 
 def absorption_reversal(bars: pd.DataFrame) -> pd.Series:
@@ -81,10 +82,10 @@ def delta_divergence(bars: pd.DataFrame, *, window: str, min_bars: int) -> pd.Se
     `cvd_divergence` in `strategies.py` asks a neighbouring question over
     CVD; this one is per-bar delta and is deliberately not the same rule.
     """
-    close_lo = _align(_window(bars, "close", window, min_bars).min(), bars)
-    close_hi = _align(_window(bars, "close", window, min_bars).max(), bars)
-    delta_lo = _align(_window(bars, "delta", window, min_bars).min(), bars)
-    delta_hi = _align(_window(bars, "delta", window, min_bars).max(), bars)
+    close_lo = align(trailing(bars, "close", window, min_bars).min(), bars)
+    close_hi = align(trailing(bars, "close", window, min_bars).max(), bars)
+    delta_lo = align(trailing(bars, "delta", window, min_bars).min(), bars)
+    delta_hi = align(trailing(bars, "delta", window, min_bars).max(), bars)
     step = bars.groupby("session", sort=False)["delta"].diff()
     return _sides(
         (bars["close"] <= close_lo) & (bars["delta"] > delta_lo) & (step > 0),

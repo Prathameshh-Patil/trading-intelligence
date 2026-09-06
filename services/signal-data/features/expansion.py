@@ -18,7 +18,7 @@ from __future__ import annotations
 import pandas as pd
 
 from instruments import Instrument
-from strategies import _align, _window
+from windows import align, trailing
 
 
 def atr(bars: pd.DataFrame, inst: Instrument, *, window: str, min_bars: int) -> pd.Series:
@@ -48,8 +48,8 @@ def atr(bars: pd.DataFrame, inst: Instrument, *, window: str, min_bars: int) -> 
         ],
         axis=1,
     ).max(axis=1)
-    rolled = _window(bars.assign(_tr=tr), "_tr", window, min_bars).mean()
-    return _align(rolled, bars) / inst.tick
+    rolled = trailing(bars.assign(_tr=tr), "_tr", window, min_bars).mean()
+    return align(rolled, bars) / inst.tick
 
 
 def bar_range(bars: pd.DataFrame, inst: Instrument) -> pd.Series:

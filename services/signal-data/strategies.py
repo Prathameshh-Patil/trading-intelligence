@@ -26,6 +26,10 @@ Three traps, all of which produce signal series that look entirely plausible:
   * A window that spans the overnight break scores NY against Asia. Windows
     are grouped by session and restart at the boundary.
 
+All three are solved once, in `windows.py`, and imported here. They moved out
+of this file on 2026-09-06 to break an import cycle; the reasoning for the
+convention lives with the code.
+
 **Every tick-denominated function here takes an `Instrument`** -- see
 `instruments.py` -- and the two that also read flow call `require_flow` first.
 That guard is not redundant with the missing column it would otherwise trip
@@ -38,24 +42,11 @@ from __future__ import annotations
 
 import numpy as np
 import pandas as pd
-from pandas.api.typing import RollingGroupby
 
+from calendars import load as load_calendar
+from features.portable import PHASES, event_proximity, session_phase
 from instruments import Instrument, require_flow
-
-
-def _window(bars: pd.DataFrame, col: str, window: str, min_bars: int) -> RollingGroupby:
-    """Trailing clock window over `col`, restarted at each session boundary.
-
-    `min_bars` is what makes a session's opening bars NaN rather than scored
-    against one or two observations, where a standard deviation is either zero
-    or meaningless and every z off it is enormous.
-    """
-    return bars.groupby("session", sort=False)[col].rolling(window, min_periods=min_bars)
-
-
-def _align(s: pd.Series, bars: pd.DataFrame) -> pd.Series:
-    """Drop the group level that groupby-rolling adds, restore bar order."""
-    return s.droplevel(0).reindex(bars.index)
+from windows import align, trailing
 
 
 def _sides(long: pd.Series, short: pd.Series, bars: pd.DataFrame) -> pd.Series:
@@ -73,8 +64,8 @@ def delta_z(bars: pd.DataFrame, *, window: str, min_bars: int) -> pd.Series:
     A window whose delta never varied has zero spread and no scale to speak
     of; that is NaN, not an infinite outlier.
     """
-    r = _window(bars, "delta", window, min_bars)
-    mu, sd = _align(r.mean(), bars), _align(r.std(), bars)
+    r = trailing(bars, "delta", window, min_bars)
+    mu, sd = align(r.mean(), bars), align(r.std(), bars)
     return (bars["delta"] - mu) / sd.where(sd > 0)
 
 
@@ -84,8 +75,8 @@ def cvd_slope(bars: pd.DataFrame, *, window: str, min_bars: int) -> pd.Series:
     The chord, not a fitted line -- it answers "did flow go one way over this
     stretch", which is the question, and it costs nothing.
     """
-    r = _window(bars, "cvd", window, min_bars)
-    return _align(r.apply(lambda a: a[-1] - a[0], raw=True), bars)
+    r = trailing(bars, "cvd", window, min_bars)
+    return align(r.apply(lambda a: a[-1] - a[0], raw=True), bars)
 
 
 def absorption(bars: pd.DataFrame, inst: Instrument) -> pd.Series:
@@ -159,8 +150,8 @@ def cvd_divergence(
     price extreme judged over one horizon and flow over another is two
     thresholds pretending to be one.
     """
-    hi = _align(_window(bars, "close", window, min_bars).max(), bars)
-    lo = _align(_window(bars, "close", window, min_bars).min(), bars)
+    hi = align(trailing(bars, "close", window, min_bars).max(), bars)
+    lo = align(trailing(bars, "close", window, min_bars).min(), bars)
     flow = cvd_slope(bars, window=window, min_bars=min_bars)
     return _sides((bars["close"] <= lo) & (flow >= min_slope), (bars["close"] >= hi) & (flow <= -min_slope), bars)
 
@@ -304,15 +295,6 @@ def m3_session_event(
     free to pass its own calendar is a caller free to drop the releases that
     went the wrong way.
     """
-    # Imported inside the body on purpose. `features.expansion` imports
-    # `_align` and `_window` from this module, so a module-level import of
-    # `features.portable` -- which imports expansion -- closes a cycle through
-    # a partially initialised `strategies`. Hoisting `_window` into its own
-    # module would fix it properly and is a shared-spine change, which is
-    # Varad's (split.md §2). This is the clock lane's cost of not touching it.
-    from calendars import load as load_calendar
-    from features.portable import PHASES, event_proximity, session_phase
-
     unknown = [p for p in phases if p not in PHASES]
     if unknown:
         raise ValueError(

@@ -1685,6 +1685,40 @@ is the class of statistic `BASE_RATES.md` says costs no out-of-sample data.
       `portable.py`, §7's table, the daily update — and **zero conflicts in any function body.**
       That is what committing all fourteen signatures on day one was for.
 
+### 2026-09-06 (night) — the clock lane reviewed, three fixes, and the M1 sweep timed · `windows.py`
+
+**Prathamesh's three commits pulled and checked. 199 tests green, `ruff` and `mypy` clean across 41
+files.** The pre-commitment discipline was **audited, not assumed**: his four numbers landed at
+02:11, the M3 result at 12:08, and the diff of `strategy-precommit.md` across the results commit is
+**additions only** — not one committed number edited after the run.
+
+- [x] **✅ ET rather than UTC for the phase boundaries — reviewed and signed off.** The block asked
+      for Varad's eye rather than his nod. He is right: every event defining these phases is pinned
+      to New York wall clock, so a frozen UTC number is an hour wrong for the five EST months and
+      produces **one label, two populations** — the error `ATR_BP_EDGES` was committed to prevent
+      one axis over. **The check that could have killed it was run:** across all three DST
+      transitions in the archive, **zero bars** land in the 01:00–03:00 ET window; the only ET hours
+      present those days are 18:00–23:00. The transitions fall inside the Fri-17:00 → Sun-18:00
+      break, so `Asia-London` never loses or doubles a day. Safe by construction.
+- [x] **Both kill rows in `strategy-split.md` §2 amended to EV net of cost.** His correction, and M3
+      is the proof: the phase profile **survived** the split (14 of 16 cells clear `mde_rate`) and
+      was **worth nothing** — `p_stop` rose with `p_target` and the bracket merely resolved faster.
+      M1's pass line already required `EV − cost > 0`. Recorded in place rather than quietly
+      applied, and **the amended line is harder to pass than the one it replaces**, so it cannot
+      have been loosened to rescue anything.
+- [x] **The import cycle is gone — `windows.py`.** `_align`/`_window` moved out of `strategies.py`
+      as `align`/`trailing`; Prathamesh's function-body workaround deleted. One windowing convention,
+      one file, which matters more with two lanes writing windows than it did with one.
+- [x] **`session_phase`'s docstring no longer claims the boundaries are in UTC** — leftover stub text.
+- [x] **🔴 The M1 sweep is timed and does not need vectorising.** Measured on 2026-07 grouped
+      `(atr_bp bucket × phase)` exactly as the sweep will run: 2.03s per grid point → **1.55 hours
+      for 19 months, 72 points, both sides.** Under two hours, so `first_touch` stays as it is and
+      the shared spine is not touched. Cost is linear in legs and effectively free in group count.
+- [ ] **What the timing run surfaced, and it matters more than the runtime.** At `(bucket × phase)`
+      on one month, cells run **min 1, max 727 legs** — roughly 19 to 13,800 pooled. `MIN_SAMPLES =
+      400` will disqualify a large minority outright, exactly as §3 accepted in advance, and the
+      sweep **must pool across the archive** rather than report per month.
+
 ---
 
 ## Next

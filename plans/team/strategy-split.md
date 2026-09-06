@@ -59,8 +59,24 @@ measurement — importing nothing from the other lane.
 | Strategy fn | `m1_geometry`, `m2_vol_momentum` | `m3_session_event` |
 | Features owned | `range_bp`, `rv_parkinson`, `rv_slope`, `efficiency_ratio` (+ `atr_bp`, shipped at the seam) | `session_phase`, `event_proximity`, `anchors`, `mid`, `spread_bp`, `quote_rate_z` |
 | Data | 46M GC trades, on disk | The same bars for M3; then a free spot feed |
-| Kills the lane if | M1 returns no positive-EV cell **and** M2 lands inside its own MDE | M3's profile does not survive the 2025/2026 split **and** spot spread shows no structure |
+| Kills the lane if | No cell on M1's surface clears **EV − cost > 0** at n ≥ 400 **and** M2's magnitude claim lands inside its own MDE | No phase or event cut clears **EV − cost > 0** **and** spot spread shows no structure |
 | Cost | $0 | $0 |
+
+**⚠️ Both kill rows were amended 2026-09-06, after M3 ran, and the reason is a finding rather than
+a preference.** They originally read *"M1 returns no positive-EV cell"* and *"M3's profile does not
+survive the 2025/2026 split"* — one stated in EV, one stated in profile survival.
+[`M3_CLOCK.md`](../../services/signal-data/analysis/M3_CLOCK.md) showed the second is the wrong
+test: **the profile survived — `London-NY` clears its own `mde_rate` in 14 of 16 cells — and was
+worth nothing.** `London-NY` has the highest `p_target` on both sides *and the worst long EV on the
+board*, because `p_stop` rises with it; the bracket simply resolves faster and nothing favours a
+direction.
+
+**Reach is a property of the bracket; EV is the property of the trade.** A lane dies on EV net of
+cost or it does not die, and a `p_target` lift against a null is not evidence that anything is
+tradeable. Prathamesh's correction, adopted here for both lanes. **Changing a kill line after a run
+is exactly the move this project distrusts** — it is recorded rather than quietly applied, and it
+survives the test it is meant to survive: **the amended line is harder to pass than the one it
+replaces**, on both lanes, so it cannot have been loosened to rescue a result.
 
 **The reason to split it this way, stated plainly:** ARCHITECTURE §6 says three kill conditions can
 fire on data already paid for. Run serially, finding that out takes as long as all three take. Run
