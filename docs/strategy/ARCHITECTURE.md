@@ -325,6 +325,15 @@ number **without spending anything**, so the estimate is available for free when
 | 6 | Route 2 spot feed; portable regime refit | Cross-instrument validation | ❌ |
 | 7 | `reach.py` | `PipForecast.bucket`, served | ❌ |
 
+**M1 conditioned on EXPANDING, 7 Sep** — `M2_MAGNITUDE.md` §6 named the run and Varad decided it
+rather than drifting into it (`strategy-precommit.md` §9). **Conditioning adds +0.004 ATR per leg
+against a cost floor of +0.0423 — short by a factor of ten** — because EXPANDING raises `p_stop`
+(+0.0162) *more* than `p_target` (+0.0103): the stop is the nearer barrier, so non-directional
+extra movement lands disproportionately on it. **A magnitude edge with no directional content
+cannot be harvested by a symmetric bracket.** `analysis/M1_EXPANDING.md`. That is the same
+mechanism `M3_CLOCK.md` §2 found in the clock, reached from a second direction — and it confirms
+§4.4's framing that M2 is a conditioning dimension for stage 7 and nothing else.
+
 **Step 4 shipped 7 Sep** — `m2_magnitude.py`, training half only. **EXPANDING vol beats
 CONTRACTING in 9 of 9 (T, H) combinations and 17 of 36 cells clear their own `mde_rate`** —
 against M1's 4.6% pass rate on 3,456 cells, which was noise. The effect is **scale, not

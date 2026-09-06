@@ -1796,6 +1796,38 @@ strategy track that clears its own MDE.**
       **The vol lane is alive** (§2 needs both M1 and M2 to fail; neither did) and the **held-out
       half is unspent.**
 
+### 2026-09-07 (night) — M2's edge cannot be harvested by a bracket · [`analysis/M1_EXPANDING.md`](../services/signal-data/analysis/M1_EXPANDING.md)
+
+**The run `M2_MAGNITUDE.md` §6 named and Varad decided rather than drifted into.** Pre-committed in
+`strategy-precommit.md` §9 and pushed before the driver changed; **training half only**, because the
+choice to condition on EXPANDING was itself made from a training-half result. 1,728 cells, both
+sides, all n ≥ 400. Suite 248 green, `ruff`/`mypy` clean.
+
+- [x] **🔴 Conditioning adds +0.004 ATR per leg against a +0.0423 cost floor — short by a factor of
+      ten.** EXPANDING is genuinely the best of the three vol states (`ev_lo` −0.0479 against −0.0524
+      and −0.0546) and best by one tenth of a round trip. **The committed falsification condition
+      returned zero cells.**
+- [x] **The mechanism, measured: `p_stop` rises MORE than `p_target`** — +0.0162 against +0.0103.
+      Non-directional extra movement distributes in proportion to how near each barrier is, and **the
+      stop is the nearer one at almost every point on the grid.** The arithmetic reconciles:
+      `2.04 × (+0.0103) − 0.94 × (+0.0162) = +0.0058` against an observed +0.0040. **M2's +0.033
+      probability lift converts to +0.004 ATR and the conversion factor is the geometry.**
+- [x] **Same fact `M3_CLOCK.md` §2 found from the other side** — `London-NY`, highest `p_target` on
+      the board and worst EV. M3 found it in the clock, this finds it in the vol state. Two
+      conditioners, one mechanism.
+- [x] **The 113 cells above the cost floor are a variance tail**: 121 sit symmetrically below
+      −0.0423 and both tails are the same 101 thin CONTRACTING cells at n ≈ 850. Of 13 passing cells,
+      5 survive the mirror and **none makes money on trades that closed.**
+- [x] **Prediction right on conclusion AND mechanism — the first in the track to be both.** M1's was
+      wrong twice; M2's was right that it clears and wrong about where. This one was derived from two
+      prior measurements rather than from a prior.
+- [ ] **What it settles: a magnitude edge with no directional content cannot be harvested by a
+      symmetric bracket.** It is real and it belongs in a **forecast, not a trade** — which is what
+      `PipForecast` was designed to sell. `vol_state` earns its place in `reach.py`'s key on M2's
+      evidence and **forfeits any claim to being an entry filter** on this one. **Not settled:**
+      whether an *asymmetric* exit could harvest it — M4's question, blocked on `replay.py`, not on
+      data. Held-out half still unspent and now carrying two questions.
+
 ---
 
 ## Next

@@ -503,6 +503,37 @@ split.** A cell passing on drift or on mark-to-market is not a finding here eith
 clear the pass line and still have `ev_delta ≈ 0`, which would mean the bucket was already there and
 the vol state contributed nothing.
 
+### ✅ ANSWERED 2026-09-07 — it adds +0.004 ATR against a cost of +0.042
+
+Result: [`analysis/M1_EXPANDING.md`](../../services/signal-data/analysis/M1_EXPANDING.md). 1,728
+cells, training half, both sides. **Mean `ev_delta` +0.0002 across all cells and +0.0040 for
+EXPANDING — short of the cost floor by a factor of ten.** The committed falsification condition
+returned **zero cells**.
+
+**The mechanism, measured:**
+
+| | `p_target` | `p_stop` | `p_neither` |
+| :--- | ---: | ---: | ---: |
+| EXPANDING − CONTRACTING | **+0.0103** | **+0.0162** | −0.0263 |
+
+**Both barriers get hit more and the stop gets hit more than the target**, because the stop is the
+nearer barrier at almost every point on the grid. The arithmetic reconciles: at the grid's mean
+geometry, `2.04 × (+0.0103) − 0.94 × (+0.0162) = +0.0058 ATR` against an observed +0.0040.
+**M2's +0.033 probability lift converts to +0.004 ATR, and the conversion factor is the geometry.**
+
+**The 113 cells above the cost floor are a variance tail**: 121 cells sit symmetrically below
+−0.0423, and both tails are the same 101 thin CONTRACTING cells at n ≈ 850. Of the 13 cells passing
+§1's line, 5 survive the side mirror and **none of those makes money on trades that closed.**
+
+**Prediction scored: right on the conclusion AND the mechanism** — the first in the track to be
+both. The run sharpened it: conditioning is mildly *adverse* on the barrier side, and the small net
+positive comes from `p_neither` falling rather than from the target tail.
+
+**What it settles:** *a magnitude edge with no directional content cannot be harvested by a
+symmetric bracket.* `vol_state` earns its place in `reach.py`'s key on M2's evidence and **forfeits
+any claim to being an entry filter** on this one. An asymmetric exit is a different question and it
+is M4's, blocked on `replay.py`.
+
 ### My honest prediction, written before the run
 
 **I expect conditioning to add nothing. `ev_delta` ≈ 0 and no cell clears symmetrically.**
