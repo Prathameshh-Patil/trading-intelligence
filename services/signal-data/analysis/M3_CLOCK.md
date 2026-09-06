@@ -152,12 +152,51 @@ strength of M3's geometry.
 Recorded because the corrections are more instructive than the result, and because anyone reading
 the earlier three in the daily update needs to know they are void.
 
-| # | Config | Why it ran | What it concluded |
+| # | Config | Why it ran | What I concluded |
 | :--- | :--- | :--- | :--- |
 | 1 | long, **70/20 ticks** | first run | "`NY-Asia` is the finding; `London-NY` fails; event arm dead" ❌ |
 | 2 | short, 70/20 ticks | **planned** — a long-only `p_target` cannot support a non-directional claim | "`NY-Asia` negative both sides" ❌ |
 | 3–4 | both sides, **3.0×/1.0× ATR** | **bug: bracket units** | "`London-NY` is the finding; event arm alive" ✅ reach, ❌ EV |
 | 5–8 | both sides × stop 1.0×/1.5×, with tie band | **bug: EV of an unresolved leg**, + stop sensitivity | **this file** |
+
+### The numbers, so the claims above can be checked rather than believed
+
+**Bug 1 was visible in run 1's own output.** The bucket null should mean the same thing in both
+halves of the split. Under a fixed tick bracket it does not; under an ATR bracket it does:
+
+| bucket | run 1 train | run 1 held | | run 3 train | run 3 held |
+| :--- | ---: | ---: | :-- | ---: | ---: |
+| `<7` | 0.0360 | **0.1088** | ← 3.0× | 0.0833 | 0.0894 |
+| `7–10` | 0.0825 | **0.1624** | ← 2.0× | 0.0614 | 0.0731 |
+| `10–14` | 0.1316 | **0.1874** | ← 1.4× | 0.0458 | 0.0632 |
+| `14+` | 0.1935 | 0.1992 | | 0.0419 | 0.0577 |
+
+**And here is what actually changed between the runs, which is less than §4 first said.** Cells of 8
+(4 buckets × 2 halves), per run:
+
+| phase | | run 1 (L, ticks) | run 2 (S, ticks) | run 3 (L, ATR) | run 4 (S, ATR) |
+| :--- | :--- | ---: | ---: | ---: | ---: |
+| `London-NY` | sign positive | 6/8 | 7/8 | 7/8 | **8/8** |
+| | clears MDE | 3/8 | 4/8 | **7/8** | **7/8** |
+| `NY-Asia` | sign negative | 7/8 | 8/8 | 7/8 | **8/8** |
+| | clears MDE | 4/8 | 3/8 | 5/8 | 6/8 |
+
+**⚠️ Correction to this section's own framing, 2026-09-06.** It first said fixing the bracket
+"inverted which phase was the finding". **The table says otherwise, and it is the better witness.**
+Both phases held their sign in *every* run — `NY-Asia` negative in 7–8 of 8 throughout,
+`London-NY` positive in 6–8 of 8 throughout. What the fix changed is **statistical visibility**:
+`London-NY` went from 3/8 and 4/8 cells clearing MDE to 7/8 and 7/8, overtaking `NY-Asia`, which
+barely moved.
+
+So the inversion was **in my reading, not in the data.** The underlying profile was stable across
+all four runs; a mis-scaled bracket suppressed the power to see the larger of the two effects, and I
+reported whichever looked significant at the time as "the finding". That is a worse error than a
+number changing, because nothing in the run-1 output looked wrong — the direction was already right.
+
+**Reproducing runs 1–4:** `git checkout b6f3c68~1 -- services/signal-data/m3_profile.py` for the
+fixed-tick version, or pass `--stop-atr`/`--target-atr` for the geometry. Raw stdout from the
+superseded runs was session-local and is not in the repo; the tables above are the extract that
+mattered.
 
 ### Bug 1 — bucketing in basis points, bracketing in fixed ticks
 
