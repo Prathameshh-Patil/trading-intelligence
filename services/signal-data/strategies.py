@@ -44,7 +44,7 @@ import numpy as np
 import pandas as pd
 
 from calendars import load as load_calendar
-from features.portable import PHASES, event_proximity, session_phase
+from features.portable import PHASES, event_proximity, rv_slope, session_phase
 from instruments import Instrument, require_flow
 from windows import align, trailing
 
@@ -259,7 +259,8 @@ def m2_vol_momentum(
     Runs on the training half only: it selects, so it costs out-of-sample data
     (ARCHITECTURE §6).
     """
-    raise NotImplementedError("M2 -- step 4, and it waits on M1's corrected null")
+    slope = rv_slope(bars, window=window, min_bars=min_bars)
+    return pd.Series(np.where(slope >= slope_min, 1, 0), index=bars.index).astype("int64")
 
 
 def m3_session_event(

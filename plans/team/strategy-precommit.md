@@ -405,6 +405,35 @@ disqualifies but which the letter of the line admits. **So M2 landing inside its
 the lane on its own either.** If both readings are taken together the lane is dead in substance and
 alive on the letter, and that gap is a finding about the kill line rather than about gold.
 
+### ✅ ANSWERED 2026-09-07 — M2 clears, and it is about scale
+
+Result: [`analysis/M2_MAGNITUDE.md`](../../services/signal-data/analysis/M2_MAGNITUDE.md).
+**EXPANDING beats CONTRACTING in 9 of 9 (T, H) combinations and STABLE in 9 of 9; 17 of 36 cells
+clear their own `mde_rate`.** Largest cell `10–14 bp · T=1.5 · H=60m`, lift **+0.0516** against an
+MDE of 0.4457. Mean lift over passing cells +0.033.
+
+**The comparison that makes it different in kind from M1: M1 passed 4.6% of 3,456 cells, which is
+noise. M2 passes 47% of its 36.** Same power arithmetic, same bucket edges, same archive.
+
+**It is scale, not direction** — both tails rise together and the gap is 7.5% of the hit rate. ⚠️
+**One residue on the record: EXPANDING carries a +0.024 up-tilt that CONTRACTING does not** (−0.003),
+which I predicted would not exist. Gold rose across the archive, so it may be drift co-occurrence;
+that is a hypothesis and the held-out half is where to ask.
+
+**Where it fails is informative:** the `14+ bp` bucket clears nothing, mean lift +0.0066. `atr_bp`
+already conditions on the level, so at the top of the distribution the bucket has done the slope's
+work. **That is the measurement of how much `vol_state` and `atr_bp` overlap** — completely there,
+not at all in `7–10`.
+
+**Prediction scored: right that it clears, wrong on where.** Not every bucket; and the largest
+*relative* lift is at **15 minutes** for T=1.5 and 2.0 (+8.3%, +13.8%), not 60. Vol clustering shows
+up fastest in the tail, the opposite of what was written. The directional clause was right in the
+main and wrong in the residue. **Better calibrated than M1, and the same correction applies to both:
+mechanism right, location wrong.**
+
+**The lane is alive.** §2 kills it only if M1 finds no positive-EV cell **and** M2 lands inside its
+MDE. Neither happened. **The held-out half is still unspent.**
+
 ### My honest prediction, written before the run
 
 **I expect M2 to clear its MDE, at all three `T` and all three `H`, with the largest lift at 60

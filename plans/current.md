@@ -1758,6 +1758,44 @@ chose anything. Suite 223 green, `ruff` and `mypy` clean over 44 files.
       which is what step 2 existed to produce. Held-out half unspent: nothing selected or fitted, and
       one cell at +0.0005 ATR is not worth spending it on.
 
+### 2026-09-07 (later) — M2 clears: vol momentum is real, small, and about scale · [`analysis/M2_MAGNITUDE.md`](../services/signal-data/analysis/M2_MAGNITUDE.md)
+
+**Step 4, training half only (2025-01…09). Thresholds committed and pushed before the driver
+existed.** Suite 244 green, `ruff` and `mypy` clean over 46 files. **The first result in the
+strategy track that clears its own MDE.**
+
+- [x] **🟢 EXPANDING vol raises `P(|move| ≥ T × ATR)`. Beats CONTRACTING in 9 of 9 (T, H)
+      combinations and STABLE in 9 of 9; 17 of 36 cells clear `mde_rate`.** Nine sign tests landing
+      the same way is 1-in-512 under a coin flip. Largest cell `10–14 bp · T=1.5 · H=60m`, lift
+      **+0.0516** against MDE 0.4457.
+- [x] **The comparison that makes it different in kind from M1: M1 passed 4.6% of 3,456 cells, which
+      is noise. M2 passes 47% of its 36.** Same power arithmetic, same edges, same archive.
+- [x] **It is scale, not direction.** Both tails rise together and the gap is 7.5% of the hit rate,
+      so it **extends `horizon.py` rather than contradicting it** — only direction was ever tested.
+      ⚠️ **One residue on the record: EXPANDING carries a +0.024 up-tilt CONTRACTING does not.** Gold
+      rose across the archive; that is a hypothesis, not a finding, and it is the first question for
+      the held-out half.
+- [x] **Where it fails is informative.** `7–10 bp` clears 9 of 9, `14+ bp` clears **0 of 9** (mean
+      lift +0.0066). `atr_bp` already conditions on the level, so at the top the bucket has done the
+      slope's work — **that is the measurement of how much `vol_state` and `atr_bp` overlap**, and it
+      is what earns `vol_state` a genuine second dimension in `reach.py`'s key.
+- [x] **Size, plainly: mean lift +0.033 over passing cells, +0.022 over all 36.** A real conditioner,
+      not a large one.
+- [x] **Prediction scored: right that it clears, wrong on where.** Not every bucket, and the largest
+      relative lift is at **15 minutes** for T=1.5 and 2.0, not 60 — vol clustering shows up fastest
+      in the tail, the opposite of what was written. Same correction as M1: mechanism right, location
+      wrong.
+- [x] **`rv_parkinson`, `rv_slope`, `efficiency_ratio` filled** — the last three stubs in Varad's
+      half of `features/portable.py`, 12 tests against the zero-denominator cases. **`rv_slope`
+      returns the RELATIVE change**, not the raw bp its stub proposed, because a fixed bp cut means
+      two different things across an archive whose median `atr_bp` runs 5.66 to 17.04.
+- [ ] **⚠️ It does not make anything tradeable, and nothing here measured whether it could.** M2's
+      output is a probability, not a trade; converted to a bracket it meets M1's surface, where gross
+      EV is −0.0032 ATR against a cost of +0.0423. **The natural next run is M1's sweep conditioned
+      on EXPANDING — which spends more out-of-sample data and should be a decision, not a drift.**
+      **The vol lane is alive** (§2 needs both M1 and M2 to fail; neither did) and the **held-out
+      half is unspent.**
+
 ---
 
 ## Next

@@ -320,10 +320,18 @@ number **without spending anything**, so the estimate is available for free when
 | 1 | `instruments.py`; inject `TICK`; `atr_bp` | The portability seam | ✅ **6 Sep** |
 | 2 | **M1** geometry sweep, 19 months | The EV surface — **the null everything else is quoted against** | ✅ **7 Sep** — `analysis/M1_SURFACE.md` |
 | 3 | **M3** session + event, with the 2025/2026 split | Clock profile, or a clean negative | ⚠️ **code 6 Sep; run blocked on data** |
-| 4 | **M2** vol momentum, against M1's corrected null | Second conditioning dimension for stage 7 | ❌ |
+| 4 | **M2** vol momentum, against M1's corrected null | Second conditioning dimension for stage 7 | ✅ **7 Sep** — `analysis/M2_MAGNITUDE.md` |
 | 5 | Tick replay from trades on disk | Intrabar ordering — unblocks M4b **and** the intrabar-stop question `regime_filter.py` raised | ❌ |
 | 6 | Route 2 spot feed; portable regime refit | Cross-instrument validation | ❌ |
 | 7 | `reach.py` | `PipForecast.bucket`, served | ❌ |
+
+**Step 4 shipped 7 Sep** — `m2_magnitude.py`, training half only. **EXPANDING vol beats
+CONTRACTING in 9 of 9 (T, H) combinations and 17 of 36 cells clear their own `mde_rate`** —
+against M1's 4.6% pass rate on 3,456 cells, which was noise. The effect is **scale, not
+direction**: both tails rise together, so it does not contradict `horizon.py`'s random walk,
+only extends it. Small — 2 to 5 points of probability — and it **vanishes in the `14+ bp`
+bucket**, which measures how much `vol_state` and `atr_bp` overlap. `analysis/M2_MAGNITUDE.md`.
+**The vol lane is alive and the held-out half is unspent.**
 
 **Step 2 shipped 7 Sep** — `m1_sweep.py`, 3,456 cells over 19 months and both sides. **Gross EV
 before cost is −0.0032 ATR across the whole surface and the mean cost is +0.0423**, so gold's
