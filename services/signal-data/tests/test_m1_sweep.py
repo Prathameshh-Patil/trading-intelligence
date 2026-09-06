@@ -269,3 +269,80 @@ def test_m1_enters_every_bar_and_the_sweep_uses_that_one_definition() -> None:
 
     with pytest.raises(ValueError, match="must be \\+1 or -1"):
         st.m1_geometry(bars, GC, side=0)
+
+
+# --------------------------------------------------------------------------
+# The conditioning axis and ev_delta -- precommit §9. Written while the
+# EXPANDING run was in flight and before its surface was read.
+# --------------------------------------------------------------------------
+def vcell(**kw: object) -> dict[str, object]:
+    """A cell on the vol_state axis rather than the phase axis."""
+    row = cell()
+    row["vol_state"] = row.pop("phase")
+    row.update(kw)
+    return row
+
+
+def test_the_axis_is_a_parameter_and_the_null_pools_out_whichever_one_is_used() -> None:
+    # The failure this catches: the null pooling over `phase` by name while the
+    # sweep conditions on `vol_state`. Every cell would still get a p_null, and
+    # it would be the cell's own rate -- so every lift would be exactly zero
+    # and the run would report "conditioning adds nothing" whatever the data said.
+    t = m1.surface(pd.DataFrame([
+        vcell(vol_state="EXPANDING", n=1000, target=300, stop=0),
+        vcell(vol_state="STABLE", n=1000, target=100, stop=0),
+    ]), axis="vol_state")
+    assert list(t["vol_state"]) != []
+    assert t["p_null"].nunique() == 1 and t["p_null"].iloc[0] == pytest.approx(0.20)
+    assert set(t["lift"].round(4)) == {0.10, -0.10}
+
+
+def test_ev_delta_is_what_conditioning_added_and_nothing_else() -> None:
+    # precommit §9's whole question. The null is the SAME cell with the axis
+    # pooled out, so a state that behaves exactly like the pool must show
+    # ev_delta of zero however good or bad its EV is in absolute terms.
+    same = m1.surface(pd.DataFrame([
+        vcell(vol_state="EXPANDING", n=1000, target=300, stop=500),
+        vcell(vol_state="STABLE", n=1000, target=300, stop=500),
+    ]), axis="vol_state")
+    assert (same["ev_delta"].round(10) == 0).all(), "identical states add nothing"
+
+    t = m1.surface(pd.DataFrame([
+        vcell(vol_state="EXPANDING", n=1000, target=400, stop=400),
+        vcell(vol_state="STABLE", n=1000, target=200, stop=600),
+    ]), axis="vol_state")
+    exp = t[t["vol_state"] == "EXPANDING"].iloc[0]
+    # pooled: 600 targets, 1000 stops over 2000 legs at 2.0/1.0
+    assert exp["ev_null"] == pytest.approx((2.0 * 600 - 1.0 * 1000) / 2000)
+    assert exp["ev_delta"] == pytest.approx(exp["ev_lo"] - exp["ev_null"])
+    assert exp["ev_delta"] > 0
+
+
+def test_ev_delta_is_measured_net_of_cost_on_both_sides_of_the_comparison() -> None:
+    # A cost subtracted from the cell but not from its null would make every
+    # ev_delta look worse by exactly the cost, which is the size of the effect
+    # §9 is testing for. Cost cancels when both carry it.
+    free = m1.surface(pd.DataFrame([
+        vcell(vol_state="EXPANDING", n=1000, target=400, stop=400),
+        vcell(vol_state="STABLE", n=1000, target=200, stop=600),
+    ]), axis="vol_state")
+    priced = m1.surface(pd.DataFrame([
+        vcell(vol_state="EXPANDING", n=1000, target=400, stop=400, cost_atr=42.3),
+        vcell(vol_state="STABLE", n=1000, target=200, stop=600, cost_atr=42.3),
+    ]), axis="vol_state")
+    assert priced["ev_lo"].iloc[0] < free["ev_lo"].iloc[0], "cost lowers the cell"
+    pd.testing.assert_series_equal(
+        priced["ev_delta"], free["ev_delta"], check_names=False
+    ), "and cancels out of what conditioning added"
+
+
+def test_the_phase_axis_still_behaves_exactly_as_it_did() -> None:
+    # M1_SURFACE.md was produced by the pre-parameter version of this function.
+    # The default must reproduce it, or the published surface stops being the
+    # surface this code makes.
+    rows = [cell(phase="NY", n=1000, target=100, stop=0),
+            cell(phase="Asia", n=1000, target=300, stop=0)]
+    default = m1.surface(pd.DataFrame(rows))
+    named = m1.surface(pd.DataFrame(rows), axis="phase")
+    pd.testing.assert_frame_equal(default, named)
+    assert default["p_null"].iloc[0] == pytest.approx(0.20)
