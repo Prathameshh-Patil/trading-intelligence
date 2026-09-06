@@ -452,6 +452,79 @@ and that is a product question rather than a research one.
 
 ---
 
+## 9 · M1 conditioned on EXPANDING — Varad, committed 2026-09-07
+
+**Due before the conditioned sweep runs.** A ninth. `M2_MAGNITUDE.md` §6 named this run as the
+natural next step and said it *"spends more out-of-sample data and should be decided rather than
+drifted into"*. **Varad decided it. This block is what makes it a decision rather than a drift.**
+
+Reviewed by Prathamesh.
+
+### The question, and the number that answers it
+
+**Does conditioning M1's geometry sweep on an EXPANDING vol state move any cell from negative EV to
+positive EV net of cost?**
+
+The arithmetic is settled before the run and it is one line. `M1_SURFACE.md` measured **gross EV of
+−0.0032 ATR** across 3,456 cells against a **cost of +0.0423**. So:
+
+> **Conditioning has to add more than 0.042 ATR of gross EV per leg. Anything less is not a trade,
+> however large the lift in `p_target`.**
+
+### The design
+
+```
+axis      (atr_bp bucket x vol_state x side)     -- PHASE IS DROPPED, see below
+grid      M1's committed 72 points, unchanged    -- precommit §1
+states    rv_slope cut at +/-0.20                -- precommit §8
+data      TRAINING HALF ONLY, 2025-01..09        -- precommit §6's SPLIT
+null      the same cell with vol_state POOLED OUT -- the unconditioned M1 EV, same months
+```
+
+- **Phase is dropped and that is a deliberate trade.** `M1_SURFACE.md` §3 established that phase's
+  apparent lift is trailing-ATR mis-sizing rather than edge, so a third axis would buy an artefact
+  and cost sample: `(bucket × phase × vol_state × side)` is 144 cells against 24, and §3's
+  `MIN_SAMPLES = 400` would disqualify most of them on nine months. **Fat cells on the question
+  being asked beat thin cells on a question already answered.**
+- **Training half only, and the reason is sharper than "step 4 selects".** The decision to condition
+  on EXPANDING *at all* was made from M2's training-half result. Running on all 19 months would push
+  a choice made on the training half into the held-out half, which is the exact contamination the
+  split exists to prevent. **The held-out half stays unspent.**
+- **The null is the same cell with `vol_state` pooled out**, so `ev_delta` is what conditioning
+  added, on the same months and the same geometry. That comparison, not the raw EV, is the answer.
+
+### The pass line
+
+§1's three conditions unchanged — `n ≥ 400`, `ev_lo > 0`, `p_target > mde_rate(null, n)` — read
+with §1's two pre-committed tools: **the side mirror (`ev_sym`) and the `ev_barrier` / `ev_open`
+split.** A cell passing on drift or on mark-to-market is not a finding here either.
+
+**Plus one number this run exists to produce: `ev_delta`, the EV added by conditioning.** A cell can
+clear the pass line and still have `ev_delta ≈ 0`, which would mean the bucket was already there and
+the vol state contributed nothing.
+
+### My honest prediction, written before the run
+
+**I expect conditioning to add nothing. `ev_delta` ≈ 0 and no cell clears symmetrically.**
+
+**And the mechanism is already measured, which is what makes this a prediction rather than a
+mood.** `M2_MAGNITUDE.md` §2 found EXPANDING raises `P(move ≥ +T)` **and** `P(move ≤ −T)` together —
+that is what "scale, not direction" means. A bracket has a target on one side and a stop on the
+other, so **both barriers get hit more and the EV is unchanged.** That is not a new argument: it is
+exactly what `M3_CLOCK.md` §2 measured for `London-NY`, which had the highest `p_target` on the board
+and the worst EV, because `p_stop` rose with it.
+
+**So M2's +0.033 lift in reach probability should convert to roughly zero.** If I am right, the
+finding is that *a magnitude edge with no directional content cannot be harvested by a symmetric
+bracket* — which is a real result about what `PipForecast` can and cannot promise, and it points at
+stage 7 rather than at a trade.
+
+**What would falsify it:** a cell where `ev_delta` exceeds +0.042 ATR, survives its side mirror, and
+has positive `ev_barrier`. That would mean EXPANDING raises the target tail *more* than the stop
+tail at some geometry — an asymmetry M2 did not find at any `T` and would be a genuinely new fact.
+
+---
+
 ## 4 · Session-phase boundaries — Prathamesh, committed 2026-09-06
 
 **⚠️ Committed in ET wall clock, not in UTC — which is a departure from the heading this block
