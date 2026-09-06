@@ -328,6 +328,101 @@ qualify.
 
 ---
 
+## 8 · M2's vol-momentum thresholds — Varad, committed 2026-09-07
+
+**Due before M2 runs. An eighth, not in the original six** — §7's table did not list M2 because
+`strategy-split.md` §7 was written when M2 was a name in a build order. **Step 4 selects**
+(ARCHITECTURE §6), so it needs the same discipline as everything above it.
+
+Reviewed by Prathamesh. **Nothing about a forward move has been read at the time of this commit** —
+only `rv_slope`'s own distribution, which is a feature and carries no outcome, on the training half
+alone.
+
+### The numbers
+
+```
+window, min_bars   60min, 6      the window atr_bp already uses
+slope_min          0.20          EXPANDING >= +0.20, CONTRACTING <= -0.20, STABLE between
+T                  {1.0, 1.5, 2.0} x the bar's atr_bp        magnitude thresholds
+H                  {15, 30, 60} minutes                       horizons
+data               TRAINING HALF ONLY -- 2025-01..09, per §6's committed SPLIT
+```
+
+### Why these
+
+- **The window is `atr_bp`'s window, not a new one.** 60 minutes on 5-minute bars, `min_bars=6`.
+  Using a second window length would put the two axes of `reach.py`'s bucket key on two different
+  clocks, and `regime_filter.py`'s rule about re-solving windows applies across features as much as
+  across files.
+- **`slope_min = 0.20`, symmetric, and the symmetry is the defence.** Measured on the training half
+  alone, 49,910 bars:
+
+  | | 1/3 | median | 2/3 |
+  | :--- | ---: | ---: | ---: |
+  | `rv_slope` | −0.150 | **−0.036** | +0.101 |
+
+  The raw terciles are asymmetric because **volatility decays slowly and expands sharply** — the
+  median bar is in mild decay. A symmetric ±0.20 cut yields **CONTRACTING 0.257 / STABLE 0.494 /
+  EXPANDING 0.249**: within 1.5 points of equal tail mass without being a tercile, and a round
+  symmetric number that cannot be read as chosen to make one arm look good. **It reports the
+  distribution's asymmetry rather than absorbing it into the cut.**
+
+  The nine training months agree closely — median `rv_slope` runs −0.030 to −0.046 and median
+  `efficiency_ratio` 0.260 to 0.279 — so this is not a number propped up by one month.
+- **`T` and `H` are M1's, reused rather than invented.** `{1.0, 1.5, 2.0} × ATR` are three of M1's
+  six committed targets and `{15, 30, 60}` are its horizons exactly. A second grid here would be a
+  second place a number could be chosen.
+- **One side, and that is a property of the claim rather than a shortcut.** M2 predicts
+  `|move|`, and a long and a short entered on the same bar have the same `|move|` by construction.
+  **A magnitude claim has no side**, so a side-matched null is not merely unnecessary here, it
+  would be measuring the same legs twice.
+
+### The pass line
+
+`P(|move| ≥ T within H)` in the EXPANDING arm, against the **ATR-matched null** — the same
+`atr_bp` bucket, pooled over `vol_state`:
+
+1. **n ≥ 400** legs in the cell, else it reports nothing (§3).
+2. **`P(|move| ≥ T)` in EXPANDING exceeds the null by more than `mde_rate(null, n)`.**
+
+**And there is deliberately no EV condition, which needs saying rather than passing over.**
+Prathamesh's correction — *a kill condition must be stated in EV net of cost* — is right for M3 and
+for M1, and it does not apply here, because **M2's output is not a trade.** It is
+`P(|move| ≥ T within H)` feeding stage 7 as a second conditioning dimension; there is no bracket, no
+stop and therefore no round trip to clear. A rate against a matched null with `mde_rate` beside it
+is the whole of what M2 claims.
+
+**What that costs, stated now so it is not discovered later:** a real M2 result is a **forecasting**
+result and the bridge to a **trading** one is not free. The moment it is converted into a bracket it
+meets M1's surface, where gross EV is −0.0032 ATR against a cost of +0.0423. M2 clearing its MDE
+would not by itself make anything tradeable.
+
+### What result makes the vol axis dead
+
+`strategy-split.md` §2: **no cell on M1's surface clears EV − cost > 0 at n ≥ 400 *and* M2 lands
+inside its own MDE.** M1's half did not fire — 159 cells cleared, for reasons `M1_SURFACE.md`
+disqualifies but which the letter of the line admits. **So M2 landing inside its MDE does not kill
+the lane on its own either.** If both readings are taken together the lane is dead in substance and
+alive on the letter, and that gap is a finding about the kill line rather than about gold.
+
+### My honest prediction, written before the run
+
+**I expect M2 to clear its MDE, at all three `T` and all three `H`, with the largest lift at 60
+minutes.** Volatility clustering is one of the most replicated facts in empirical finance and it is
+the reason ARCHITECTURE §4.4 gave M2 the highest prior of the four. Predicting failure here merely
+because M1 and M3 failed would be a fit to this repo's recent mood rather than a belief.
+
+**I expect the effect to be pure scale, with no directional content** — `P(move ≥ +T)` and
+`P(move ≤ −T)` should rise together and by similar amounts. That is what makes it consistent with
+`horizon.py`'s random walk rather than a contradiction of it.
+
+**And I expect it not to convert.** If the lift is real and I attach any bracket to it, M1's surface
+says the cost floor eats it. **The interesting outcome is a large, clean, useless lift** — which
+would say the product's forecast has genuine information in it that no trade of ours can harvest,
+and that is a product question rather than a research one.
+
+---
+
 ## 4 · Session-phase boundaries — Prathamesh, committed 2026-09-06
 
 **⚠️ Committed in ET wall clock, not in UTC — which is a departure from the heading this block

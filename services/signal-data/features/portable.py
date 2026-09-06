@@ -33,6 +33,7 @@ import pandas as pd
 
 from features.expansion import atr
 from instruments import Instrument
+from windows import align, trailing
 
 # --------------------------------------------------------------------------
 # The two lanes' pre-committed numbers -- split.md §7. Both sets are frozen in
@@ -152,23 +153,54 @@ def range_bp(bars: pd.DataFrame) -> pd.Series:
 
 
 def rv_parkinson(bars: pd.DataFrame, *, window: str, min_bars: int) -> pd.Series:
-    """Parkinson realized volatility over a trailing session-grouped window.
+    """Parkinson realized volatility over a trailing session-grouped window, in bp.
 
-    High-low rather than close-close, because it uses the whole bar and is the
-    lower-variance estimator of the two on the same sample -- which matters
-    when the claim M2 makes is about scale. Step 4.
+    `sqrt(mean(ln(H/L)^2) / (4 ln 2))`, the 1980 estimator, scaled to basis
+    points of price. High-low rather than close-close because it uses the whole
+    bar and is the lower-variance estimator of the two on the same sample --
+    which is what matters when the claim M2 makes is about scale rather than
+    direction.
+
+    **A zero-range bar contributes zero and needs no flooring**, unlike every
+    ratio in `expansion.py`. Gold prints bars that open, close and never trade
+    away, and `ln(H/L) = 0` is the correct variance contribution from one --
+    it is a bar that did not move, not a bar with no answer.
+
+    Read against `atr_bp` rather than instead of it: ATR is a mean of ranges
+    and this is an RMS of log ranges, so this one weights the violent bar
+    harder. That is the point -- vol clustering is a statement about the tail.
     """
-    raise NotImplementedError("rv_parkinson -- Varad, step 4")
+    lr2 = np.log(bars["high"] / bars["low"]) ** 2
+    mean = align(trailing(bars.assign(_lr2=lr2), "_lr2", window, min_bars).mean(), bars)
+    return 1e4 * np.sqrt(mean / (4 * np.log(2)))
 
 
 def rv_slope(bars: pd.DataFrame, *, window: str, min_bars: int) -> pd.Series:
-    """Signed change in `rv_parkinson` across the window: the vol_state axis.
+    """Change in `rv_parkinson` across the window, **as a fraction of where it
+    started**: the `vol_state` axis.
 
     **Signed, so the three states are EXPANDING / CONTRACTING / STABLE.** An
     absolute slope collapses the first two into one bucket, and compression
-    before a move and decay after one are not the same regime. Step 4.
+    before a move and decay after one are not the same regime.
+
+    **Relative, not the raw bp change the stub proposed, and the reason is
+    §4.6 one level up.** A +2 bp move in vol is an enormous expansion in a 5 bp
+    regime and noise in a 20 bp one; a fixed bp cut would therefore mean two
+    different things at the two ends of an archive whose median `atr_bp` runs
+    5.66 to 17.04 across its months. `0.20` means "a fifth more volatile than
+    an hour ago" everywhere, on both instruments and at any price level.
+
+    One window length, used twice -- for the estimate and for the lookback --
+    so this is one threshold and not two wearing one name.
     """
-    raise NotImplementedError("rv_slope -- Varad, step 4")
+    rv = rv_parkinson(bars, window=window, min_bars=min_bars)
+    chord = align(
+        trailing(bars.assign(_rv=rv), "_rv", window, min_bars).apply(
+            lambda a: (a[-1] - a[0]) / a[0] if a[0] > 0 else np.nan, raw=True
+        ),
+        bars,
+    )
+    return chord
 
 
 def efficiency_ratio(bars: pd.DataFrame, *, window: str, min_bars: int) -> pd.Series:
@@ -176,9 +208,28 @@ def efficiency_ratio(bars: pd.DataFrame, *, window: str, min_bars: int) -> pd.Se
 
     Near 1 the window went one way; near 0 it covered the same ground twice.
     This is the shape half of the vol axis -- `rv_parkinson` cannot tell a
-    trend from a fight, and the two want different geometry. Step 4.
+    trend from a fight, and the two want different geometry.
+
+    Dimensionless by construction, so it needs no bp conversion and transfers
+    between instruments untouched.
+
+    **A window whose price never moved is NaN, not 1.0.** The ratio is
+    undefined there rather than perfect: nothing travelled, so there is no
+    direction to have been efficient about, and 1.0 would rank the deadest
+    hour of the month as its cleanest trend.
     """
-    raise NotImplementedError("efficiency_ratio -- Varad, step 4")
+    return align(
+        trailing(bars, "close", window, min_bars).apply(_er, raw=True),
+        bars,
+    )
+
+
+def _er(a: np.ndarray) -> float:
+    """|net| / path over one window. Two bars minimum: one has no path."""
+    if len(a) < 2:
+        return float("nan")
+    path = float(np.abs(np.diff(a)).sum())
+    return abs(float(a[-1] - a[0])) / path if path > 0 else float("nan")
 
 
 # --------------------------------------------------------------------------

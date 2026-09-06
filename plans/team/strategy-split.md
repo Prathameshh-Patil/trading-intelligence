@@ -248,6 +248,7 @@ them.
 | The event window, in minutes either side | Prathamesh | Varad | Before M3 runs | ✅ **6 Sep** — **±15**, covering §2's BLS window with margin |
 | The 2025/2026 split date | Prathamesh | Varad | Before M3 runs | ✅ **6 Sep** — 2025-01…09 against 2025-10…2026-07, per ARCHITECTURE §6 |
 | The opening-range length | Prathamesh | Varad | Before M3 runs | ✅ **6 Sep** — **30 minutes**; a fourth, added because `anchors` computes a range and a range has a length |
+| M2's vol-momentum thresholds | Varad | Prathamesh | Before M2 runs | ✅ **7 Sep** — window 60min, `slope_min` ±0.20, `T` and `H` reused from M1's committed grid; an eighth, added because step 4 selects |
 
 "Reviewed by" means one person reads the number and says whether it looks chosen or looks fitted.
 It is five minutes and it is the whole point.
