@@ -55,6 +55,7 @@ from horizon import mde_rate
 from instruments import GC
 from regimes import resample_bars
 from s1 import load_ticks, minute_bars
+from strategies import m1_geometry
 
 # strategy-precommit.md §1, committed 2026-09-06 before this file existed.
 TARGETS = (0.75, 1.0, 1.5, 2.0, 3.0, 4.0)   # x the cell's ATR
@@ -81,7 +82,7 @@ def month_counts(path: Path, *, side: int, bar_size: str, atr_window: str,
                  atr_min_bars: int, edges: tuple[float, ...]) -> pd.DataFrame:
     """Counts, never rates, for one month and one side. Every grid point."""
     bars = resample_bars(minute_bars(load_ticks(path)), bar_size)
-    trades = evaluate(bars, pd.Series(side, index=bars.index), GC, horizons=HORIZONS)
+    trades = evaluate(bars, m1_geometry(bars, GC, side=side), GC, horizons=HORIZONS)
     if trades.empty:
         return pd.DataFrame(columns=[*KEYS, "n", "target", "stop", "target_max", "stop_min",
                                      "open_pnl", "cost_atr"])

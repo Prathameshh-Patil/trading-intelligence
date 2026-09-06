@@ -231,7 +231,13 @@ def m1_geometry(bars: pd.DataFrame, inst: Instrument, *, side: int) -> pd.Series
     Prathamesh in a commit before the sweep runs (split.md §7) -- a grid
     widened after the surface is visible is a fit with extra steps.
     """
-    raise NotImplementedError("M1 -- step 2, and the geometry grid is pre-committed first")
+    if side not in (1, -1):
+        raise ValueError(
+            f"side must be +1 or -1, got {side!r}. Zero is `no trade` to "
+            "`backtest.evaluate`, so a zero here sweeps an empty grid and "
+            "reports it as a surface with no positive cell."
+        )
+    return pd.Series(side, index=bars.index).astype("int64")
 
 
 def m2_vol_momentum(
