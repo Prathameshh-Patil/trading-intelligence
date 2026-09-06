@@ -152,7 +152,7 @@ def test_every_committed_portable_name_exists_in_its_frozen_order() -> None:
 
 def test_the_unwritten_bodies_refuse_rather_than_return_something() -> None:
     bars = bars_at([0, 1], [100.0, 100.5])
-    for fn in (pt.range_bp, pt.mid, pt.spread_bp):
+    for fn in (pt.mid, pt.spread_bp):
         with pytest.raises(NotImplementedError):
             fn(bars)
     for name in ("m1_geometry", "m2_vol_momentum", "m3_session_event"):
@@ -165,3 +165,12 @@ def test_the_committed_atr_bp_edges_have_not_drifted() -> None:
     # pooled quartiles rounded; this asserts nobody edits them without going
     # back to that file. A threshold that can be changed silently is not one.
     assert pt.ATR_BP_EDGES == (0.0, 7.0, 10.0, 14.0, float("inf"))
+
+
+def test_range_bp_is_the_tick_range_in_a_unit_that_travels() -> None:
+    # 2.00 of range on a 100.00 close is 200 bp on any instrument; the same
+    # bars are 20 ticks on GC and 200 on a 0.01-tick one.
+    bars = bars_at([0, 1], [100.0, 200.0], ranges=[2.0, 2.0])
+    assert list(pt.range_bp(bars).round(6)) == [200.0, 100.0]
+    assert ex.bar_range(bars, GC).iloc[0] == 20.0
+    assert ex.bar_range(bars, SPOT).iloc[0] == 200.0

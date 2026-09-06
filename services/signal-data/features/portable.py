@@ -140,8 +140,15 @@ def atr_bp(bars: pd.DataFrame, inst: Instrument, *, window: str, min_bars: int) 
 
 
 def range_bp(bars: pd.DataFrame) -> pd.Series:
-    """High minus low as basis points of the close. Step 2."""
-    raise NotImplementedError("range_bp -- Varad, step 2")
+    """High minus low as basis points of the close.
+
+    The one expansion feature that cannot be contaminated by its neighbours --
+    no window, no session grouping -- which is why it is worth having beside
+    `atr_bp` rather than folded into it. `expansion.bar_range` is the same
+    quantity in ticks; this is not a re-derivation of it because there is no
+    window to re-solve, only a unit.
+    """
+    return to_bp(bars["high"] - bars["low"], bars["close"])
 
 
 def rv_parkinson(bars: pd.DataFrame, *, window: str, min_bars: int) -> pd.Series:
