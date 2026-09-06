@@ -115,16 +115,35 @@ held half's two best-powered cells on both sides (n=56: +0.2403 long; n=100: +0.
 scheduled release, so the bracket is sized to pre-release calm. **Mechanically guaranteed, not an
 edge.** Cell counts are 27–100, so nothing here is strong on its own.
 
-### 3.2 The tie band is empty
+### 3.2 The tie band is empty **at this bracket, and only at this bracket**
 
 Every table above was computed under **both** tie conventions, `reach_table`'s rule — report the
-pair, never the midpoint. Bands came out **0.001–0.010 ATR wide, and zero on most single months**: a
-same-bar tie needs one bar spanning `target + stop` = 4× ATR, which essentially never happens.
+pair, never the midpoint. Bands came out **0.001–0.010 ATR wide, and zero on most single months.**
 
-**This removes the tie-resolution argument for tick replay.** `first_touch`'s docstring flags the
-tie band as widest "where the stop is tight relative to the bar range", and at a 3:1 bracket that
-concern has no measurable content. **Step 5's case now rests on M4's path-dependent exits alone**,
-and its time budget should be written for a smaller job than that docstring implies.
+**⚠️ Corrected 2026-09-06, same day, after Varad's `1024b46`.** This section first said the result
+"removes the tie-resolution argument for tick replay" and that step 5's case rests on M4 alone.
+**That was an overstatement drawn from one bracket, and it is wrong.** A same-bar tie needs one bar
+spanning `target + stop`, so its frequency is a property of the *bracket*, not of the tape. Measured
+on 2026-07, 6,161 bars, median bar range 0.90 ATR:
+
+| bracket | width | bars that could tie |
+| :--- | ---: | ---: |
+| 0.75× / 0.5× | 1.25 ATR | **20.45%** |
+| 1.0× / 0.5× | 1.50 ATR | 10.79% |
+| 1.5× / 0.75× | 2.25 ATR | 1.79% |
+| 2.0× / 1.0× | 3.00 ATR | 0.44% |
+| **3.0× / 1.0×** *(M3's)* | 4.00 ATR | **0.13%** |
+| 4.0× / 1.5× | 5.50 ATR | 0.03% |
+
+**M3 sits at the far end where ties are negligible. M1's committed grid spans the near end, where
+one bar in five can tie** — which is why `strategy-precommit.md` §1 keeps the ×2 tie-band pass, and
+it is right to.
+
+So the honest statement: **the tie band is empty for a 3:1 bracket and is the dominant uncertainty
+for a 1.5:1 one.** `first_touch`'s docstring — the band is widest "where the stop is tight relative
+to the bar range" — is confirmed rather than retired, and **the tie-resolution argument for
+`replay.py` stands** for the tight half of M1's grid. Step 5's budget should not be shrunk on the
+strength of M3's geometry.
 
 ---
 
