@@ -45,6 +45,47 @@ its own cost. **Varad's written prediction — "no cell clears the cost floor" �
 Aggregate EV of +0.0051 ATR is a rounding error from zero, which is what `horizon.py` measured GC to
 be and what `ohlcv_edge.py` reproduced on spot to within 0.4%.
 
+### 1.1 ⚠️ Every EV above is a residual of two much larger numbers
+
+**Added 2026-09-06 after Varad's `8142625`**, which raised this against M1's smoke test and named
+the failure exactly: *"a cell that never closed a profitable trade reads as a cell that made
+money."* It is true of M3's table above, and it is the most important qualification on this page.
+
+Splitting each cell's EV into legs that **reached a barrier** and legs still **open at the horizon**
+and marked to market:
+
+| phase | side | `ev_barrier` | `ev_open` | net |
+| :--- | :--- | ---: | ---: | ---: |
+| `Asia` | L | **−0.2832** | **+0.2993** | +0.0162 |
+| `Asia-London` | L | −0.2950 | +0.3310 | +0.0359 |
+| `London` | L | −0.3047 | +0.2904 | −0.0143 |
+| `London-NY` | L | −0.2843 | +0.2661 | −0.0182 |
+| `NY` | L | −0.3287 | +0.3229 | −0.0058 |
+| `NY-Asia` | L | −0.2937 | +0.3036 | +0.0099 |
+| `London-NY` | S | −0.1702 | +0.2054 | +0.0352 |
+
+**Every phase, on both sides, loses on trades that closed.** The entire positive contribution is
+mark-to-market on the 43% of legs still open when the horizon expires — and that set is *selected*:
+a leg that never touched a stop one ATR away is biased toward the target by construction, so
+`ev_open` comes out structurally positive on both sides and is not an edge.
+
+**What this does and does not change.**
+
+- It does **not** overturn §1's verdict. "No phase clears cost" holds, and holds harder — the best
+  cell's +0.572 ticks is a residual, not a margin.
+- It does **not** touch §3's reach profile. Those are `p_target` lifts against a matched null and
+  carry no EV assumption.
+- It **does** make the per-phase EV *ranking* fragile. Differences of ±0.03 ATR sit on top of
+  components of ±0.30. A 10% error in either component reorders the table, so **`Asia` being "best"
+  is not a result** and nothing should be built on the ordering.
+- It **reframes this file's own Bug 2** (§4). The −0.28 ATR figure I first reported was not a
+  fabrication — it is `ev_barrier`, a real quantity. The error was **labelling it EV**. Pricing
+  unresolved legs at zero silently reports the closed-trade half as the whole, and the fix was to
+  report both, not to replace one with the other.
+
+**Any future EV in this lane is reported as the pair.** One number here is a number that can be
+read two ways and is.
+
 ### 1.1 A wider stop makes it worse
 
 | | mean `p_target` | mean `p_stop` | EV long | EV short |
