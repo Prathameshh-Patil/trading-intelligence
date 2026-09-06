@@ -10,7 +10,10 @@ upgrade the two-lane split buys, and it is worth nothing at all if the numbers a
 after the first surface is visible. So they are here, and they are in the code, and both landed
 before any measurement did.
 
-**Status: step 3's code is built and green. Step 3's *run* is blocked on data — see §7.**
+**Status 2026-09-06: step 3 is DONE.** Code built, archive restored and verified, M3 run on all 19
+months. Result: [`analysis/M3_CLOCK.md`](../../../services/signal-data/analysis/M3_CLOCK.md).
+**The clock conditions volatility; it does not produce edge; no phase clears cost.** Four runs were
+needed and three gave wrong answers — two bugs of mine, both recorded in that file §4.
 
 ---
 
@@ -193,14 +196,23 @@ Plumbing, not a result. Reported here so the next person does not re-run it.
   (CPI), **2026-07-29** (FOMC). Matches the calendar exactly.
 - `anchors`: zero causality violations, `prior_close` NaN through the first session.
 
-### ⛔ Blocked: the run
+### ✅ The run — done 2026-09-06
 
-**Only `2026-07` is on this machine.** `data/gc_trades.parquet` is 1,616,772 rows — one month of
-the 19 the manifest lists, and the iCloud backup path in `gc_data_manifest.md` is empty here too.
+**All 19 months restored and verified byte-identical against the manifest**, every `sha256` and byte
+count. 2025-11 failed mid-download (`Response ended prematurely`) with its trades file already
+complete, so the resume re-billed the definition alone — ~$0.01 rather than $3.85. **$64.20 total,
+46,034,813 rows.**
 
-**§3's split needs all 19 months and cannot be run until they are back.** M3 on one month is not a
-weak version of the result; the split *is* the test, and one month cannot be split. Restoring the
-archive — re-pull or restore — is the next thing this lane needs, and it is the only thing.
+**107,359 legs, both sides, both halves. Best phase `Asia` at +0.572 ticks against a 1.40-tick
+cost — 41% of it.** Varad's "no cell clears the cost floor" holds. `London-NY` carries a large,
+split-surviving reach lift (14 of 16 cells clear MDE) that **does not convert**, because its
+`p_target` and `p_stop` rise together: `atr_bp`'s trailing window sizes the bracket off the quiet
+hour *before* the 08:30 release. M3 is a bracket-conditioning axis for stage 7, not an entry filter.
+
+**Two things that are not about M3.** The tie band came out empty (0.001–0.010 ATR, zero on most
+months), which **removes the tie-resolution argument for `replay.py`** and shrinks step 5's scope.
+And a large directional intraday pattern turned up that **this lane is not entitled to claim** —
+M3's null controls for side but not for time-of-day drift.
 
 ### Not started
 

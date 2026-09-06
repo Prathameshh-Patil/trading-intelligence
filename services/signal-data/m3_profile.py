@@ -72,12 +72,16 @@ SPLIT = "2025-10"
 
 POOLED = "all"  # the label for a cell with the ATR axis collapsed
 
+# Set by main() from the committed bracket, so EV is priced in the same
+# ATR units the bracket was placed in.
+EV_TARGET, EV_STOP = 3.0, 1.0
+
 
 def month_cells(
     path: Path,
     *,
-    target: float,
-    stop: float,
+    target_atr: float,
+    stop_atr: float,
     horizon: int,
     bar_size: str,
     atr_window: str,
@@ -105,28 +109,87 @@ def month_cells(
     require_coverage(bars)
 
     trades = evaluate(bars, pd.Series(side, index=bars.index), GC, horizons=(horizon,))
-    trades["outcome"] = first_touch(bars, trades, GC, target=target, stop=stop, horizon=horizon)
 
     at = pd.DatetimeIndex(trades["t"])
+    measured = atr_bp(bars, GC, window=atr_window, min_bars=atr_min_bars).reindex(at)
+    trades["atr_bp"] = measured.to_numpy()
+    trades["close"] = bars["close"].reindex(at).to_numpy()
     trades["phase"] = session_phase(bars, GC).reindex(at).to_numpy()
     trades["near_event"] = (
         event_proximity(bars, load_calendar(), window_minutes=event_window_minutes)
         .reindex(at)
         .to_numpy()
     )
-    if edges is None:
-        trades["bucket"] = POOLED
-    else:
-        measured = atr_bp(bars, GC, window=atr_window, min_bars=atr_min_bars).reindex(at)
-        trades["bucket"] = pd.cut(measured.to_numpy(), edges).astype("object")
+    trades["bucket"] = (
+        POOLED if edges is None else pd.cut(trades["atr_bp"].to_numpy(), edges).astype("object")
+    )
 
-    done = trades.dropna(subset=["outcome", "bucket", "phase"])
-    grouped = done.groupby(["bucket", "phase", "near_event"], observed=False)["outcome"]
+    # **The bracket is resolved from ATR, once per (month x bucket), and this is
+    # the whole reason this loop exists.** A FIXED TICK bracket is the §4.6 unit
+    # error wearing a measurement's name: gold ran 2,732 -> 5,037 over this
+    # archive, so 70 ticks is ~25.6 bp at the start and ~13.9 bp at the end.
+    # Bucketing in basis points while bracketing in ticks means the target gets
+    # mechanically easier as the archive runs, and the 2025/2026 split -- the
+    # test that decides whether M3 is a finding -- then compares two different
+    # trades wearing one name. It showed up as the `<7` bucket's null moving
+    # 0.0360 -> 0.1088 across the halves, which is not a market fact.
+    #
+    # Per (month x bucket) and not per trade because `backtest.first_touch`
+    # takes one scalar bracket, and giving it a per-trade array is a
+    # shared-spine change -- Varad's, split.md §2. Inside one bucket in one
+    # month the ATR is near-constant by construction, so this is the same
+    # quantity at the resolution this lane is allowed to compute it.
+    #
+    # The median is a population statistic over the bucket's own bars. No
+    # outcome is read to choose it.
+    trades["outcome"] = pd.Series(float("nan"), index=trades.index)
+    trades["outcome_max"] = pd.Series(float("nan"), index=trades.index)
+    trades["atr_ticks"] = pd.Series(float("nan"), index=trades.index)
+    sized = trades.dropna(subset=["bucket", "atr_bp", "close"])
+    for _, sub in sized.groupby("bucket", observed=True, sort=False):
+        atr_ticks = (sub["atr_bp"].median() / 1e4) * sub["close"].median() / GC.tick
+        tgt, stp = target_atr * atr_ticks, stop_atr * atr_ticks
+        rows = pd.Index(sub.index)
+        trades.loc[rows, "atr_ticks"] = atr_ticks
+        trades.loc[rows, "outcome"] = first_touch(
+            bars, sub, GC, target=tgt, stop=stp, horizon=horizon
+        )
+        # **The same measurement with same-bar ties read the other way.**
+        # `reach_table`'s rule -- report the pair, never the midpoint: bars do
+        # not record intrabar order, so the truth is inside the band and they
+        # cannot say where. It matters more here than anywhere else in the
+        # repo, because a stop at 1x ATR is roughly ONE bar's true range, which
+        # is exactly the regime first_touch's docstring flags as widest. An EV
+        # quoted off the "stop" convention alone is a lower bound of unstated
+        # width, and the width is the thing tick replay (step 5) exists to close.
+        trades.loc[rows, "outcome_max"] = first_touch(
+            bars, sub, GC, target=tgt, stop=stp, horizon=horizon, ties="target"
+        )
+
+    # **What an UNRESOLVED leg is worth, and it is not zero.** Assigning 0 to
+    # `neither` treats the horizon as neutral, and it is not: a leg that
+    # survived 30 minutes without touching a stop one ATR away did so BECAUSE
+    # it drifted the right way, so the survivors are biased upward. Pricing
+    # them at 0 charges the strategy for every stop and credits it for no part
+    # of the paths that quietly worked -- which made EV read about -0.27 ATR
+    # for a series `horizon.py` measured as a random walk, where it should
+    # read about zero. The realized move at the horizon is already in
+    # `evaluate`'s output; it just has to be carried, in ATR units so it can
+    # be added to the barrier payoffs.
+    trades["move_atr"] = trades[f"move_{horizon}m"] / trades["atr_ticks"]
+    trades["open_pnl"] = trades["move_atr"].where(trades["outcome"] == 0, 0.0)
+
+    done = trades.dropna(subset=["outcome", "bucket", "phase", "open_pnl"])
+    g = done.groupby(["bucket", "phase", "near_event"], observed=False)
     return pd.DataFrame(
         {
-            "n": grouped.size(),
-            "target": grouped.apply(lambda s: int((s == 1).sum())),
-            "stop": grouped.apply(lambda s: int((s == -1).sum())),
+            "n": g["outcome"].size(),
+            "target": g["outcome"].apply(lambda s: int((s == 1).sum())),
+            "stop": g["outcome"].apply(lambda s: int((s == -1).sum())),
+            "target_max": g["outcome_max"].apply(lambda s: int((s == 1).sum())),
+            "stop_min": g["outcome_max"].apply(lambda s: int((s == -1).sum())),
+            # Summed, not averaged -- the same counts-never-rates rule.
+            "open_pnl": g["open_pnl"].sum(),
         }
     )
 
@@ -139,7 +202,8 @@ def profile(counts: pd.DataFrame, by: list[str]) -> pd.DataFrame:
     lift a lift** rather than a comparison against a number built differently
     somewhere else.
     """
-    cell = counts.groupby(["bucket", *by], observed=False)[["n", "target", "stop"]].sum()
+    cols = ["n", "target", "stop", "target_max", "stop_min", "open_pnl"]
+    cell = counts.groupby(["bucket", *by], observed=False)[cols].sum()
     null = counts.groupby(["bucket"], observed=False)[["n", "target"]].sum()
 
     out = cell.reset_index()
@@ -156,13 +220,27 @@ def profile(counts: pd.DataFrame, by: list[str]) -> pd.DataFrame:
     ]
     joined["visible"] = joined["lift"].abs() >= joined["mde"]
     joined["thin"] = joined["n"] < MIN_SAMPLES
+
+    # EV per leg in ATR units: +target_atr on a target, -stop_atr on a stop,
+    # ~0 on neither (price is inside the bracket when the horizon expires).
+    # Reported as a BAND because the tie convention is a real uncertainty and
+    # not a rounding one -- ev_lo reads same-bar ties to the stop, ev_hi to the
+    # target, and no bar frame can say which happened.
+    n = joined["n"].where(joined["n"] > 0)
+    joined["ev_lo"] = (
+        EV_TARGET * joined["target"] - EV_STOP * joined["stop"] + joined["open_pnl"]
+    ) / n
+    joined["ev_hi"] = (
+        EV_TARGET * joined["target_max"] - EV_STOP * joined["stop_min"] + joined["open_pnl"]
+    ) / n
     return joined
 
 
 def show(label: str, counts: pd.DataFrame, by: list[str]) -> None:
     print(f"\n--- {label} ---")
     t = profile(counts, by)
-    cols = ["bucket", *by, "n", "p_target", "p_null", "lift", "mde", "visible", "thin"]
+    cols = ["bucket", *by, "n", "p_target", "p_null", "lift", "mde", "visible", "thin",
+            "ev_lo", "ev_hi"]
     print(t[cols].round(4).to_string(index=False))
     seen = t[t["visible"] & ~t["thin"]]
     if seen.empty:
@@ -177,8 +255,14 @@ def main() -> None:
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
     p.add_argument("--data", type=Path, default=Path("data"), help="dir of YYYY-MM/gc_trades.parquet")
-    p.add_argument("--target", type=float, default=70.0, help="ticks -- BASE_RATES.md's bracket")
-    p.add_argument("--stop", type=float, default=20.0, help="ticks")
+    # **Multiples of ATR, not ticks, and both are points on Varad's committed
+    # M1 grid** (strategy-precommit.md §1: target {0.75,1,1.5,2,3,4} x stop
+    # {0.5,0.75,1,1.5}). 3.0/1.0 is that grid's closest analogue to
+    # BASE_RATES.md's 70/20, whose 3.5:1 ratio it nearly matches. Reading a
+    # point off an already-committed grid is not the same act as picking a
+    # bracket, and this lane does not get to do the second one.
+    p.add_argument("--target-atr", type=float, default=3.0, help="multiples of the bucket's ATR")
+    p.add_argument("--stop-atr", type=float, default=1.0, help="multiples of the bucket's ATR")
     p.add_argument("--horizon", type=int, default=30, help="minutes")
     p.add_argument("--bar-size", default="5min")
     p.add_argument("--atr-window", default="60min")
@@ -200,6 +284,9 @@ def main() -> None:
     p.add_argument("--out", type=Path, help="write pooled per-cell counts to CSV")
     a = p.parse_args()
 
+    global EV_TARGET, EV_STOP
+    EV_TARGET, EV_STOP = a.target_atr, a.stop_atr
+
     months = sorted(d for d in a.data.iterdir() if (d / "gc_trades.parquet").exists())
     if not months:
         raise SystemExit(f"no YYYY-MM/gc_trades.parquet under {a.data}")
@@ -220,7 +307,7 @@ def main() -> None:
     for month in months:
         counts = month_cells(
             month / "gc_trades.parquet",
-            target=a.target, stop=a.stop, horizon=a.horizon, bar_size=a.bar_size,
+            target_atr=a.target_atr, stop_atr=a.stop_atr, horizon=a.horizon, bar_size=a.bar_size,
             atr_window=a.atr_window, atr_min_bars=a.atr_min_bars, edges=edges,
             event_window_minutes=a.event_window, side=a.side,
         )
@@ -235,7 +322,8 @@ def main() -> None:
 
     side_name = "long" if a.side > 0 else "short"
     print(f"\n{'=' * 78}\nM3 clock profile — {len(months)} months, {side_name}, "
-          f"{a.target:g}/{a.stop:g} at {a.horizon}m, event ±{a.event_window}m\n{'=' * 78}")
+          f"{a.target_atr:g}x/{a.stop_atr:g}x ATR at {a.horizon}m, event ±{a.event_window}m\n"
+          f"bracket in MULTIPLES OF ATR, resolved per month x bucket — never fixed ticks\n{'=' * 78}")
 
     # Every cut, on the pooled archive and on each half. clock-lane.md §5 --
     # committed before the run, so the union cannot become the chosen one.

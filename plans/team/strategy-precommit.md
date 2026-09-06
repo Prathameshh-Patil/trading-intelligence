@@ -348,10 +348,32 @@ If the phase axis is dead, `reach.py`'s bucket key loses one of its four axes an
 result: it makes every surviving cell larger and the `MIN_SAMPLES`=400 problem §3 accepts in advance
 correspondingly easier.
 
+### ✅ ANSWERED 2026-09-06 — and the test was the wrong one
+
+Result: [`analysis/M3_CLOCK.md`](../../services/signal-data/analysis/M3_CLOCK.md).
+
+**By the test as written, the phase axis is NOT dead.** `London-NY` clears its own `mde_rate` in
+**14 of 16 cells** across both halves and both sides, and survives a ~6x overlapping-leg haircut in
+the middle buckets.
+
+**But the test asks the wrong question, and that is recorded here rather than quietly upgraded.** It
+asks whether the clock moves `p_target`. It does. It does not ask whether the movement is worth
+anything — and it is not: `London-NY` has the highest `p_target` on both sides **and the worst long
+EV on the board**, because its `p_stop` rises with it. Best phase net of cost is **−0.83 ticks**.
+
+**A kill condition in this lane must be stated in EV net of cost, not in `p_target` against a null.**
+Reach is a property of the bracket; EV is the property of the trade. That correction applies to any
+future block in this file.
+
 ### My honest prediction, written before the run
 
 **`London-NY` and `NY` carry a magnitude difference that survives; the direction-free `p_target`
-lift does not clear MDE in any phase.** `horizon.py` already measured GC as a directional random
+lift does not clear MDE in any phase.**
+
+> **Scored 2026-09-06: half right.** `London-NY` does carry the surviving magnitude difference — 14
+> of 16 cells. The second clause is **wrong**: the lift clears MDE comfortably. The closing sentence
+> below is **right, and for the reason given** — M3's value is bracket conditioning, not entry
+> filtering, and the EV table is what proves it. `horizon.py` already measured GC as a directional random
 walk at 5/15/30m and `ohlcv_edge.py` reproduced that on spot to within 0.4%. The clock changes how
 much gold moves, and I expect it changes almost nothing about which way. If that is right, M3's
 value is as a **conditioning axis for the bracket**, not as an entry filter — which is what stage 7
