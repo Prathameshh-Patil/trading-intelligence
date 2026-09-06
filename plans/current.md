@@ -1,6 +1,6 @@
 # Trading Intelligence — Current Plan
 
-Live tracker: who owns what, what is done, what is next. **Last updated: 2026-09-06.**
+Live tracker: who owns what, what is done, what is next. **Last updated: 2026-09-07.**
 
 > **The twelve-week schedule lives in [`plans/team/`](team/README.md).** This file stays the live
 > status tracker — what is done, what is open, who owns it. `plans/team/` is the day-by-day
@@ -1718,6 +1718,45 @@ files.** The pre-commitment discipline was **audited, not assumed**: his four nu
       on one month, cells run **min 1, max 727 legs** — roughly 19 to 13,800 pooled. `MIN_SAMPLES =
       400` will disqualify a large minority outright, exactly as §3 accepted in advance, and the
       sweep **must pool across the archive** rather than report per month.
+
+### 2026-09-07 — M1's surface: gold's bracket geometry is a random walk minus cost · [`analysis/M1_SURFACE.md`](../services/signal-data/analysis/M1_SURFACE.md)
+
+**Step 2 of ARCHITECTURE §6, run overnight. 3,456 cells, 19 months, both sides, 1h 35m — matching
+the projection to within 10%.** Every input committed before the sweep existed; nothing in the run
+chose anything. Suite 223 green, `ruff` and `mypy` clean over 44 files.
+
+- [x] **🔴 The finding, and it is one number.** Mean gross EV **before cost is −0.0032 ATR** across
+      the whole surface; mean cost is **+0.0423**. **Gross EV is zero to three decimal places and
+      the entire net result is the commission.** It does not move — −0.0037/−0.0033/−0.0026 by
+      horizon, +0.0007 to −0.0077 by bucket. Third independent confirmation of the random walk,
+      after `horizon.py` on GC and `ohlcv_edge.py` on spot to within 0.4%.
+- [x] **159 cells (4.6%) clear the committed pass line, and none is a finding — disqualified by two
+      tools committed BEFORE the run.** The side mirror removes 145 (only 68 of 3,456 cells are
+      positive once the opposite side is averaged in — the rest is the archive's drift). The
+      `ev_barrier`/`ev_open` split removes 13 of the remaining 14: they **lose money on trades that
+      closed** and draw their EV from mark-to-market on legs still open, a selected set. What
+      survives both is **one cell at `ev_sym` +0.0005 ATR — two hundredths of a tick** — whose own
+      mirror fails.
+- [x] **The passes are M3's artefact, found by a second route.** `London-NY` is 17% of the surface
+      and **73% of the passing cells**, with mean `p_neither` 0.164 against 0.264 surface-wide —
+      the trailing-ATR mis-sizing `M3_CLOCK.md` §2 diagnosed. Contiguity was pre-committed as the
+      test that separates a finding from a multiple-comparisons artefact; **the block is contiguous
+      and it still does not rescue the result**, because it sits exactly where `ev_barrier` is most
+      negative.
+- [x] **The prediction, scored honestly.** *"No cell clears the cost floor"* — **wrong**, 159 do.
+      *"Expect it at targets ≤ 1.0×"* — **wrong in the opposite direction**, they cluster at 3.0×
+      and 4.0×. *The mechanism* — **right, and it is the finding.** Wrong conclusion, right
+      mechanism: a random walk does not imply no cell clears an EV screen, and on 3,456 cells drift
+      and open marks pass at exactly this rate.
+- [x] **Written before the surface was read:** 15 tests on `m1_sweep.surface()`, prompted by
+      `cda1963` (M3's EV had none, and both its bugs produced well-formed output that reversed the
+      conclusion). Plus `m1_geometry` and `range_bp` filled, with a test pinning that the sweep's
+      entries are identical to what the run actually used.
+- [ ] **⚠️ This does not kill the vol lane and is not being read as though it does.**
+      `strategy-split.md` §2 requires no positive-EV cell **and** M2 inside its own MDE. Cells
+      cleared. **M2 is owed**, and M1's surface is now the corrected null it gets quoted against —
+      which is what step 2 existed to produce. Held-out half unspent: nothing selected or fitted, and
+      one cell at +0.0005 ATR is not worth spending it on.
 
 ---
 

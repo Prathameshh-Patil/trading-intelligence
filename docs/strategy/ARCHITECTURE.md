@@ -318,12 +318,19 @@ number **without spending anything**, so the estimate is available for free when
 | | Step | Produces | Exists? |
 | :--- | :--- | :--- | :--- |
 | 1 | `instruments.py`; inject `TICK`; `atr_bp` | The portability seam | ✅ **6 Sep** |
-| 2 | **M1** geometry sweep, 19 months | The EV surface — **the null everything else is quoted against** | ❌ |
+| 2 | **M1** geometry sweep, 19 months | The EV surface — **the null everything else is quoted against** | ✅ **7 Sep** — `analysis/M1_SURFACE.md` |
 | 3 | **M3** session + event, with the 2025/2026 split | Clock profile, or a clean negative | ⚠️ **code 6 Sep; run blocked on data** |
 | 4 | **M2** vol momentum, against M1's corrected null | Second conditioning dimension for stage 7 | ❌ |
 | 5 | Tick replay from trades on disk | Intrabar ordering — unblocks M4b **and** the intrabar-stop question `regime_filter.py` raised | ❌ |
 | 6 | Route 2 spot feed; portable regime refit | Cross-instrument validation | ❌ |
 | 7 | `reach.py` | `PipForecast.bucket`, served | ❌ |
+
+**Step 2 shipped 7 Sep** — `m1_sweep.py`, 3,456 cells over 19 months and both sides. **Gross EV
+before cost is −0.0032 ATR across the whole surface and the mean cost is +0.0423**, so gold's
+bracket geometry is a random walk and the entire net result is commission. 159 cells clear the
+committed pass line; the pre-committed side mirror and barrier/open split disqualify all but one,
+at `ev_sym` +0.0005 ATR. `analysis/M1_SURFACE.md`. **This does not fire the lane's kill
+condition** — §2 requires M1 *and* M2 to fail, and M2 is still owed.
 
 **Step 1 shipped 6 Sep** — `instruments.py`, `TICK` injected through every module that imported
 it, `atr_bp`, and every §4.3 / §4.4 signature committed raising `NotImplementedError`. Suite

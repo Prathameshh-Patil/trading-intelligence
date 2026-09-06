@@ -160,6 +160,32 @@ order-flow arms flat at power. If something does clear it, I expect it at **shor
 0.75× target is roughly three quarters of one bar's range and the round trip is a real fraction of
 that. **Being wrong here is the useful outcome; record it either way.**
 
+### ✅ ANSWERED 2026-09-07 — the surface is a random walk minus cost
+
+Result: [`analysis/M1_SURFACE.md`](../../services/signal-data/analysis/M1_SURFACE.md). 3,456 cells,
+19 months, both sides, 1h 35m. **Mean gross EV before cost: −0.0032 ATR. Mean cost: +0.0423.** The
+whole negative result is the commission, and it does not move across horizon or bucket.
+
+**The committed pass line admits 159 cells (4.6%), and none of them is a finding.** The two tools
+this section committed *before* the run are what disqualify them, rather than any rule invented
+after: the side mirror removes 145 (only 68 of 3,456 cells are positive at all once the opposite
+side is averaged in), and the `ev_barrier` / `ev_open` split removes 13 of the remaining 14 — they
+lose money on trades that closed and get their EV from mark-to-market on legs still open. What
+survives both is **one cell at `ev_sym` +0.0005 ATR**, two hundredths of a tick, whose own mirror
+fails.
+
+**The prediction, scored.** *"No cell clears the cost floor"* — **wrong on the letter**, 159 do.
+*"If one does, expect it at targets ≤ 1.0×"* — **wrong, and in the opposite direction**: the passes
+concentrate at 3.0× and 4.0×, because a low `p_target` at a wide target leaves most legs unresolved
+and the mark-to-market on those carries the EV. *The mechanism* — random walk, nothing to pay for
+cost — **right, and it is the finding.** Wrong conclusion, right mechanism: a random walk does not
+imply no cell clears an EV screen, and on 3,456 cells drift and open marks produce passes at exactly
+this rate.
+
+**This does not fire the kill condition and it is not being read as though it does.**
+`strategy-split.md` §2 requires no positive-EV cell **and** M2 inside its own MDE. Cells cleared.
+M2 is still owed.
+
 ### One engineering constraint — ✅ MEASURED 2026-09-06, and it does not bind
 
 The sweep as committed is ~**31 million** `first_touch` iterations (107,359 legs × 72 points × 2 for
