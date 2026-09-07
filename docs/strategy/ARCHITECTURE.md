@@ -200,8 +200,14 @@ the `trades` schema — **there is no quote data anywhere in this repo**, which 
 set this track's budget (`strategy-reconciliation.md` §3).
 
 Spot is not chosen yet. Route 2 (`strategy-reconciliation.md` §7.3) says take a free bid/ask feed —
-Dukascopy historical ticks first, MT5 demo as fallback. **Dukascopy reachability is unverified from
-this machine** and step one of that route is a ten-minute check that a download completes.
+Dukascopy historical ticks first, MT5 demo as fallback. ✅ **Reachability checked 7 Sep and it
+passes** — `analysis/SPOT_FEED_CHECK.md`. XAUUSD tick history is free, complete and decodable:
+20,654 quotes in one London–NY hour, 344/min, spread median 1.91 bp, and the price level
+cross-checks against our own GC archive for the same hour at a ~+19 basis, which is cost of carry
+rather than a scale error. **It was never a reachability problem — the host resets a request with no
+browser `User-Agent`**, which is almost certainly what `DELTA_CVD_FINDINGS.md` §4 recorded as
+"unreachable". A bulk pull is ~10,000 hourly files and is not a ten-minute job; one request in four
+was reset even with the header set.
 
 ### 4.2 `instruments.py` — the one new abstraction
 
@@ -401,6 +407,12 @@ tick the overwhelming majority of the time, which would make `spread_z` a z-scor
 with unstable tails. On spot, quotes **are** the entire feed: free, and spread genuinely moves.
 
 So the test runs on spot, for nothing. **Route 2, Varad's call, 6 Sep.**
+
+**Update 7 Sep — the precondition this section doubted is confirmed.** `SPOT_FEED_CHECK.md`
+measured one London–NY hour of XAUUSD: spread runs **1.64 bp at p10 against 2.15 at p90, max
+3.77**, so it genuinely moves and a trailing z-score is not a z of a near-constant. **That is the
+precondition, not the result** — one hour, one session, one broker says the variable is
+non-degenerate, and says nothing about whether it predicts anything.
 
 **The caveat that survives it:** spot spread is a **broker pricing decision, not a market outcome** —
 a dealer widens on its own risk policy and its own client flow, so two brokers disagree about the

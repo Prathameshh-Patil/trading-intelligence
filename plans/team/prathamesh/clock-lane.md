@@ -219,9 +219,14 @@ M3's null controls for side but not for time-of-day drift.
 - **Step 5, `replay.py`.** split.md §5 requires a time budget written into that file before the
   first line of code. **The blank is still blank**, deliberately, and it stays that way until it is
   filled.
-- **Step 6, the spot feed.** Route 2 has not picked a vendor, `XAUUSD` is deliberately absent from
-  `instruments.py`, and `mid` / `spread_bp` / `quote_rate_z` are still committed signatures with no
-  bodies. Nothing in step 3 needed any of it — which was the design (split.md §8, "the fake").
+- **Step 6, the spot feed. ✅ Step one passes, 7 Sep** — `analysis/SPOT_FEED_CHECK.md`. Dukascopy
+  is reachable and XAUUSD decodes: 20,654 quotes an hour, spread median 1.91 bp with real variance,
+  cross-checked against our GC archive at a cost-of-carry basis. `dukascopy.py` + 7 tests.
+  **It was never a reachability problem — the host resets a request with no browser `User-Agent`.**
+  Still open: a vendor is not chosen, `XAUUSD` is still deliberately absent from `instruments.py`
+  (a spot tick is broker-dependent), and `mid` / `spread_bp` / `quote_rate_z` are still committed
+  signatures with no bodies. A bulk pull is ~10,000 hourly files with a 1-in-4 reset rate — a
+  resumable, verifying script, not an afternoon.
 
 ---
 
