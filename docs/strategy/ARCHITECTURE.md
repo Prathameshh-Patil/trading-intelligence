@@ -319,7 +319,7 @@ number **without spending anything**, so the estimate is available for free when
 | :--- | :--- | :--- | :--- |
 | 1 | `instruments.py`; inject `TICK`; `atr_bp` | The portability seam | ✅ **6 Sep** |
 | 2 | **M1** geometry sweep, 19 months | The EV surface — **the null everything else is quoted against** | ✅ **7 Sep** — `analysis/M1_SURFACE.md` |
-| 3 | **M3** session + event, with the 2025/2026 split | Clock profile, or a clean negative | ⚠️ **code 6 Sep; run blocked on data** |
+| 3 | **M3** session + event, with the 2025/2026 split | Clock profile, or a clean negative | ✅ **6–7 Sep** — `analysis/M3_CLOCK.md` |
 | 4 | **M2** vol momentum, against M1's corrected null | Second conditioning dimension for stage 7 | ✅ **7 Sep** — `analysis/M2_MAGNITUDE.md` |
 | 5 | Tick replay from trades on disk | Intrabar ordering — unblocks M4b **and** the intrabar-stop question `regime_filter.py` raised | ❌ |
 | 6 | Route 2 spot feed; portable regime refit | Cross-instrument validation | ❌ |
@@ -363,11 +363,22 @@ clean. The four pre-committed numbers are in `plans/team/prathamesh/clock-lane.m
 run, and one of them — the phase boundaries frozen in **ET wall clock rather than UTC** — is a
 recorded departure from `strategy-split.md` §7 that the room has to sign.
 
-**The run is blocked and the blocker is data, not code.** Only `2026-07` is on the machine —
-1.6M rows of the manifest's 46M. §6's split needs all 19 months and one month cannot be split.
+**Step 3 ran 7 Sep** — `analysis/M3_CLOCK.md`, 107,359 legs, both sides, both halves. **The clock
+conditions volatility; it does not produce edge; no phase clears cost** — best is `Asia` at +0.572
+ticks against a 1.40-tick round trip. `London-NY` carries a large, split-surviving reach lift (14 of
+16 cells clear MDE) that does not convert, because `atr_bp`'s trailing window sizes the bracket off
+the quiet hour *before* the 08:30 release. **M1 independently rediscovered the same artefact** —
+`London-NY` is 17% of its surface and 73% of its passing cells (`M1_SURFACE.md` §3). So `phase`
+earns its place in stage 7's bucket key twice, by two routes, and for the same reason: trailing
+`atr_bp` mis-sizes the bracket in a stable, direction-free, time-of-day-dependent way.
 
-**Steps 1–5 need no new data, no feed and no vendor decision** — provided the archive §4.1 lists is
-actually present, which today it is not: If M1 returns no positive-EV cell
+**The archive was restored to run it.** It had gone missing from the machine and the iCloud backup
+`gc_data_manifest.md` documents did not exist; all 19 months were re-pulled for $64.20 and verified
+**byte-identical** against the manifest, every `sha256` and byte count. The manifest was the real
+backup.
+
+**Steps 1–5 need no new data, no feed and no vendor decision**, and steps 2–4 have now been run on
+the restored archive: If M1 returns no positive-EV cell
 and M2 and M3 both land inside their own MDE, **that is three kill conditions firing on data already
 paid for** — worth knowing before the spot-vendor question is reopened.
 
