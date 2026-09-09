@@ -255,24 +255,39 @@ is guessing most of the time.**
 
 This is the shape the trader's trust rests on. Proposed as **S7**; not frozen until all three agree.
 
-> ## ⚠️ AMENDMENT — proposed 2026-09-10 by Prathamesh. **2 of 3. Shreyas outstanding.**
+> ## ✅ AMENDMENT — proposed 2026-09-10 by Prathamesh. **AGREED 3 of 3. S7 is frozen.**
 >
 > | | |
 > | :--- | :--- |
 > | Prathamesh | ✅ proposed, and implemented in `forecast.ts` |
 > | Varad | ✅ **approved 2026-09-10** — he owns `reach.py` and flagged the mismatch three times |
-> | Shreyas | ⬜ outstanding |
+> | Shreyas | ✅ **approved 2026-09-10** — the presentation call, which is his to make |
 >
-> **Still not frozen.** §6.3's own rule is "not frozen until all three agree", and
-> `contracts.md` says a contract change means all three in standup and the type, the
-> fake, the real implementation and every consumer moving in ONE commit — never half.
+> **How the last two approvals were obtained, stated rather than implied:** both were given
+> verbally on the day. Varad's went directly to Prathamesh and Shreyas's was relayed by
+> Varad, so **neither is a logged artefact from the moment** — the same basis rows #2 and #8
+> of `plans/current.md` are closed on. Recorded here because that is where a contract's
+> provenance belongs, and recorded honestly because a signature nobody can point at later is
+> worse than an unsigned contract.
 >
-> **Shreyas's sign-off is the load-bearing one here, not a formality.** This amendment is
+> **Shreyas's sign-off was the load-bearing one, not a formality.** This amendment is
 > entirely about how a probability is *presented* to a trader — a band rather than a
 > midpoint, `pNeither` shown so a low `p(target)` is not misread as a high `p(stop)`,
 > no suggested bracket. `plans/current.md`'s ownership table puts domain validation with
 > him: *"if Shreyas says the signal looks wrong, that stops the sprint."* A contract about
 > not misleading a trader is exactly the thing he is the reviewer for.
+>
+> **What freezing does and does not mean here.** §6.3's rule was "not frozen until all three
+> agree"; all three agree, so the shape is settled and
+> [`apps/desktop/src/lib/engine/forecast.ts`](../../../apps/desktop/src/lib/engine/forecast.ts)
+> is now the contract rather than a proposal. **`contracts.md`'s freeze discipline binds from
+> here**: any further change needs all three again, in one commit carrying the type, the fake,
+> the real implementation and every consumer together. Never half.
+>
+> **It is small now and will not stay small.** Today the type, the fake and one consumer live
+> in `apps/desktop`; there is **no real implementation and no `services/api` route**. Writing
+> those is not a contract change — it is filling slots this contract already specifies — but
+> the first change to the *shape* after they exist is a four-file commit, not a one-file one.
 >
 > **The draft below was written 5 Sep against Track A and does not fit the table that now
 > exists.** `reach.py` shipped 10 Sep (`analysis/REACH.md`) and serves a different shape.

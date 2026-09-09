@@ -1,4 +1,4 @@
-# Contracts — the six seams, and why nobody ever waits
+# Contracts — the seven seams, and why nobody ever waits
 
 This is the file that answers *"how do we not depend on each other."*
 
@@ -21,7 +21,8 @@ A fake that always returns the same tidy row teaches you nothing and hides bugs 
 
 A frozen contract changes only by all three agreeing in standup, and the change lands as **one
 commit that updates the type, the fake, the real implementation and both consumers together**.
-Never half. `plans/current.md` already carries this rule for the analyze contract; these six join it.
+Never half. `plans/current.md` already carries this rule for the analyze contract; these seven join
+it — **S7 joined 2026-09-10**, the first contract frozen after the file was written.
 
 **Two more are drafted and not yet frozen.** [`strategy-split.md`](strategy-split.md) §8 proposes
 **S8 · `Instrument`** and **S9 · the bars frame** for the Track B strategy programme. They are
@@ -376,6 +377,57 @@ when the vision model returns something that *looks* like volume and it would be
 **Enforcement:** `CaptureContext` has no numeric field other than `levels` and `confidence`. If
 someone needs to add one, that is a contract change and needs all three in standup. The type is the
 guardrail.
+
+---
+
+## S7 · Pip forecast — Varad's table → Prathamesh's UI
+
+**Frozen 2026-09-10**, all three agreeing. Not drafted here: proposed in
+[`2026-09-05-live-signal-pipeline-design.md`](../../docs/superpowers/specs/2026-09-05-live-signal-pipeline-design.md)
+§6.3, amended the day the table it serves shipped, and the amendment block there carries the four
+changes, who approved and how.
+
+**The type's home is
+[`apps/desktop/src/lib/engine/forecast.ts`](../../apps/desktop/src/lib/engine/forecast.ts), and it
+is not copied here.** Every other section of this file quotes its type because there was one copy to
+quote; S7's would be a second copy of a hundred lines that must agree with the first, and this repo
+already found what that costs — `reach_table.json` shipped 41,280 numbers out of
+`analysis/reach_table.csv` with nothing reconciling them, and now has a test doing it. A contract is
+better served by one authority and a pointer.
+
+**What it carries**, in one line each, because these are the parts a reader needs without opening
+the file:
+
+```
+bucket    instrument x atrBucket x phase x volState x side   -- reach.py's key, field for field
+reach[]   { target, stop, p, pMax, pStop, pNeither, n }      -- pMax is the tie band, never a midpoint
+mfe/mae   nullable, and null today                           -- stage 7 serves no excursion quantiles
+suggested derived from `reach`, or null                      -- never chosen
+```
+
+**The three rules that are the point of the contract**, unchanged from the draft and from
+`strategy-precommit.md` §10:
+
+1. **Below `MIN_SAMPLES` the answer is `null`, and never a coarser bucket.** `forecast: null` is a
+   valid and common answer — 19% of the served grid, measured. A number computed from a different
+   population wearing this bucket's label is the same error class as `has_flow` degrading instead of
+   raising, and it is invisible for the same reason.
+2. **Every probability carries its band.** `p` and `pMax` both, always. One number where the bars
+   tie is a precision the data does not have.
+3. **No `guaranteedPips`, ever.** No lot size, no account-relative anything, and `suggested` is
+   derived or null. This is the field that must never exist, written down so nobody adds it in a
+   week when it would be convenient.
+
+**Not yet real.** The type, the fake (`forecastMock.ts`) and one consumer (`ForecastView.tsx`) exist;
+there is no real implementation and no `services/api` route. Writing those fills slots this contract
+already specifies and is not a contract change. **Changing the shape after they exist is** — and by
+the freeze discipline above that lands as one commit moving the type, the fake, the real
+implementation and every consumer together.
+
+**One operational fact this contract implies and nobody should discover in production:** the warm-up
+is **~120 minutes, not 60**. `volState` reads `rv_slope`, two chained 60-minute windows, so a feed
+that has just connected serves `forecast: null` for its first two hours. That is correct rather than
+broken, it is in `reach.cell_of`'s docstring, and it is in the UI as a countdown.
 
 ---
 
