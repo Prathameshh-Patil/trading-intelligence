@@ -1940,9 +1940,17 @@ against a model of it.
       `horizonBars` → `horizonMinutes`; `mfe`/`mae` nullable and null. Plus `pStop`/`pNeither`,
       which the table serves and without which a low `p(target)` reads as a high `p(stop)` when
       it is usually "nothing happened in time". **Implemented and running** in `forecast.ts`.
-- [ ] **⚠️ It is a PROPOSAL and needs Varad + Shreyas.** S7 is frozen-by-agreement and one person
-      cannot close it. Nothing about the draft's rules changed — no `guaranteedPips`, no lot size,
-      `forecast: null` valid and common, `suggested` derived or null.
+- [ ] **⚠️ 2 of 3 — Varad approved 10 Sep, Shreyas outstanding.** S7 is frozen-by-agreement and
+      two people cannot close it either. **Shreyas's is the load-bearing sign-off here, not a
+      formality:** the amendment is entirely about how a probability is *presented* to a trader —
+      a band rather than a midpoint, `pNeither` shown so a low `p(target)` is not misread as a high
+      `p(stop)`, no suggested bracket — and §2's ownership table puts domain validation with him.
+      Nothing about the draft's rules changed: no `guaranteedPips`, no lot size, `forecast: null`
+      valid and common, `suggested` derived or null.
+- [ ] **When it does freeze, it moves in ONE commit.** `contracts.md`'s rule — the type, the fake,
+      the real implementation and every consumer, never half. Today the type and the fake are in
+      `apps/desktop`; there is no real implementation and no `services/api` route, so the freeze
+      commit is small now and will not stay that way.
 - [x] **The desktop app serves the real numbers, not invented ones.**
       `apps/desktop/public/fixtures/reach_table.json` is `reach_table.csv` filtered to its 8,256
       served rows and stripped to the five `SERVED` columns — **372 KB**, against the 4.7 MB tick

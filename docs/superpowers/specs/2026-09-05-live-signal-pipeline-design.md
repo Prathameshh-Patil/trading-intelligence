@@ -255,7 +255,24 @@ is guessing most of the time.**
 
 This is the shape the trader's trust rests on. Proposed as **S7**; not frozen until all three agree.
 
-> ## ⚠️ AMENDMENT PROPOSED 2026-09-10 — Prathamesh. Needs Varad + Shreyas.
+> ## ⚠️ AMENDMENT — proposed 2026-09-10 by Prathamesh. **2 of 3. Shreyas outstanding.**
+>
+> | | |
+> | :--- | :--- |
+> | Prathamesh | ✅ proposed, and implemented in `forecast.ts` |
+> | Varad | ✅ **approved 2026-09-10** — he owns `reach.py` and flagged the mismatch three times |
+> | Shreyas | ⬜ outstanding |
+>
+> **Still not frozen.** §6.3's own rule is "not frozen until all three agree", and
+> `contracts.md` says a contract change means all three in standup and the type, the
+> fake, the real implementation and every consumer moving in ONE commit — never half.
+>
+> **Shreyas's sign-off is the load-bearing one here, not a formality.** This amendment is
+> entirely about how a probability is *presented* to a trader — a band rather than a
+> midpoint, `pNeither` shown so a low `p(target)` is not misread as a high `p(stop)`,
+> no suggested bracket. `plans/current.md`'s ownership table puts domain validation with
+> him: *"if Shreyas says the signal looks wrong, that stops the sprint."* A contract about
+> not misleading a trader is exactly the thing he is the reviewer for.
 >
 > **The draft below was written 5 Sep against Track A and does not fit the table that now
 > exists.** `reach.py` shipped 10 Sep (`analysis/REACH.md`) and serves a different shape.
