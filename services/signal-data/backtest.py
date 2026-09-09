@@ -18,7 +18,7 @@ anything is lookahead.
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import Literal
+from typing import Literal, NamedTuple
 
 import numpy as np
 import pandas as pd
@@ -162,31 +162,93 @@ def first_touch(
     NaN when the session ends inside the horizon, matching `evaluate`: a leg
     the tape never offered is not a leg that went nowhere.
     """
+    ex = excursions(bars, trades, inst, horizon=horizon)
+    return first_touch_from(ex, target=target, stop=stop, ties=ties)
+
+
+class Excursions(NamedTuple):
+    """One row per leg, one column per bar after entry, in ticks.
+
+    Signed in the trade's own favour, so `up` is how good it ever got and `dn`
+    how bad, and both are read the same way for a long and a short.
+    """
+
+    up: np.ndarray     # favourable; -inf past the end of a short window
+    dn: np.ndarray     # adverse; +inf past it, so neither barrier is ever hit there
+    valid: np.ndarray  # False where the tape never offered the leg
+    legs: pd.Index     # the legs' own index, so an answer aligns with the frame it came from
+
+
+def excursions(
+    bars: pd.DataFrame, trades: pd.DataFrame, inst: Instrument, *, horizon: int
+) -> Excursions:
+    """The window every bracket at one horizon is judged over, built once.
+
+    **The window depends on `(t, side, horizon)` and not on where the barriers
+    are**, so a sweep that re-slices it per bracket does the same work 48 times
+    -- 24 target/stop pairs, twice for the tie band. `m1_sweep` computes this
+    once per cell and horizon and answers the whole grid off it.
+
+    Positional slicing is safe here for the reason the session filter it
+    replaces is redundant: sessions are contiguous, so if `session` runs past
+    `mark` then every bar between the two belongs to it, and if it does not the
+    leg is NaN anyway. Gaps in the tape are handled by length, not by mask -- a
+    leg with fewer bars than the horizon allows is padded with infinities that
+    no barrier can reach.
+    """
+    idx = bars.index
+    t = pd.DatetimeIndex(trades["t"])
+    mark = t + pd.Timedelta(minutes=horizon)
+    pos = idx.searchsorted(t)
+    span = idx.searchsorted(mark, side="right") - pos - 1  # bars strictly after entry
     ends = session_ends(bars)
-    out = []
-    for t, side, entry in zip(trades["t"], trades["side"], trades["entry"], strict=True):
-        mark = t + pd.Timedelta(minutes=horizon)
-        session = bars.at[t, "session"]
-        leg = bars.loc[t:mark]
-        leg = leg[leg["session"] == session].iloc[1:]
-        if leg.empty or ends[session] < mark:
-            out.append(np.nan)
-            continue
-        fav = (leg["high"] if side > 0 else leg["low"]).to_numpy()
-        adv = (leg["low"] if side > 0 else leg["high"]).to_numpy()
-        hit_target = np.flatnonzero(side * (fav - entry) >= target * inst.tick)
-        hit_stop = np.flatnonzero(side * (adv - entry) <= -stop * inst.tick)
-        if not len(hit_target) and not len(hit_stop):
-            out.append(0)
-        elif not len(hit_stop):
-            out.append(1)
-        elif not len(hit_target):
-            out.append(-1)
-        elif hit_stop[0] == hit_target[0]:
-            out.append(-1 if ties == "stop" else 1)
-        else:
-            out.append(-1 if hit_stop[0] < hit_target[0] else 1)
-    return pd.Series(out, index=trades.index, dtype="float64")
+    valid = (span > 0) & (ends.reindex(bars["session"].to_numpy()[pos]).to_numpy() >= mark)
+
+    width = max(int(span.max()), 1) if len(span) else 1
+    take = pos[:, None] + 1 + np.arange(width)
+    inside = np.arange(width) < span[:, None]
+    take = np.where(inside, take, 0)  # clamp: masked out a line below
+
+    side = trades["side"].to_numpy()[:, None]
+    entry = trades["entry"].to_numpy()[:, None]
+    high, low = bars["high"].to_numpy()[take], bars["low"].to_numpy()[take]
+    fav, adv = np.where(side > 0, high, low), np.where(side > 0, low, high)
+    return Excursions(
+        up=np.where(inside, side * (fav - entry) / inst.tick, -np.inf),
+        dn=np.where(inside, side * (adv - entry) / inst.tick, np.inf),
+        valid=valid,
+        legs=trades.index,
+    )
+
+
+def first_touch_from(
+    ex: Excursions, *, target: float, stop: float,
+    ties: Literal["stop", "target"] = "stop",
+) -> pd.Series:
+    """`first_touch`'s answer for one bracket, off a window already built.
+
+    Same three-valued encoding and the same tie rule -- this is where they are
+    defined, and `first_touch` is the single-bracket spelling of it. There is
+    one convention in this file and it lives here.
+    """
+    hit_t = _first_true(ex.up >= target)
+    hit_s = _first_true(ex.dn <= -stop)
+    got_t, got_s = hit_t >= 0, hit_s >= 0
+
+    out = np.zeros(len(ex.valid))
+    out[got_t & ~got_s] = 1
+    out[got_s & ~got_t] = -1
+    both = got_t & got_s
+    out[both] = np.where(hit_t[both] < hit_s[both], 1,
+                         np.where(hit_t[both] > hit_s[both], -1,
+                                  -1 if ties == "stop" else 1))
+    out[~ex.valid] = np.nan
+    return pd.Series(out, index=ex.legs, dtype="float64")
+
+
+def _first_true(hit: np.ndarray) -> np.ndarray:
+    """Column of each row's first True, or -1 where the row has none."""
+    return np.where(hit.any(axis=1), hit.argmax(axis=1), -1)
 
 
 def reach_table(

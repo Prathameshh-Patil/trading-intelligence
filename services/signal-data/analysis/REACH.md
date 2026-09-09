@@ -172,7 +172,24 @@ the 8,208 calls per month-side rather than once. **The window depends only on `(
 not on `target` or `stop`**, so with 3 horizons and 144 calls per cell it is rebuilt 48 times to
 answer 48 questions that read the same two arrays.
 
-Fixable by hoisting the window out of the grid loop. **Deliberately not done in this commit**:
-`first_touch` is shared machinery, and `bd675f5` is on the record that a second first-touch
-convention is how two files quietly disagree about what a leg is worth. `reach_table.csv` as
-committed here is the reference any faster version has to reproduce byte for byte.
+**Fixed the same night, and the table above is what proved it.** `backtest.excursions` builds the
+window once per cell and horizon — three times instead of 144 — and `first_touch_from` answers each
+bracket as numpy over a `(legs × bars)` array. `first_touch` keeps its signature and its meaning and
+is now the single-bracket spelling of the same code, so there is still exactly one first-touch
+convention in the repo.
+
+```
+before   180 s per (month, side)     116 min for the build
+after      5.4 s per (month, side)     3.4 min          -- 34x
+```
+
+**The correctness bar was reproduction, not tests passing.** A cold-cache rebuild of all 19 months
+and both sides produces `reach_table.csv` byte for byte — same md5, `6711d1c7…` — and the four
+per-month checkpoints written by the old code compare equal frame-to-frame. 268 tests green.
+
+*Noticed on the way and not touched here:* `analysis/m1_surface.csv` can no longer be regenerated
+exactly by the current code. It is missing `ev_null` and `ev_delta`, and three derived columns drift
+by one ULP (1.1e-16). Both predate this change — the file was committed in `2abc2b3` and `ff569bb`
+altered `surface()` afterwards — and the counts are identical, which is why `reach_table.csv`
+reproduces exactly through the same `_ev`. Worth a regeneration commit of its own, against
+`M1_SURFACE.md`'s numbers.

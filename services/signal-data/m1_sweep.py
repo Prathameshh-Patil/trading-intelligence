@@ -50,7 +50,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from backtest import evaluate, first_touch
+from backtest import evaluate, excursions, first_touch_from
 from features.portable import ATR_BP_EDGES, atr_bp, session_phase
 from horizon import mde_rate
 from instruments import GC
@@ -121,10 +121,13 @@ def month_counts(path: Path, *, side: int, bar_size: str, atr_window: str,
         # quantiles and the tails inside a bucket are long.
         atr_ticks = (sub["atr_bp"].median() / 1e4) * sub["close"].median() / GC.tick
         cost_atr = COST_TICKS / atr_ticks
+        # The window a leg is judged over depends on the horizon and not on the
+        # barriers, so it is built three times here rather than 144.
+        win = {hz: excursions(bars, sub, GC, horizon=hz) for hz in HORIZONS}
         for tgt_a, stp_a, hz in GRID:
             tgt, stp = tgt_a * atr_ticks, stp_a * atr_ticks
-            out = first_touch(bars, sub, GC, target=tgt, stop=stp, horizon=hz)
-            best = first_touch(bars, sub, GC, target=tgt, stop=stp, horizon=hz, ties="target")
+            out = first_touch_from(win[hz], target=tgt, stop=stp)
+            best = first_touch_from(win[hz], target=tgt, stop=stp, ties="target")
             n = int(out.notna().sum())
             if not n:
                 continue

@@ -23,7 +23,7 @@ it does not, it says so.
 | Data | Databento `trades` (46M rows, 19 months, on disk) | The same 46M rows, plus a free spot feed |
 | Status | **PARKED 2026-09-06** | **ACTIVE** |
 | Cost to proceed | `mbp-1` / book data, unpriced | **$0** — see §5 |
-| Code | `features/orderflow.py`, `signals/engine.py`, `families.py`, `compute_delta_cvd.py` | `instruments.py` and `features/portable.py` — **both landed 6 Sep**, `reach.py` does not exist |
+| Code | `features/orderflow.py`, `signals/engine.py`, `families.py`, `compute_delta_cvd.py` | `instruments.py`, `features/portable.py` — **6 Sep** — and `reach.py`, **served 10 Sep** |
 
 **Both tracks share one measurement stack** — `backtest.py`, `horizon.py`, `base_rates.py`,
 `calibration.py` — and that sharing is the point. It is what makes the two tracks' results
@@ -343,6 +343,9 @@ independently (8.2% of served rows undecided against 10.2%). **No edge, and none
 `ev_sym` is positive on 4.4% of rows with a median at the cost floor. `analysis/REACH.md`;
 plain-language version with runnable examples in
 [`prathamesh/reach-table-explained.md`](../../plans/team/prathamesh/reach-table-explained.md).
+**The build then went from 116 minutes to 3.4** — `backtest.excursions` builds each leg's window
+once per horizon instead of once per bracket, `first_touch` keeps its signature and its meaning, and
+a cold-cache rebuild of all 19 months reproduces `reach_table.csv` byte for byte.
 
 **M1 conditioned on EXPANDING, 7 Sep** — `M2_MAGNITUDE.md` §6 named the run and Varad decided it
 rather than drifting into it (`strategy-precommit.md` §9). **Conditioning adds +0.004 ATR per leg
