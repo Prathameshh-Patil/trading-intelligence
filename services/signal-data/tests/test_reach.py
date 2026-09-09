@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import dataclasses
 import json
+from pathlib import Path
 
 import pandas as pd
 import pytest
@@ -196,3 +197,43 @@ def test_the_stamp_covers_everything_the_counts_depend_on() -> None:
     assert s["grid"] == [list(g) for g in m1_sweep.GRID]
     assert s["edges"] == list(ATR_BP_EDGES)
     assert s["axes"] == list(reach.AXES)
+
+
+# The desktop app ships a JSON copy of the served table -- 8,256 rows of
+# probabilities, hand-produced, with no generator script and nothing checking
+# it. A number that drifts there is a wrong number in front of a trader with a
+# right one on disk, and it is invisible from either side.
+FIXTURE = Path(__file__).resolve().parents[3] / "apps/desktop/public/fixtures/reach_table.json"
+
+
+def test_the_apps_fixture_still_says_what_the_table_says() -> None:
+    """Every served number the desktop app ships must equal the CSV's, exactly."""
+    if not FIXTURE.exists():
+        pytest.skip(f"no app fixture at {FIXTURE}")
+    table = Path("analysis/reach_table.csv")
+    if not table.exists():
+        pytest.skip("reach_table.csv not built")
+
+    live = pd.read_csv(table)
+    live = live[live["n"] >= reach.MIN_SAMPLES]
+    served = {
+        (r["bucket"], r["phase"], r["vol_state"], int(r["side"]),
+         r["target_atr"], r["stop_atr"], r["horizon"]):
+            [int(r["n"]), *(round(float(r[c]), 4) for c in
+                            ("p_target", "p_target_max", "p_stop", "p_neither"))]
+        for r in live.to_dict("records")
+    }
+    shipped = json.loads(FIXTURE.read_text())
+
+    assert shipped["minSamples"] == reach.MIN_SAMPLES
+    assert shipped["_row"] == ["targetAtr", "stopAtr", "horizonMinutes",
+                               "n", "p", "pMax", "pStop", "pNeither"]
+
+    seen = 0
+    for key, rows in shipped["cells"].items():
+        bucket, phase, state, side = key.split("|")
+        for tgt, stp, hz, n, *probs in rows:
+            assert [n, *probs] == served[(bucket, phase, state, int(side), tgt, stp, hz)], \
+                f"{key} {tgt}/{stp}/{hz}"
+            seen += 1
+    assert seen == len(served), "the fixture ships a different number of rows than the table serves"

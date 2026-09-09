@@ -1918,11 +1918,21 @@ the day before the file existed.
       still has exactly one first-touch convention. **Verified by reproduction, not by tests
       passing:** a cold-cache rebuild of all 19 months reproduces `reach_table.csv` byte for byte,
       same md5. +93/−28 lines.
-- [ ] **`analysis/m1_surface.csv` no longer regenerates exactly**, found on the way and left alone:
-      two columns missing and three derived columns off by one ULP. **Both predate this work** —
-      `2abc2b3` committed the file and `ff569bb` changed `surface()` after — and the counts are
-      identical, which is why `reach_table.csv` reproduces exactly through the same `_ev`. Wants a
-      regeneration commit checked against `M1_SURFACE.md`'s published numbers.
+- [x] **`analysis/m1_surface.csv` regenerated and every published number re-checked.** It had
+      stopped matching the code that writes it — `ff569bb` added `ev_null`/`ev_delta` after the
+      original run — so it was rebuilt in 2m 54s (it was 1h 35m before the `first_touch` work).
+      **Nothing moved:** 3,456 cells, gross EV −0.0032, cost +0.0423, 159 passers, 68 positive after
+      the mirror, 351 undecided, 116 `London-NY` passers, 49 at 4.0× and 36 at 3.0× — all identical
+      to `M1_SURFACE.md`'s published values, which is the only reason regenerating it was safe.
+- [x] **The desktop app's `reach_table.json` is now checked against the CSV by a test.** It ships
+      **8,256 rows / 41,280 numbers** copied out of the served table with no generator script and
+      nothing reconciling them — a number that drifts there is a wrong number in front of a trader
+      with a right one on disk, invisible from both sides. All 41,280 verified equal today, and
+      `test_the_apps_fixture_still_says_what_the_table_says` keeps it that way; the test was
+      confirmed to fail on a 1e-4 nudge to one probability and on a single leg added to one `n`.
+- [ ] **There is still no generator for that fixture.** `export_fixture_json.py` is the precedent
+      for the S1 tick fixture; the reach fixture was hand-produced. Not written speculatively — the
+      test now says loudly when one is needed.
 
 Full detail: [`analysis/REACH.md`](../services/signal-data/analysis/REACH.md) and
 [`daily_updates/2026-09-10.md`](../daily_updates/2026-09-10.md).

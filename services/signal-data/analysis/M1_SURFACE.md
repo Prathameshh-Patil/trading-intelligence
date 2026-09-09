@@ -1,6 +1,11 @@
 # M1 — the geometry frontier, measured. The surface is a random walk minus cost.
 
-**Run 2026-09-07 by `m1_sweep.py`, 19 months, both sides, 1h 35m.** Step 2 of
+**Run 2026-09-07 by `m1_sweep.py`, 19 months, both sides, 1h 35m.** *(CSV regenerated 2026-09-10 in
+2m 54s — `ff569bb` had added `ev_null`/`ev_delta` after the original run, so the committed file no
+longer matched the code that writes it. **Every number published below was re-checked against the
+new file and none of them moved**: 3,456 cells, gross EV −0.0032, cost +0.0423, 159 passers, 68
+positive after the mirror, 351 undecided, 116 London-NY passers, 49 at 4.0× and 36 at 3.0×. The only
+differences are the two added columns and a 1-ULP drift in three derived ones.)* Step 2 of
 [`docs/strategy/ARCHITECTURE.md`](../../../docs/strategy/ARCHITECTURE.md) §6; the vol lane of
 [`plans/team/strategy-split.md`](../../../plans/team/strategy-split.md). Full surface in
 [`m1_surface.csv`](m1_surface.csv).

@@ -187,9 +187,8 @@ after      5.4 s per (month, side)     3.4 min          -- 34x
 and both sides produces `reach_table.csv` byte for byte — same md5, `6711d1c7…` — and the four
 per-month checkpoints written by the old code compare equal frame-to-frame. 268 tests green.
 
-*Noticed on the way and not touched here:* `analysis/m1_surface.csv` can no longer be regenerated
-exactly by the current code. It is missing `ev_null` and `ev_delta`, and three derived columns drift
-by one ULP (1.1e-16). Both predate this change — the file was committed in `2abc2b3` and `ff569bb`
-altered `surface()` afterwards — and the counts are identical, which is why `reach_table.csv`
-reproduces exactly through the same `_ev`. Worth a regeneration commit of its own, against
-`M1_SURFACE.md`'s numbers.
+*Noticed on the way, and since done:* `analysis/m1_surface.csv` had stopped matching the code that
+writes it — `ff569bb` added `ev_null` and `ev_delta` after the original run. Regenerated 10 Sep in
+**2m 54s**, where the original run took 1h 35m, and **every number `M1_SURFACE.md` publishes was
+re-checked against the new file and none of them moved**. That check is what made the regeneration
+safe; without it, replacing a published artifact is just overwriting the evidence.
