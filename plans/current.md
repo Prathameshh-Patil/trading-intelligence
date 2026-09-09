@@ -1830,6 +1830,45 @@ sides, all n ≥ 400. Suite 248 green, `ruff`/`mypy` clean.
 
 ---
 
+### 2026-09-09 — `apps/site`: a second website build, this one real · [`daily_updates/2026-09-09.md`](../daily_updates/2026-09-09.md)
+
+**Out of band from `phase-3-month-two.md`'s Week 6 slot** — this ran nine weeks early, on
+Prathamesh's own initiative, and touches nothing the strategy track owns. A new Next.js app
+(`apps/site`, not the Vite scaffold at `apps/web`, which was tried first and reverted) with all
+ten pages the plan calls for — landing, pricing, signup/login, checkout (UPI + USDT + screenshot
+upload), key page, policy, support tickets, contact, and an admin approval queue — plus a
+pre-release gate: a signed-out visitor sees a holding page, any signed-in account sees the real
+site, and only an admin account reaches `/admin`.
+
+- [x] **Builds and prerenders clean as a static export** (`next build`, `output: 'export'`), all
+      ten routes, verified served as plain static files rather than trusting `next dev` alone.
+- [x] **The full purchase flow driven end to end, not just eyeballed**: signup → checkout (UPI and
+      USDT) → screenshot upload → admin approval → key issued. The issued key matched S3's format
+      (`ti_live_` + 32 chars) and `tier` (`core` | `core_journal`) on the first try.
+- [x] **Double-approval is idempotent** — approving an already-approved payment returns the existing
+      key rather than minting a second one, S5's webhook rule applied to a human approver instead of
+      a webhook.
+- [x] **Two real bugs found by clicking through, not by reading the diff**, both fixed before
+      shipping: the reduced-motion still for the lossy-compression scroll sequence rendered an
+      almost-empty canvas under a caption describing motion nobody saw; a pinned scroll section
+      anchored from 75% down the viewport, stranding a screen and a half of dead space above it.
+- [x] **Deployed to Cloudflare as a review link** for the team — not `services/api`, which does not
+      exist yet; every dynamic call runs against a mock data layer (`lib/mockApi.ts`) that this
+      repo's contract-first pattern (`contracts.md`) already established for exactly this reason.
+- [ ] **All contact details, the UPI ID, the USDT wallet and the three founders' names are
+      `PLACEHOLDER_…`** in `apps/site/content/site.ts`. Nobody has supplied real ones yet, and the
+      site is not fit to take a real payment until they land.
+- [ ] **`services/api` has no routes behind any of this.** The mock is the whole backend today;
+      the S3/S5 seams this site's HTTP branch already expects (`GET /api/v1/keys/mine`,
+      `POST /api/v1/payments`, the admin approve/reject routes) are specified in `lib/api.ts` but
+      nothing exists yet to answer them.
+- [ ] **No legal review on the refund/policy page**, and the SEBI research-analyst question this
+      repo has flagged elsewhere is still open — the page says so on the page itself.
+
+Full detail, including what was verified and how: [`daily_updates/2026-09-09.md`](../daily_updates/2026-09-09.md).
+
+---
+
 ## Next
 
 Ordered. **Rows #2, #6, #7 and #8 all closed between 25 Aug and 3 Sep** — the S1 fixture cut, the

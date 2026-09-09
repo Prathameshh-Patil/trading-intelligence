@@ -11,6 +11,12 @@ __pycache__/
 node_modules/
 dist/
 
+# apps/site (Next.js): the dev cache and the static export. Both are rebuilt
+# from source on demand and .next/ alone runs into the hundreds of MB — never
+# intentional content, same reasoning as data/ below.
+.next/
+/apps/site/out/
+
 # The extension's build output is committed on purpose, so the extension can be
 # loaded from a fresh clone without running a build first. Rebuild and commit it
 # with any change under apps/extension/src.

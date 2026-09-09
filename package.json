@@ -5,8 +5,10 @@
   "scripts": {
     "dev": "pnpm --filter extension dev",
     "dev:web": "pnpm --filter web dev",
+    "dev:site": "pnpm --filter site dev",
     "build": "pnpm --filter extension build",
     "build:web": "pnpm --filter web build",
+    "build:site": "pnpm --filter site build",
     "build:all": "pnpm -r build",
     "lint": "pnpm -r lint",
     "dev:desktop": "pnpm --filter desktop tauri dev",
