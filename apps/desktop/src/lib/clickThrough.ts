@@ -48,6 +48,7 @@
  */
 
 import { useCallback, useEffect, useState } from "react";
+import { isTauri } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { listen } from "@tauri-apps/api/event";
 
@@ -61,6 +62,15 @@ export function useClickThrough(): ClickThroughState {
   const [enabled, setEnabled] = useState(false);
 
   useEffect(() => {
+    // `package.json`'s `dev` script runs this UI as a plain page in a browser
+    // for fast iteration, where there is no Tauri runtime and
+    // `getCurrentWindow()` THROWS rather than rejecting — so the `.catch`
+    // below never sees it and the whole panel fails to mount. Click-through is
+    // a window-manager capability that has no meaning outside the window
+    // anyway; the hook keeps its React state so the crosshair still toggles,
+    // and simply has no OS-level effect there.
+    if (!isTauri()) return;
+
     void getCurrentWindow()
       .setIgnoreCursorEvents(enabled)
       .catch((e: unknown) => {
@@ -73,6 +83,9 @@ export function useClickThrough(): ClickThroughState {
   // fires -- this listener only brings React's `enabled` state back in sync
   // so the crosshair icon stops showing armed.
   useEffect(() => {
+    // Same reason as above: no Tauri runtime, no event bus to listen on.
+    if (!isTauri()) return;
+
     const un = listen("click-through-disarmed", () => {
       setEnabled(false);
     });
@@ -98,6 +111,8 @@ export function useClickThrough(): ClickThroughState {
   // unmount -- a component swap must not survive as an invisible, unclickable
   // window with no way back short of the global hotkey or quitting.
   useEffect(() => {
+    if (!isTauri()) return;
+
     return () => {
       void getCurrentWindow().setIgnoreCursorEvents(false).catch(() => {});
     };

@@ -27,6 +27,7 @@ import type {
 
 import AnalyzeView from "./views/AnalyzeView";
 import FlowView from "./views/FlowView";
+import ForecastView from "./views/ForecastView";
 import HomeView from "./views/HomeView";
 import JournalView from "./views/JournalView";
 import RulesView from "./views/RulesView";
@@ -37,6 +38,7 @@ const TITLES: Record<ViewKey, string> = {
   home: "Trading Intelligence",
   analyze: "Analyze screen",
   flow: "Order flow",
+  forecast: "Forecast",
   rules: "Trade rules",
   "strategy-review": "Review strategy",
   "strategy-change": "Change strategy",
@@ -219,6 +221,9 @@ export default function SidePanel() {
 
       case "flow":
         return <FlowView />;
+
+      case "forecast":
+        return <ForecastView />;
 
       case "rules":
         return (

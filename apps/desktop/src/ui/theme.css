@@ -1212,3 +1212,215 @@ body.click-through-armed .shell {
   opacity: 0.12;
   transition: opacity 0.15s ease;
 }
+
+/* ------------------------------------------------------------------ */
+/* S7 · Forecast                                                       */
+/* ------------------------------------------------------------------ */
+
+.horizon-row {
+  display: flex;
+  gap: 6px;
+}
+
+.horizon-btn {
+  flex: 1;
+  padding: 7px 0;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  color: var(--text-dim);
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+
+.horizon-btn.active {
+  background: var(--accent-grad);
+  border-color: transparent;
+  color: #fff;
+}
+
+.bucket-card {
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface);
+}
+
+/* Key/value pairs, two per row. The values are short enums and a bucket
+   label; none of them wrap inside 380px. */
+.bucket-grid {
+  margin-top: 7px;
+  display: grid;
+  grid-template-columns: auto 1fr auto 1fr;
+  gap: 5px 8px;
+  align-items: baseline;
+}
+
+.bucket-k {
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.bucket-v {
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The empty states. Deliberately not styled as errors — three of the four are
+   the table working correctly, and a red panel would teach the trader to read
+   "no forecast" as "something broke". */
+.forecast-empty {
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface);
+}
+
+.forecast-empty.no-table {
+  border-color: rgba(248, 113, 113, 0.3);
+  background: rgba(248, 113, 113, 0.07);
+}
+
+.forecast-empty-title {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.forecast-empty-body {
+  margin-top: 5px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-dim);
+}
+
+.warmup-line {
+  margin-top: 11px;
+}
+
+.warmup-bar {
+  height: 4px;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.07);
+  overflow: hidden;
+}
+
+.warmup-fill {
+  height: 100%;
+  border-radius: 99px;
+  background: var(--accent-grad);
+  transition: width 1s linear;
+}
+
+.warmup-eta {
+  display: block;
+  margin-top: 6px;
+  font-size: 11px;
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.forecast-meta {
+  font-size: 11px;
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.reach-head,
+.reach-row {
+  display: grid;
+  grid-template-columns: 38px 34px 1fr 46px;
+  gap: 7px;
+  align-items: center;
+}
+
+.reach-head {
+  font-size: 9.5px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  padding: 0 2px;
+}
+
+.reach-head .reach-band-h {
+  text-align: center;
+}
+
+.reach-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.reach-row {
+  padding: 7px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.reach-geo {
+  color: var(--text-dim);
+}
+
+.reach-n {
+  text-align: right;
+  color: var(--text-faint);
+  font-size: 11px;
+}
+
+/* The band. The bar is the point: `p` and `pMax` are the edges of what the
+   bars can resolve, and a range drawn with real width cannot be misread as a
+   point estimate the way a single number can. */
+.reach-band {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.reach-band-track {
+  position: relative;
+  height: 5px;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.reach-band-fill {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  min-width: 3px;
+  border-radius: 99px;
+  background: var(--accent-grad);
+}
+
+.reach-band-text {
+  font-size: 10.5px;
+  color: var(--text);
+  text-align: center;
+}
+
+.rest-note,
+.no-suggestion {
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--text-dim);
+}
+
+.no-suggestion {
+  padding: 9px 11px;
+  border: 1px dashed var(--border);
+  border-radius: var(--r-sm);
+  color: var(--text-faint);
+}

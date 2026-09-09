@@ -106,6 +106,14 @@ export default function HomeView({
         />
 
         <ActionTile
+          wide
+          icon={<ChartIcon size={17} />}
+          title="Forecast"
+          subtitle="What this bucket did at each bracket, over 19 months — or nothing, honestly."
+          onClick={() => onNavigate("forecast")}
+        />
+
+        <ActionTile
           icon={<ShieldIcon size={17} />}
           title="Trade rules"
           subtitle="Guardrails and live breaches."

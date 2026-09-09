@@ -86,6 +86,7 @@ export type ViewKey =
   | "home"
   | "analyze"
   | "flow"
+  | "forecast"
   | "rules"
   | "strategy-review"
   | "strategy-change"
