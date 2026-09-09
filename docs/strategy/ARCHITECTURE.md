@@ -456,8 +456,15 @@ measured.
    multiples of the bar's own ATR rather than in bp or ticks, because the archive's own
    committed 70/20 bracket ranges over 5× in ATR terms between its quietest and loudest months.
    A pass line and a written prediction went in with it.
-3. **Does a Dukascopy XAUUSD download complete from this machine.** Recorded unreachable once
-   (`DELTA_CVD_FINDINGS.md` §4), never retested. Ten minutes, and step one of §7.
+3. ~~**Does a Dukascopy XAUUSD download complete from this machine.**~~ **ANSWERED 7 Sep — yes**,
+   `analysis/SPOT_FEED_CHECK.md`. 20,654 quotes for one London-NY hour, spread median 1.91 bp, and a
+   +19 basis against our own GC archive for the same hour, which is cost of carry rather than the
+   10× a guessed point scale would show. **The finding is why it looked unreachable:** a request
+   without a browser User-Agent is RESET — no status, no body, a ~25s hang — which is
+   indistinguishable from a dead host, and is very likely what `DELTA_CVD_FINDINGS.md` §4 recorded.
+   **A negative infrastructure result that was never differentially diagnosed gated a whole route of
+   this track.** Confirms §7's doubted precondition: spot spread is not degenerate the way GC's is.
+   *(Closed in the file 9 Sep — `9d89e42` answered it and this list was not updated with it.)*
 4. ~~**`MIN_SAMPLES` per cell in `reach.py`**~~ **ANSWERED 6 Sep — 400**, `strategy-precommit.md`
    §3. Derived, not picked: `horizon.n_for_rate(0.1644, 0.224)` = 327, where 0.1644 is the pooled
    archive null and 0.224 the highest per-bucket breakeven in it, rounded up. At the existing
