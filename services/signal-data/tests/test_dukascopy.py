@@ -81,3 +81,30 @@ def test_ticks_stay_in_order_and_inside_their_hour() -> None:
     assert got["timestamp"].is_monotonic_increasing
     assert got["timestamp"].min() >= HOUR
     assert got["timestamp"].max() < HOUR + pd.Timedelta(hours=1)
+
+
+def test_the_request_carries_both_headers_the_feed_requires(monkeypatch) -> None:
+    """A UA is necessary and not sufficient -- without `Accept` the feed 503s.
+
+    Found 2026-09-10: every request this module made started failing while
+    `curl` on the identical URL returned 200. The 503 reads as a vendor outage
+    and would have been believed, because the reachability check had passed a
+    month earlier. Pinned here so a header cannot be dropped as decoration.
+    """
+    sent = {}
+
+    class FakeResponse:
+        def __enter__(self): return self
+        def __exit__(self, *_): return False
+        def read(self): return bi5([])
+
+    def fake_urlopen(req, timeout=0):
+        sent.update(req.headers)
+        return FakeResponse()
+
+    monkeypatch.setattr(dk, "urlopen", fake_urlopen)
+    dk.fetch_hour("XAUUSD", pd.Timestamp("2025-06-18T14:00:00Z"))
+
+    # urllib title-cases header names on the way in.
+    assert sent.get("User-agent", "").startswith("Mozilla/"), "no UA -> connection reset"
+    assert sent.get("Accept") == "*/*", "no Accept -> 503"

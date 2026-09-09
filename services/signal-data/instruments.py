@@ -31,6 +31,20 @@ the room before the seam is called frozen:
     tick is broker-dependent -- 0.01 or 0.10, which is the exact 10x error
     §4.6 exists to prevent. Writing a placeholder would put a guessed number
     where the seam's whole job is to make the number explicit.
+
+    **MEASURED 2026-09-10, and it narrows what the missing tick actually
+    blocks.** Running `m1_sweep.month_counts` over one month twice, at tick
+    0.10 and at tick 0.01, returns **byte-identical counts** -- `n`, `target`,
+    `stop`, `target_max`, `stop_min` -- with `open_pnl` agreeing to 3e-14 and
+    only `cost_atr` moving, by exactly the 10x. The tick cancels: the bracket
+    is `tgt_a x atr_ticks` and `first_touch` compares it against
+    `target x tick`, so the barrier is `tgt_a x ATR` in price whatever the
+    tick is. **So a cross-instrument geometry comparison -- `p_target`,
+    `p_stop`, `p_neither` -- is tick-free and does not wait on this decision.
+    EV net of cost is not**, and on spot the cost is the measured spread
+    rather than GC's 1.4 ticks, so it needs its own model rather than a
+    borrowed constant. The refusal above stands; what it blocks is narrower
+    than it looks.
 """
 
 from __future__ import annotations

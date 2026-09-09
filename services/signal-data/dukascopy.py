@@ -17,6 +17,16 @@ THREE THINGS THAT COST TIME TO FIND, ALL RECORDED SO NOBODY PAYS AGAIN.
     ~25s hang, which reads exactly like an unreachable host. That is very
     likely what `DELTA_CVD_FINDINGS.md` §4 recorded as "unreachable". With a
     UA the same URL returns 200.
+  * **A UA is necessary and NOT sufficient: without `Accept` the same URL is a
+    503.** Found 2026-09-10, when every request this module made started
+    failing while `curl` on the identical URL returned 200 and 85,669 bytes.
+    `urllib` sends no `Accept` at all and `curl` defaults to `*/*`; adding it
+    fixes it outright. **Two headers now, and the lesson is the one the bullet
+    above already taught: this feed answers a non-browser request with a
+    plausible transport failure rather than a refusal.** A 503 reads as "the
+    vendor is down" and would have been believed -- the reachability check on
+    7 Sep passed, so the natural reading a month later is an outage, not a
+    client bug. Reproduce against `curl` before believing this feed is down.
   * **The month in the path is ZERO-INDEXED.** June 2025 is `/2025/05/`.
     An off-by-one here returns a real file for the wrong month, which is the
     worst kind of wrong: it decodes, it looks fine, and it is May.
@@ -47,11 +57,13 @@ import pandas as pd
 
 FEED = "https://datafeed.dukascopy.com/datafeed"
 
-# Without this the connection is reset with no status code. See the docstring.
+# Both are required and neither is optional: no UA resets the connection, no
+# `Accept` returns 503. See the docstring -- each was found the hard way.
 UA = (
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
     "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 )
+HEADERS = {"User-Agent": UA, "Accept": "*/*"}
 
 # Integer points per unit of price, per instrument. No default: a wrong scale
 # here is a 10x price error that renders as a plausible chart (§4.6).
@@ -128,7 +140,7 @@ def fetch_hour(
     last: Exception | None = None
     for attempt in range(retries):
         try:
-            req = Request(url_for(symbol, hour), headers={"User-Agent": UA})
+            req = Request(url_for(symbol, hour), headers=HEADERS)
             with urlopen(req, timeout=timeout) as r:
                 return decode_bi5(r.read(), symbol, hour)
         # Named rather than blanket, and each one is a failure seen in the
