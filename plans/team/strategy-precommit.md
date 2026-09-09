@@ -556,6 +556,83 @@ tail at some geometry — an asymmetry M2 did not find at any `T` and would be a
 
 ---
 
+## 10 · `reach.py` — the served table. Varad, committed 2026-09-09
+
+**Due before the table is built.** A tenth.
+
+**First, a correction to a claim made on 9 Sep: `reach.py` is not blocked on steps 5 and 6.**
+`strategy-split.md` §1's own dependency graph is `1 ▶ 2 ▶ 4 ▶ 7` — the serial spine — with 3, 5 and
+6 hanging off step 1 as branches. Steps 1, 2 and 4 are done and step 3 delivered the `phase` column.
+**Step 5 is a float that unblocks M4, and step 6 adds the second instrument to an axis that already
+exists.** Neither gates the GC table.
+
+### The decisions
+
+```
+key        (instrument x atr_bp x phase x vol_state x side)   ARCHITECTURE §3 stage 7, verbatim
+           GC only for now. The instrument axis is PRESENT and carries one value.
+geometry   M1's committed 72 points                            precommit §1
+edges      ATR_BP_EDGES                                        precommit §2
+phases     Prathamesh's six, in ET                             precommit §4
+states     rv_slope cut at +/-0.20                             precommit §8
+floor      MIN_SAMPLES = 400                                   precommit §3
+data       ALL 19 MONTHS
+```
+
+**Why all 19 months, when M2 was training-half only.** `reach.py` **tabulates; it does not select.**
+Every threshold above was committed before it ran, the geometry grid is M1's, and the `vol_state`
+cut was grounded on a feature distribution carrying no outcome. That is the same licence
+`BASE_RATES.md` claims and M1 and M3 used.
+
+**And the table's own validation is forward calibration, not a held-out split.** `calibration.py`
+exists to answer *"when it says 61%, does it happen 61% of the time"* on live data — ARCHITECTURE §8
+— which is a stronger test than any split of the archive because the trader can check it themselves.
+Splitting the archive to validate a table that fits nothing would spend data to buy a weaker answer.
+
+**This does not spend the held-out half for M2's two open questions.** Whether the EXPANDING lift
+holds and whether its +0.024 up-tilt is real are tests of a *fitted claim*, and a table that fits
+nothing does not contaminate them. **They stay available.**
+
+### Three rules the table has to obey
+
+1. **Below `MIN_SAMPLES`, the answer is null — and NOT a coarser bucket.** No falling back to the
+   same cell with `phase` dropped, no pooling to the parent. **A forecast computed from a different
+   population wearing this cell's label is the same error class as `has_flow` degrading instead of
+   raising**, and it is invisible in the output for the same reason: it looks exactly like the real
+   one. `forecast: null` is a valid and common answer (§6.3 rule 3).
+2. **Every cell carries the tie band, never a midpoint.** `p_target` and `p_target_max` both, always.
+   M1 measured **10.2% of cells undecided** by same-bar ties, and at the tight corner of the grid
+   20.45% of bars are wide enough to tie. A single `p` there is a precision the data does not have.
+3. **The table is a lookup, not a chooser.** It answers "what happened in this bucket at this
+   bracket". It does not pick the bracket. `suggested` is derived from `reach` or it is null.
+
+### ⚠️ Two places the S7 draft and this table disagree — flagged, not silently reconciled
+
+The pipeline design's `PipForecast` is **proposed, not frozen** (§6.3, "not frozen until all three
+agree"), and it was drafted against Track A. Two mismatches, for the room:
+
+- **`bucket` is `{regime, atrBucket, horizonBars, n}`.** Track B's key has no `regime` — that axis is
+  `regimes.py`, which is parked and does not port to spot — and it has `phase`, `vol_state` and
+  `instrument`, which S7 has no field for. **The bucket a trader audits has to be the bucket the
+  number came from.**
+- **`reach` is `{target, stop, p}[]` — one `p` per bracket.** That cannot express the tie band, which
+  rule 2 says is mandatory. It needs `pMax` beside `p`, or the product quotes a number the bars
+  cannot support.
+
+**Neither is resolved here.** S7 is a frozen-by-agreement contract and this file is not the place.
+
+### My honest prediction, written before the table is built
+
+**I expect between a third and a half of the 144 cells to clear the 400-leg floor**, and the thin
+ones to concentrate where two thin axes cross — `Asia-London` (the shortest phase, one hour) against
+the extreme `atr_bp` buckets, in the CONTRACTING and EXPANDING states rather than STABLE.
+
+**I expect the table to be honest and mostly empty at the edges**, which is the correct outcome
+rather than a disappointment: 144 cells over ~220,000 legs is ~1,500 each if they were even, and
+`M1_SURFACE.md` and the mix table both say they are nowhere near even.
+
+---
+
 ## 4 · Session-phase boundaries — Prathamesh, committed 2026-09-06
 
 **⚠️ Committed in ET wall clock, not in UTC — which is a departure from the heading this block
