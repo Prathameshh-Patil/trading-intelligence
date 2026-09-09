@@ -329,7 +329,20 @@ number **without spending anything**, so the estimate is available for free when
 | 4 | **M2** vol momentum, against M1's corrected null | Second conditioning dimension for stage 7 | ✅ **7 Sep** — `analysis/M2_MAGNITUDE.md` |
 | 5 | Tick replay from trades on disk | Intrabar ordering — unblocks M4b **and** the intrabar-stop question `regime_filter.py` raised | ❌ |
 | 6 | Route 2 spot feed; portable regime refit | Cross-instrument validation | ❌ |
-| 7 | `reach.py` | `PipForecast.bucket`, served | ❌ |
+| 7 | `reach.py` | `PipForecast.bucket`, served | ✅ **10 Sep** — `analysis/REACH.md` |
+
+**Step 7 shipped 10 Sep** — `reach.py`, 19 months, both sides, 207,984 legs, 116 minutes.
+**116 of 144 cells clear the 400-leg floor — 81%**, against a pre-committed prediction of a third
+to a half, so the table is far fuller than expected. **The finding is that `phase` and `vol_state`
+are not independent:** both transition phases lose their entire CONTRACTING state, and CONTRACTING
+runs at **4.7%** of `London-NY`'s legs against 28–36% in the three non-handoff phases — a handoff
+window is a place where volatility is rising by construction. That is `atr_bp`'s
+quiet-hour-before-the-release artefact arriving a third time, after `M1_SURFACE.md` §3 and
+`M3_CLOCK.md` §2, now from the volatility axis instead of the clock. The tie band reproduces M1
+independently (8.2% of served rows undecided against 10.2%). **No edge, and none was owed** —
+`ev_sym` is positive on 4.4% of rows with a median at the cost floor. `analysis/REACH.md`;
+plain-language version with runnable examples in
+[`prathamesh/reach-table-explained.md`](../../plans/team/prathamesh/reach-table-explained.md).
 
 **M1 conditioned on EXPANDING, 7 Sep** — `M2_MAGNITUDE.md` §6 named the run and Varad decided it
 rather than drifting into it (`strategy-precommit.md` §9). **Conditioning adds +0.004 ATR per leg

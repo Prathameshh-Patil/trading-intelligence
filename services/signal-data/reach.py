@@ -34,7 +34,7 @@ The counting is `m1_sweep`'s, called with both axes rather than reimplemented.
 A second EV and first-touch convention is how two files quietly disagree about
 what a leg is worth, which M3's two bugs already demonstrated once.
 
-    PYTHONPATH=. uv run python reach.py --build      # ~1.6h, 19 months, both sides
+    PYTHONPATH=. uv run python reach.py              # ~1.6h, 19 months, both sides
 """
 
 from __future__ import annotations
