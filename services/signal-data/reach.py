@@ -40,6 +40,7 @@ what a leg is worth, which M3's two bugs already demonstrated once.
 from __future__ import annotations
 
 import argparse
+import json
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -150,22 +151,70 @@ def reach(table: pd.DataFrame, cell: Cell, *, horizon: int) -> list[dict[str, fl
     return rows
 
 
+# What the cached counts were produced under. A cache reused across a change to
+# any of these is a table built from two different definitions, which is a wrong
+# number that nothing downstream can see -- so the stamp is checked, not trusted.
+def _stamp() -> dict[str, object]:
+    return {
+        "grid": [list(g) for g in m1_sweep.GRID],
+        "edges": list(ATR_BP_EDGES),
+        "axes": list(AXES),
+        "bars": "5min", "atr_window": "60min", "atr_min_bars": 6,
+    }
+
+
+def _checked_cache(cache: Path) -> Path:
+    """The cache directory, or a loud refusal if it was built under other rules."""
+    cache.mkdir(parents=True, exist_ok=True)
+    f = cache / "_stamp.json"
+    if f.exists():
+        was = json.loads(f.read_text())
+        if was != _stamp():
+            raise SystemExit(
+                f"{cache} was built under different parameters. Delete it and rebuild.\n"
+                f"  cached: {was}\n     now: {_stamp()}"
+            )
+    else:
+        f.write_text(json.dumps(_stamp(), indent=2))
+    return cache
+
+
 def build(data: Path, *, months: list[str] | None = None,
-          sides: tuple[int, ...] = (1, -1)) -> pd.DataFrame:
-    """Count the archive into the five-axis table. m1_sweep does the counting."""
+          sides: tuple[int, ...] = (1, -1),
+          cache: Path = Path("analysis/.reach_cache")) -> pd.DataFrame:
+    """Count the archive into the five-axis table. m1_sweep does the counting.
+
+    **Checkpointed per (month, side), because the full build is ~1.7 hours and
+    a run that writes nothing until the end loses all of it to one interruption
+    -- which is exactly what happened on 9 Sep at 26 minutes in.** A restart
+    costs only the month-sides that are missing.
+
+    The cache is stamped with the grid, edges and axes it was produced under and
+    **refuses to be reused across a change to any of them.** A stale cache would
+    pool counts from two different definitions into one table, and nothing
+    downstream could see it.
+    """
     dirs = sorted(d for d in data.iterdir() if (d / "gc_trades.parquet").exists())
     if months:
         dirs = [d for d in dirs if d.name in set(months)]
     if not dirs:
         raise SystemExit(f"no YYYY-MM/gc_trades.parquet under {data}")
+    cache = _checked_cache(cache)
 
     frames, t0 = [], time.perf_counter()
     for d in dirs:
         for side in sides:
-            frames.append(m1_sweep.month_counts(
+            part = cache / f"{d.name}_{side:+d}.parquet"
+            if part.exists():
+                frames.append(pd.read_parquet(part))
+                print(f"{d.name} side {side:+d}  cached", flush=True)
+                continue
+            c = m1_sweep.month_counts(
                 d / "gc_trades.parquet", side=side, bar_size="5min",
                 atr_window="60min", atr_min_bars=6, edges=ATR_BP_EDGES, axes=AXES,
-            ))
+            )
+            c.to_parquet(part)
+            frames.append(c)
             print(f"{d.name} side {side:+d}  {time.perf_counter() - t0:6.0f}s", flush=True)
 
     t = m1_sweep.surface(pd.concat(frames, ignore_index=True), axes=AXES)
@@ -182,9 +231,11 @@ def main() -> None:
     p.add_argument("--data", type=Path, default=Path("data"))
     p.add_argument("--months", nargs="+")
     p.add_argument("--out", type=Path, default=Path("analysis/reach_table.csv"))
+    p.add_argument("--cache", type=Path, default=Path("analysis/.reach_cache"),
+                   help="per-(month, side) counts, so an interrupted build resumes")
     a = p.parse_args()
 
-    t = build(a.data, months=a.months)
+    t = build(a.data, months=a.months, cache=a.cache)
     a.out.parent.mkdir(parents=True, exist_ok=True)
     t.to_csv(a.out, index=False)
 

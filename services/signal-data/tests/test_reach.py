@@ -19,6 +19,7 @@ which looks exactly like an honest, empty table.
 from __future__ import annotations
 
 import dataclasses
+import json
 
 import pandas as pd
 import pytest
@@ -164,3 +165,34 @@ def test_the_key_and_the_builds_group_columns_are_the_same_five() -> None:
     assert [k for k in reach.KEY if k != "instrument"] == [c for c in built
                                                            if c not in m1_sweep.GEOMETRY]
     assert reach.MIN_SAMPLES == m1_sweep.MIN_SAMPLES == 400
+
+
+# --------------------------------------------------------------------------
+# The build resumes, and refuses a cache built under other rules.
+# Added 9 Sep after a 26-minute run was interrupted and lost everything.
+# --------------------------------------------------------------------------
+def test_a_cache_built_under_different_parameters_is_refused_not_reused(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    # **The failure this exists to stop.** Reusing counts across a change to the
+    # grid or the bucket edges pools two different definitions into one table.
+    # Every row still has an n and a p, nothing downstream can see it, and the
+    # served number is wrong. Loud refusal is the only safe behaviour.
+    cache = tmp_path / "c"
+    reach._checked_cache(cache)
+    assert (cache / "_stamp.json").exists()
+    reach._checked_cache(cache), "the same parameters reuse it silently, as they should"
+
+    stale = json.loads((cache / "_stamp.json").read_text())
+    stale["edges"] = [0.0, 8.0, 12.0, 18.0, float("inf")]
+    (cache / "_stamp.json").write_text(json.dumps(stale))
+    with pytest.raises(SystemExit, match="different parameters"):
+        reach._checked_cache(cache)
+
+
+def test_the_stamp_covers_everything_the_counts_depend_on() -> None:
+    # A stamp that omits an input is a stamp that passes while the cache is
+    # stale. These five are every parameter month_counts is called with.
+    s = reach._stamp()
+    assert set(s) == {"grid", "edges", "axes", "bars", "atr_window", "atr_min_bars"}
+    assert s["grid"] == [list(g) for g in m1_sweep.GRID]
+    assert s["edges"] == list(ATR_BP_EDGES)
+    assert s["axes"] == list(reach.AXES)

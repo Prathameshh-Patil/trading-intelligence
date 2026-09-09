@@ -47,3 +47,7 @@ services/signal-data/data/*
 !services/signal-data/data/fixtures/
 services/signal-data/data/fixtures/*
 !services/signal-data/data/fixtures/gc_ticks_1session.parquet
+
+# reach.py's per-(month, side) count checkpoints. Derived, rebuildable, and
+# stamped with the parameters they were produced under -- see reach.build.
+services/signal-data/analysis/.reach_cache/
