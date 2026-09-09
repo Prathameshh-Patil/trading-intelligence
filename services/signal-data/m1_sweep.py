@@ -44,6 +44,7 @@ from __future__ import annotations
 
 import argparse
 import time
+from collections.abc import Sequence
 from itertools import product
 from pathlib import Path
 
@@ -89,31 +90,33 @@ AXES = ("phase", "vol_state")
 GEOMETRY = ["target_atr", "stop_atr", "horizon"]
 
 
-def keys(axis: str) -> list[str]:
-    return ["bucket", axis, "side", *GEOMETRY]
+def keys(axes: Sequence[str]) -> list[str]:
+    return ["bucket", *axes, "side", *GEOMETRY]
 
 
 def month_counts(path: Path, *, side: int, bar_size: str, atr_window: str,
                  atr_min_bars: int, edges: tuple[float, ...],
-                 axis: str = "phase") -> pd.DataFrame:
+                 axes: Sequence[str] = ("phase",)) -> pd.DataFrame:
     """Counts, never rates, for one month and one side. Every grid point."""
     bars = resample_bars(minute_bars(load_ticks(path)), bar_size)
     trades = evaluate(bars, m1_geometry(bars, GC, side=side), GC, horizons=HORIZONS)
     if trades.empty:
-        return pd.DataFrame(columns=[*keys(axis), "n", "target", "stop", "target_max",
+        return pd.DataFrame(columns=[*keys(axes), "n", "target", "stop", "target_max",
                                      "stop_min", "open_pnl", "cost_atr"])
 
     at = pd.DatetimeIndex(trades["t"])
     trades["atr_bp"] = atr_bp(bars, GC, window=atr_window, min_bars=atr_min_bars).reindex(at).to_numpy()
     trades["close"] = bars["close"].reindex(at).to_numpy()
-    trades[axis] = (
-        session_phase(bars, GC) if axis == "phase" else vol_state(bars)
-    ).reindex(at).to_numpy()
+    for name in axes:
+        trades[name] = (
+            session_phase(bars, GC) if name == "phase" else vol_state(bars)
+        ).reindex(at).to_numpy()
     trades["bucket"] = pd.cut(trades["atr_bp"].to_numpy(), list(edges)).astype("object")
-    sized = trades.dropna(subset=["bucket", axis, "atr_bp", "close"])
+    sized = trades.dropna(subset=["bucket", *axes, "atr_bp", "close"])
 
     rows = []
-    for (bucket, cell), sub in sized.groupby(["bucket", axis], observed=True):
+    for key, sub in sized.groupby(["bucket", *axes], observed=True):
+        bucket, cell = key[0], key[1:]
         # The cell's own scale. Median rather than mean: bucket edges are
         # quantiles and the tails inside a bucket are long.
         atr_ticks = (sub["atr_bp"].median() / 1e4) * sub["close"].median() / GC.tick
@@ -129,7 +132,8 @@ def month_counts(path: Path, *, side: int, bar_size: str, atr_window: str,
             # actually worth, in ATR units so the archive can be pooled.
             open_pnl = float((sub[f"move_{hz}m"] / atr_ticks).where(out == 0, 0.0).sum())
             rows.append({
-                "bucket": str(bucket), axis: str(cell), "side": side,
+                "bucket": str(bucket), **dict(zip(axes, map(str, cell), strict=True)),
+                "side": side,
                 "target_atr": tgt_a, "stop_atr": stp_a, "horizon": hz,
                 "n": n,
                 "target": int((out == 1).sum()), "stop": int((out == -1).sum()),
@@ -145,9 +149,9 @@ def _ev(t: pd.DataFrame) -> pd.Series:
             + t["open_pnl"] - t["cost_atr"]) / t["n"]
 
 
-def surface(counts: pd.DataFrame, axis: str = "phase") -> pd.DataFrame:
+def surface(counts: pd.DataFrame, axes: Sequence[str] = ("phase",)) -> pd.DataFrame:
     """Pooled counts -> rates, EV, the tie band, the null and the pass line."""
-    t = counts.groupby(keys(axis), as_index=False).sum()
+    t = counts.groupby(keys(axes), as_index=False).sum()
 
     t["p_target"] = t["target"] / t["n"]
     t["p_target_max"] = t["target_max"] / t["n"]
@@ -206,9 +210,9 @@ def surface(counts: pd.DataFrame, axis: str = "phase") -> pd.DataFrame:
     # fails is the month's direction wearing a bracket's clothes.** `ev_sym` is
     # the mean of the two sides, which is the only figure a non-directional
     # claim is entitled to.
-    mirror = t[[*keys(axis), "ev_lo"]].copy()
+    mirror = t[[*keys(axes), "ev_lo"]].copy()
     mirror["side"] *= -1
-    t = t.merge(mirror.rename(columns={"ev_lo": "ev_mirror"}), on=keys(axis), how="left")
+    t = t.merge(mirror.rename(columns={"ev_lo": "ev_mirror"}), on=keys(axes), how="left")
     t["ev_sym"] = (t["ev_lo"] + t["ev_mirror"]) / 2
     return t.sort_values("ev_lo", ascending=False).reset_index(drop=True)
 
@@ -223,9 +227,10 @@ def main() -> None:
     p.add_argument("--atr-window", default="60min")
     p.add_argument("--atr-min-bars", type=int, default=6)
     p.add_argument("--out", type=Path, default=Path("analysis/m1_surface.csv"))
-    p.add_argument("--axis", choices=AXES, default="phase",
+    p.add_argument("--axes", nargs="+", choices=AXES, default=["phase"],
                    help="what to condition on beside the atr_bp bucket. precommit §9 runs "
-                        "vol_state on the training half; the default reproduces M1_SURFACE.md")
+                        "vol_state on the training half; both together is reach.py's key (§10); "
+                        "the default reproduces M1_SURFACE.md")
     a = p.parse_args()
 
     months = sorted(d for d in a.data.iterdir() if (d / "gc_trades.parquet").exists())
@@ -234,7 +239,7 @@ def main() -> None:
     if not months:
         raise SystemExit(f"no YYYY-MM/gc_trades.parquet under {a.data}")
 
-    print(f"M1 sweep on ({a.axis}): {len(GRID)} grid points x {len(months)} months "
+    print(f"M1 sweep on ({' x '.join(a.axes)}): {len(GRID)} grid points x {len(months)} months "
           f"x {len(a.sides)} side(s)")
     print(f"grid target {TARGETS} / stop {STOPS} / horizon {HORIZONS}  (x ATR, x minutes)")
     print(f"buckets {ATR_BP_EDGES} bp   cost {COST_TICKS} ticks   MIN_SAMPLES {MIN_SAMPLES}\n")
@@ -244,13 +249,13 @@ def main() -> None:
         for side in a.sides:
             c = month_counts(month / "gc_trades.parquet", side=side, bar_size=a.bar_size,
                              atr_window=a.atr_window, atr_min_bars=a.atr_min_bars,
-                             edges=ATR_BP_EDGES, axis=a.axis)
+                             edges=ATR_BP_EDGES, axes=tuple(a.axes))
             frames.append(c)
             legs = int(c["n"].sum()) // len(GRID) if len(c) else 0
             print(f"{month.name} side {side:+d}  cells {len(c):4d}  legs {legs:6d}"
                   f"  {time.perf_counter() - t0:6.0f}s", flush=True)
 
-    t = surface(pd.concat(frames, ignore_index=True), axis=a.axis)
+    t = surface(pd.concat(frames, ignore_index=True), axes=tuple(a.axes))
     a.out.parent.mkdir(parents=True, exist_ok=True)
     t.to_csv(a.out, index=False)
 
@@ -259,7 +264,7 @@ def main() -> None:
           f"{int(t['passes'].sum())} passing all three conditions ===")
     print(f"written to {a.out}\n")
 
-    cols = ["bucket", a.axis, "side", "target_atr", "stop_atr", "horizon", "n",
+    cols = ["bucket", *a.axes, "side", "target_atr", "stop_atr", "horizon", "n",
             "p_target", "p_neither", "p_null", "mde", "ev_barrier", "ev_open",
             "ev_lo", "ev_null", "ev_delta", "ev_sym", "passes"]
     with pd.option_context("display.width", 220, "display.max_columns", 30):
@@ -272,7 +277,7 @@ def main() -> None:
             print("\nNO CELL CLEARS ALL THREE. That is the kill condition in "
                   "strategy-split.md §2, fired on data already paid for.")
         print(f"\nundecided by the tie band (ev_lo <= 0 < ev_hi): {int(t['undecided'].sum())} cells")
-        print(f"ev_delta -- what conditioning on {a.axis} ADDED, against the same cell with it "
+        print(f"ev_delta -- what conditioning on {'/'.join(a.axes)} ADDED, against the same cell with it "
               f"pooled out:\n  mean {t['ev_delta'].mean():+.4f}   median {t['ev_delta'].median():+.4f}"
               f"   > +0.042 (M1's cost) in {int((t['ev_delta'] > 0.0423).sum())} of {len(t)} cells")
         mirrored = t[t["passes"] & (t["ev_sym"] > 0)]
