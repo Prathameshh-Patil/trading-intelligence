@@ -184,6 +184,14 @@ export type ForecastUnavailable =
   | "no-key"
   /** Key formed, every bracket below `MIN_SAMPLES`. Honest and common. */
   | "thin-bucket"
+  /**
+   * The table has not arrived yet.
+   *
+   * A real state, not a mock artefact: the table is ~370 KB fetched at startup,
+   * so there is a window on every cold start where the key exists and the
+   * answer does not. Distinct from `no-table`, which means the fetch failed.
+   */
+  | "loading"
   /** No table loaded at all. A wiring fault, not a market condition. */
   | "no-table";
 

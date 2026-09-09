@@ -1918,6 +1918,50 @@ the day before the file existed.
 Full detail: [`analysis/REACH.md`](../services/signal-data/analysis/REACH.md) and
 [`daily_updates/2026-09-10.md`](../daily_updates/2026-09-10.md).
 
+### 2026-09-10 (later) — S7 amended and the desktop app serves the real table · [`forecast.ts`](../apps/desktop/src/lib/engine/forecast.ts)
+
+**The consumer half of stage 9, and the seam decision Varad flagged three times and correctly
+refused to make alone.** `reach_table.csv` landed at 01:15; this is built against it rather than
+against a model of it.
+
+- [x] **The S7 mismatch has a concrete proposal for the first time** —
+      `docs/superpowers/specs/2026-09-05-live-signal-pipeline-design.md` §6.3 now carries an
+      AMENDMENT block, with the original draft preserved beneath it. Four changes:
+      `bucket.regime` → `phase`/`volState`/`instrument`; `reach[].p` → `p` **and** `pMax`;
+      `horizonBars` → `horizonMinutes`; `mfe`/`mae` nullable and null. Plus `pStop`/`pNeither`,
+      which the table serves and without which a low `p(target)` reads as a high `p(stop)` when
+      it is usually "nothing happened in time". **Implemented and running** in `forecast.ts`.
+- [ ] **⚠️ It is a PROPOSAL and needs Varad + Shreyas.** S7 is frozen-by-agreement and one person
+      cannot close it. Nothing about the draft's rules changed — no `guaranteedPips`, no lot size,
+      `forecast: null` valid and common, `suggested` derived or null.
+- [x] **The desktop app serves the real numbers, not invented ones.**
+      `apps/desktop/public/fixtures/reach_table.json` is `reach_table.csv` filtered to its 8,256
+      served rows and stripped to the five `SERVED` columns — **372 KB**, against the 4.7 MB tick
+      fixture `mock.ts` already ships. `forecastMock.ts` computes no probability at all now; it
+      looks one up. Same split `mock.ts` uses, where the bars are real and only the outliers are
+      shapes.
+- [x] **The one thing still invented is which cell the moment is in.** No live feed means no
+      `atr_bp` and no `rv_slope`, so both are derived from the timestamp. **`phase` is real** — the
+      committed ET boundaries. When `engine/real.ts` lands, that last synthetic part disappears and
+      the lookup is untouched.
+- [x] **Five UI states, four of which a happy path forgets**: the ~120-minute warm-up (a countdown
+      to a real clock time, never a spinner — `reach.cell_of`'s note that it is otherwise
+      discovered as "the product does not work at the open"), `thin-bucket`, `no-key`, `no-table`,
+      and `loading`, which is a genuine state because the table is a 372 KB fetch at startup.
+- [x] **Two invariants enforced in the UI, not just documented**: every probability renders as a
+      band, never a midpoint; and rows render in **grid order, never value order** — sorting by `p`
+      would quietly make the UI the chooser `reach.py` refuses to be, because whatever lands on top
+      of a list reads as the recommendation.
+- [x] **Also fixed: `pnpm dev` was dead.** `clickThrough.ts` calls Tauri's `getCurrentWindow()` in
+      three places and it THROWS rather than rejecting outside Tauri, so the existing `.catch` never
+      fired and `SidePanel` failed to mount — blank page, every time. Guarded with the official
+      `isTauri()`; behaviour inside the window is unchanged.
+- [ ] **Still no JS test runner.** Verified by compiling standalone under Node and by clicking
+      through every state in a browser — repeatable, uncommitted, outside any CI, exactly as
+      `mock.ts` was. The `vitest` commit this has wanted twice now is still not written.
+
+Full detail: [`daily_updates/2026-09-10.md`](../daily_updates/2026-09-10.md).
+
 ---
 
 ## Next

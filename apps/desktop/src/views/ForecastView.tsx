@@ -71,6 +71,11 @@ const UNAVAILABLE_COPY = {
       "The feed has a gap, or the window behind this bar is not full. A bar with no " +
       "bucket gets no forecast rather than a guess at which bucket it belongs to.",
   },
+  loading: {
+    title: "Loading the table",
+    body:
+      "Nineteen months of counted outcomes, fetched once at startup. A second, usually.",
+  },
   "no-table": {
     title: "No table loaded",
     body: "Nothing is serving the reach table. This one is a wiring fault, not a market condition.",

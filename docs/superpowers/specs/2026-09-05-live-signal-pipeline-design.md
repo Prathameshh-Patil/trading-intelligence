@@ -255,6 +255,35 @@ is guessing most of the time.**
 
 This is the shape the trader's trust rests on. Proposed as **S7**; not frozen until all three agree.
 
+> ## ⚠️ AMENDMENT PROPOSED 2026-09-10 — Prathamesh. Needs Varad + Shreyas.
+>
+> **The draft below was written 5 Sep against Track A and does not fit the table that now
+> exists.** `reach.py` shipped 10 Sep (`analysis/REACH.md`) and serves a different shape.
+> Varad flagged the mismatch three times without resolving it — `strategy-precommit.md` §10,
+> `REACH.md` §6, and `prathamesh/reach-table-explained.md` §7 — each time saying the same
+> thing: *"Both need a room decision, not a patch."* This is that decision, proposed by the
+> side that has to render the numbers.
+>
+> **The resolution is implemented and running** in
+> [`apps/desktop/src/lib/engine/forecast.ts`](../../../apps/desktop/src/lib/engine/forecast.ts),
+> with a fake and a UI consuming it. Four changes, each one something the draft cannot express:
+>
+> | Draft | Proposed | Why |
+> | :--- | :--- | :--- |
+> | `bucket.regime` | `phase` + `volState` + `instrument` | `regimes.py` clusters on `cvd_slope`/`cvd_persistence`, is parked, and **does not port to spot at all**. The real key is `instrument × atr_bp × phase × vol_state × side`. The bucket a trader audits has to be the bucket the number came from. |
+> | `reach[].p` | `p` **and** `pMax` | The tie band. `p_target` resolves a same-bar tie to the stop, `p_target_max` to the target, and bar data cannot say where between them the truth is. `REACH.md` §3 measured it: median 0.0019, **max 0.107** at the tight corner, 8.2% of served rows undecided. One number there is a precision the data does not have. |
+> | `horizonBars: 6` | `horizonMinutes: 15 \| 30 \| 60` | `m1_sweep.HORIZONS` is **minutes**, against 5-minute bars. Two units that look alike and differ by 2× — the same class of error as `DELTA_CVD_FINDINGS.md`'s inverted side. |
+> | `mfe` / `mae` required | nullable, **null today** | `reach.SERVED` is `n, p_target, p_target_max, p_stop, p_neither` — stage 7 serves no excursion quantiles at all. Kept rather than deleted, because deleting them is a scope call for the room; typed `| null` so nothing can render an invented quantile. |
+>
+> **Also added**, because the table serves them and a trader needs them: `pStop` and `pNeither`
+> per bracket. `p_neither` is frequently the largest of the three, and without it a low
+> `p(target)` reads as a high `p(stop)` when it is usually "nothing happened in time".
+>
+> **Nothing about the draft's rules changes** — no `guaranteedPips`, no lot size, `forecast: null`
+> valid and common, `suggested` derived from `reach` or null. Those are why the contract exists.
+>
+> The original draft is preserved below for the record.
+
 ```ts
 export type PipForecast = {
   /** How the bucket was defined. The trader can audit this. */
