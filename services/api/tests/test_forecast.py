@@ -196,9 +196,27 @@ def test_load_table_raises_rather_than_returning_a_thinner_answer(table_path):
 
 # --- CORS ------------------------------------------------------------------
 
-def test_cors_allows_the_desktop_origin():
+@pytest.mark.parametrize(
+    "origin",
+    [
+        # `tauri dev` — the webview loads `devUrl`, so this is an ordinary origin.
+        "http://localhost:1420",
+        # A packaged app. macOS and Linux serve the frontend over Tauri's custom
+        # protocol; Windows uses the http form. Neither carries a port, so
+        # neither matched the localhost branch before this route needed them.
+        "tauri://localhost",
+        "http://tauri.localhost",
+    ],
+)
+def test_cors_allows_the_desktop_origins(origin):
+    r = client.get("/api/v1/forecast/table", headers={"Origin": origin})
+    assert r.headers["access-control-allow-origin"] == origin
+
+
+def test_cors_still_rejects_a_foreign_origin():
+    """The Tauri entries are exact hosts, not a widened pattern."""
     r = client.get(
         "/api/v1/forecast/table",
-        headers={"Origin": "http://localhost:1420"},
+        headers={"Origin": "https://tauri.localhost.evil.example.com"},
     )
-    assert r.headers["access-control-allow-origin"] == "http://localhost:1420"
+    assert "access-control-allow-origin" not in r.headers

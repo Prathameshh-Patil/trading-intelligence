@@ -10,6 +10,10 @@
  * That is the same split `mock.ts` uses and for the same reason — its bars are
  * real and reconcile to `s1.py`, and only its outliers are invented shapes.
  *
+ * **Where those rows are read from is now a switch.** `VITE_FORECAST_API` points
+ * this at `services/api`'s S7 route; unset, it reads the committed copy and
+ * `pnpm dev` needs nothing running. See `TABLE_URL`.
+ *
  * ## What is still fake, and it is only one thing
  *
  * **Which cell the current moment is in.** There is no live feed, so `atr_bp`
@@ -157,6 +161,40 @@ type FixtureRow = [
 interface Fixture {
   minSamples: number;
   cells: Record<string, FixtureRow[]>;
+  /** The column order the rows are stored in — checked, see `ROW`. */
+  _row?: string[];
+}
+
+/**
+ * `FixtureRow`'s fields, in the order `rowOf` reads them.
+ *
+ * `services/api` refuses to serve a table whose `_row` is not this, and the
+ * same check runs here so the fixture path is not the unguarded one. A
+ * transposed column is a wrong probability rendered with total confidence, and
+ * a positional read cannot see the header move.
+ */
+const ROW = [
+  "targetAtr",
+  "stopAtr",
+  "horizonMinutes",
+  "n",
+  "p",
+  "pMax",
+  "pStop",
+  "pNeither",
+] as const;
+
+/** Throws rather than rendering a table whose columns are not where it thinks. */
+function checkColumnOrder(t: Fixture, from: string): Fixture {
+  // Absent is tolerated — a hand-cut table need not declare its order. Present
+  // and different is not: that is a table that moved a column and said so.
+  if (t._row && t._row.join() !== ROW.join()) {
+    throw new Error(
+      `${from}: column order is [${t._row.join(", ")}], but this reads ` +
+        `[${ROW.join(", ")}] positionally`,
+    );
+  }
+  return t;
 }
 
 function rowOf(r: FixtureRow): ReachRow {
@@ -226,15 +264,48 @@ export interface MockForecaster extends Forecaster {
  *
  * Injectable for two reasons that are the same reason: the standalone check
  * runs under Node with no server to fetch a relative URL from, and the real
- * implementation will load this from `services/api` rather than a fixture. A
- * seam that only exists for tests tends to rot; this one is on the path.
+ * implementation loads this from `services/api` rather than a fixture. A seam
+ * that only exists for tests tends to rot; **this one is now on the path** —
+ * `GET /api/v1/forecast/table` serves the `Fixture` shape byte for byte, so
+ * the swap below is a URL and nothing else.
  */
 export type TableLoader = () => Promise<Fixture>;
 
+/**
+ * The committed copy — `public/fixtures/reach_table.json`, 372 KB.
+ *
+ * `contracts.md`'s fixture ledger exists so that both engineers can work
+ * *"offline, on a plane, at 2am, with the other one asleep"*, so this stays the
+ * default and `pnpm dev` needs no server running.
+ */
+export const FIXTURE_URL = "/fixtures/reach_table.json";
+
+/**
+ * Where the table is read from — the S7 route when `VITE_FORECAST_API` is set,
+ * the committed fixture otherwise.
+ *
+ * **An env var rather than a hardcoded URL, because where the API lives is not
+ * this file's decision.** `plans/current.md` row #4 is open and owned by both of
+ * us; the popup's `http://localhost:8000` is a local convention, not a settled
+ * answer, and baking it in here would close a room question by writing a string.
+ *
+ * The switch mirrors `VITE_ENGINE` deliberately, and so does its discipline:
+ * **there is no fallback between the two.** If the route is configured and does
+ * not answer, that is `no-table` — the wiring fault `forecast.ts` already names
+ * — never a silent drop back to the committed copy. They are byte-identical
+ * today, and the day they are not, "the app quietly served the stale one" is the
+ * failure nobody can see from either end.
+ *
+ *     VITE_FORECAST_API=http://localhost:8000 pnpm dev
+ */
+export const TABLE_URL: string = import.meta.env.VITE_FORECAST_API
+  ? `${String(import.meta.env.VITE_FORECAST_API).replace(/\/+$/, "")}/api/v1/forecast/table`
+  : FIXTURE_URL;
+
 const fetchFixture: TableLoader = async () => {
-  const r = await fetch("/fixtures/reach_table.json");
-  if (!r.ok) throw new Error(`reach_table.json: ${r.status}`);
-  return (await r.json()) as Fixture;
+  const r = await fetch(TABLE_URL);
+  if (!r.ok) throw new Error(`${TABLE_URL}: ${r.status}`);
+  return checkColumnOrder((await r.json()) as Fixture, TABLE_URL);
 };
 
 export function createMockForecaster(

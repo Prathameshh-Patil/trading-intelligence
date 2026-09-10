@@ -56,19 +56,26 @@ let forecaster: Forecaster | null = null;
 /**
  * S7 · the reach table, behind the same switch as S2.
  *
- * The real one is `services/signal-data/reach.py`'s output — a ~1.7-hour build
- * over 19 months, gitignored, and not on this machine. `VITE_ENGINE=real`
- * refuses rather than falling back for the same reason S2 does: a UI quoting
- * probabilities that were never counted is worse than a UI that will not start.
+ * **The table is no longer the missing half** — `services/api`'s
+ * `GET /api/v1/forecast/table` serves it, and `VITE_FORECAST_API` points the
+ * forecaster at it. What is still missing is the other half of `reach.py`:
+ * `cell_of` needs `atr_bp` and `rv_slope`, so forming the key needs a live feed
+ * and `plans/current.md` C1 reopened on 5 Sep. Until then the key is derived
+ * from the timestamp, which is a fake, so this stays behind the mock switch.
+ *
+ * `VITE_ENGINE=real` refuses rather than falling back for the same reason S2
+ * does: a UI quoting real probabilities under an invented bucket is worse than
+ * a UI that will not start.
  */
 export function getForecaster(): Forecaster {
   if (forecaster) return forecaster;
 
   if (CHOICE === "real") {
     throw new Error(
-      "VITE_ENGINE=real, but no real forecaster exists yet — reach_table.csv is " +
-        "built offline and nothing serves it. Refusing to fall back to the fake: " +
-        "invented probabilities must never be mistaken for the archive's.",
+      "VITE_ENGINE=real, but no real forecaster exists yet — services/api serves " +
+        "the table, and nothing forms the key from a live feed. Refusing to fall " +
+        "back to the fake: an invented bucket must never be mistaken for the " +
+        "archive's own.",
     );
   }
 
