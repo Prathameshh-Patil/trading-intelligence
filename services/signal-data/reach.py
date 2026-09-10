@@ -203,14 +203,17 @@ def build(data: Path, *, months: list[str] | None = None,
 
     frames, t0 = [], time.perf_counter()
     for d in dirs:
+        bars = None  # loaded once per month, and not at all if both sides are cached
         for side in sides:
             part = cache / f"{d.name}_{side:+d}.parquet"
             if part.exists():
                 frames.append(pd.read_parquet(part))
                 print(f"{d.name} side {side:+d}  cached", flush=True)
                 continue
+            if bars is None:
+                bars = m1_sweep.gc_bars(d / "gc_trades.parquet", "5min")
             c = m1_sweep.month_counts(
-                d / "gc_trades.parquet", side=side, bar_size="5min",
+                bars, GC, side=side,
                 atr_window="60min", atr_min_bars=6, edges=ATR_BP_EDGES, axes=AXES,
             )
             c.to_parquet(part)

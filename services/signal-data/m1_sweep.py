@@ -53,7 +53,7 @@ import pandas as pd
 from backtest import evaluate, excursions, first_touch_from
 from features.portable import ATR_BP_EDGES, atr_bp, session_phase
 from horizon import mde_rate
-from instruments import GC
+from instruments import GC, Instrument
 
 # `vol_state` lives with SLOPE_MIN, the threshold that defines it, rather than
 # being re-cut here. It is not in features/portable.py because that file's
@@ -94,22 +94,41 @@ def keys(axes: Sequence[str]) -> list[str]:
     return ["bucket", *axes, "side", *GEOMETRY]
 
 
-def month_counts(path: Path, *, side: int, bar_size: str, atr_window: str,
+def gc_bars(path: Path, bar_size: str) -> pd.DataFrame:
+    """One month of Databento GC trades -> the bar frame. The flow path.
+
+    Separate from `month_counts` because loading a month and counting a grid
+    are different jobs, and a second instrument shares only the second. Spot
+    arrives through `spot.minute_bars` instead -- no `delta`, no `volume`, no
+    `cvd`, because it has none.
+    """
+    return resample_bars(minute_bars(load_ticks(path)), bar_size)
+
+
+def month_counts(bars: pd.DataFrame, inst: Instrument, *, side: int, atr_window: str,
                  atr_min_bars: int, edges: tuple[float, ...],
                  axes: Sequence[str] = ("phase",)) -> pd.DataFrame:
-    """Counts, never rates, for one month and one side. Every grid point."""
-    bars = resample_bars(minute_bars(load_ticks(path)), bar_size)
-    trades = evaluate(bars, m1_geometry(bars, GC, side=side), GC, horizons=HORIZONS)
+    """Counts, never rates, for one frame and one side. Every grid point.
+
+    **Takes bars rather than a path, and an instrument rather than assuming
+    one.** `GC` was hardcoded here in six places; step 1 injected `TICK`
+    through the repo but this file still reached for the instrument itself,
+    which is the same class of assumption one level up. The counts are
+    tick-free either way -- measured, see `instruments.py` -- but `cost_atr`
+    is not, and a borrowed cost floor is how a spot surface would quietly be
+    scored against gold's commission.
+    """
+    trades = evaluate(bars, m1_geometry(bars, inst, side=side), inst, horizons=HORIZONS)
     if trades.empty:
         return pd.DataFrame(columns=[*keys(axes), "n", "target", "stop", "target_max",
                                      "stop_min", "open_pnl", "cost_atr"])
 
     at = pd.DatetimeIndex(trades["t"])
-    trades["atr_bp"] = atr_bp(bars, GC, window=atr_window, min_bars=atr_min_bars).reindex(at).to_numpy()
+    trades["atr_bp"] = atr_bp(bars, inst, window=atr_window, min_bars=atr_min_bars).reindex(at).to_numpy()
     trades["close"] = bars["close"].reindex(at).to_numpy()
     for name in axes:
         trades[name] = (
-            session_phase(bars, GC) if name == "phase" else vol_state(bars)
+            session_phase(bars, inst) if name == "phase" else vol_state(bars)
         ).reindex(at).to_numpy()
     trades["bucket"] = pd.cut(trades["atr_bp"].to_numpy(), list(edges)).astype("object")
     sized = trades.dropna(subset=["bucket", *axes, "atr_bp", "close"])
@@ -119,11 +138,11 @@ def month_counts(path: Path, *, side: int, bar_size: str, atr_window: str,
         bucket, cell = key[0], key[1:]
         # The cell's own scale. Median rather than mean: bucket edges are
         # quantiles and the tails inside a bucket are long.
-        atr_ticks = (sub["atr_bp"].median() / 1e4) * sub["close"].median() / GC.tick
+        atr_ticks = (sub["atr_bp"].median() / 1e4) * sub["close"].median() / inst.tick
         cost_atr = COST_TICKS / atr_ticks
         # The window a leg is judged over depends on the horizon and not on the
         # barriers, so it is built three times here rather than 144.
-        win = {hz: excursions(bars, sub, GC, horizon=hz) for hz in HORIZONS}
+        win = {hz: excursions(bars, sub, inst, horizon=hz) for hz in HORIZONS}
         for tgt_a, stp_a, hz in GRID:
             tgt, stp = tgt_a * atr_ticks, stp_a * atr_ticks
             out = first_touch_from(win[hz], target=tgt, stop=stp)
@@ -249,8 +268,9 @@ def main() -> None:
 
     frames, t0 = [], time.perf_counter()
     for month in months:
+        bars = gc_bars(month / "gc_trades.parquet", a.bar_size)  # once, not once per side
         for side in a.sides:
-            c = month_counts(month / "gc_trades.parquet", side=side, bar_size=a.bar_size,
+            c = month_counts(bars, GC, side=side,
                              atr_window=a.atr_window, atr_min_bars=a.atr_min_bars,
                              edges=ATR_BP_EDGES, axes=tuple(a.axes))
             frames.append(c)

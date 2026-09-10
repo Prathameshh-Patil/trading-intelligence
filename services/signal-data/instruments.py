@@ -27,10 +27,11 @@ the room before the seam is called frozen:
     field is the shift itself. A calendar earns its own type when a second
     instrument needs more than an offset -- which is also when the DST hole
     `s1.SESSION_SHIFT` already documents has to be closed.
-  * **XAUUSD is not defined here.** Route 2 has not picked a vendor and a spot
-    tick is broker-dependent -- 0.01 or 0.10, which is the exact 10x error
-    §4.6 exists to prevent. Writing a placeholder would put a guessed number
-    where the seam's whole job is to make the number explicit.
+  * **XAUUSD was not defined here until 2026-09-10, and the reason it now is
+    should be read before the number is used.** Route 2 has not picked a
+    vendor and a spot tick is broker-dependent -- 0.01 or 0.10, the exact 10x
+    error §4.6 exists to prevent -- so a placeholder would have put a guessed
+    number where the seam's whole job is to make the number explicit.
 
     **MEASURED 2026-09-10, and it narrows what the missing tick actually
     blocks.** Running `m1_sweep.month_counts` over one month twice, at tick
@@ -43,8 +44,10 @@ the room before the seam is called frozen:
     `p_stop`, `p_neither` -- is tick-free and does not wait on this decision.
     EV net of cost is not**, and on spot the cost is the measured spread
     rather than GC's 1.4 ticks, so it needs its own model rather than a
-    borrowed constant. The refusal above stands; what it blocks is narrower
-    than it looks.
+    borrowed constant. **So `XAUUSD` below carries the feed's own price
+    quantum rather than a broker's tradeable tick** -- a measured property of
+    the data in hand, not a guess about an account nobody has opened -- and
+    every use of it in a cost or EV claim is still blocked on the room.
 """
 
 from __future__ import annotations
@@ -80,6 +83,32 @@ GC = Instrument(
     session_shift=pd.Timedelta(hours=2),
     anchors=("session_open", "prior_close", "session_high", "session_low", "opening_range", "twap"),
     has_flow=True,
+)
+
+
+XAUUSD = Instrument(
+    name="XAUUSD",
+    # DUKASCOPY'S PRICE QUANTUM, NOT A TRADEABLE TICK. The feed encodes price
+    # as integers in points of 1e-3 (`dukascopy.POINTS`), so 0.001 is the
+    # finest distinction this data can express -- a fact about the file, which
+    # is why it can be written down without the room. **A broker's tick is a
+    # different number and this is not it.** Nothing in a geometry comparison
+    # depends on it (see the measurement above); anything costed in ticks does,
+    # and must not use this.
+    tick=0.001,
+    # No contract, so no USD per tick. `backtest.summarize` returns NaN for
+    # `expectancy_usd` here rather than repeating the tick count as dollars.
+    tick_value=None,
+    # The same +2h as GC, deliberately: the comparison is only worth making if
+    # both instruments cut their sessions on the same boundary. Spot runs
+    # ~22:00 Sun to 21:00 Fri UTC, near enough to Globex that the shift lands
+    # the same way, and a different shift here would show up as a phase
+    # difference that is really a bookkeeping difference.
+    session_shift=pd.Timedelta(hours=2),
+    anchors=("session_open", "prior_close", "session_high", "session_low", "opening_range", "twap"),
+    # No tape, no aggregate size, no aggressor. This is the field the whole
+    # module exists for, and it is what makes every flow feature raise here.
+    has_flow=False,
 )
 
 
