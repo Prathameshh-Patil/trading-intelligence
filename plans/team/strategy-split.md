@@ -297,6 +297,24 @@ degradation produces a number that looks exactly like the real one.
 
 Every downstream function takes an `Instrument`. Nothing imports `TICK`.
 
+**⚠️ Second amendment, 2026-09-10: `XAUUSD` now exists, and its `tick` is the feed's quantum.**
+The module refused to define it on 6 Sep because a spot tick is broker-dependent — 0.01 or 0.10,
+ARCHITECTURE §4.6's 10× error. That refusal was right, and measurement narrowed it: running
+`m1_sweep.month_counts` over one month at tick 0.10 and at 0.01 returns **byte-identical counts**,
+with only `cost_atr` moving. The tick cancels out of the geometry. So `XAUUSD.tick = 0.001` is
+**Dukascopy's price resolution — a property of the file in hand, not a guess about an account
+nobody has opened** — and it is safe for every `p_target`/`p_stop` comparison and forbidden for
+any cost or EV claim. **The room still owns the tradeable tick**; this one is not it.
+
+**⚠️ The seam is one field short, and this is the place that says so.** `s1.minute_bars` and
+`regimes.resample_bars` both read the module-level `SESSION_SHIFT` rather than
+`inst.session_shift`. Step 1 injected `TICK` through the repo and left the session boundary
+behind, so a second instrument's sessions are cut by GC's constant unless its loader avoids those
+functions — which is exactly what `spot.py` had to do. **Fixing it means editing `regimes.py`, a
+parked Track A module §2 forbids Track B from touching**, so it is recorded rather than done. It
+is the same hole `s1.SESSION_SHIFT`'s own docstring calls out for DST, arriving through
+portability instead.
+
 ### S9 · The bars frame — either loader → both lanes
 
 A GC loader and a spot loader must produce the **same frame**, or the second instrument is not a
@@ -312,6 +330,45 @@ session     category              session label, per Instrument.session
 ```
 
 Spot adds `bid`, `ask` — nullable, and **null on GC is the correct value, not a gap to fill.**
+
+> ## ⚠️ AMENDED 2026-09-10 — as written this is violated, and it could not have held
+>
+> **Measured, both loaders, same bar size:**
+>
+> ```
+> shared   close, high, low, open, session
+> GC only  cvd, delta, trades, volume
+> spot only  spread_bp, ticks          <- NOT bid, ask
+> ```
+>
+> Two corrections. **`bid`/`ask` are tick-level quantities and do not survive bar aggregation** —
+> a bar has an open, high, low and close of *something*, and `spot.minute_bars` builds them from
+> the **mid**, carrying `spread_bp` as its own column instead. And **"the same frame" cannot hold
+> in the direction S9 assumed**: it is GC that carries the extra columns, because it has a tape
+> and spot does not. `delta`, `volume`, `trades` and `cvd` are nullable-on-spot in exactly the way
+> S9 said `bid`/`ask` would be nullable on GC, and there is no arrangement in which both frames
+> have the same columns.
+>
+> **The rule that does hold, and that the code already enforces:**
+>
+> 1. **The shared core is `open, high, low, close, session`, on a UTC index.** Both loaders
+>    produce it and it is the contract.
+> 2. **Each loader may add instrument-specific columns.** They are not gaps in the other frame;
+>    they are quantities the other instrument does not have.
+> 3. **No portable feature may read outside the shared core** unless `Instrument.has_flow` gates
+>    it — which is what `require_flow` already does, and why `atr_bp`, `session_phase` and
+>    `vol_state` run unchanged on both.
+>
+> That is a stronger guarantee than "the same frame", because it is checkable and because the
+> original could only ever have been satisfied by inventing a `volume` for spot — the precise
+> thing `has_flow` exists to prevent. **Still not frozen. This is what there is to sign.**
+
+**One name is duplicated and should not stay that way.** `features/portable.mid` and
+`features/portable.spread_bp` are committed signatures raising `NotImplementedError`, owned by
+Prathamesh for step 6. `spot.minute_bars` computes both inline because it needed them before
+step 6 ran. **Two definitions of the same quantity is how two files quietly disagree**, and the
+fix is one line at each site once those stubs are filled — recorded here rather than resolved by
+one lane implementing the other's function.
 
 **Every feature, bucket and threshold downstream is in basis points of price** (ARCHITECTURE §4.6).
 GC's tick is 0.10; an MT5 broker may call a XAUUSD pip 0.01 or 0.10. A mis-scaled *display* renders

@@ -19,6 +19,16 @@ Track B work may modify one. Both it and `s1.minute_bars` also hardcode
 is one field short of complete. Recorded here rather than fixed here: fixing it
 means editing a parked module.
 
+TWO NAMES HERE ARE DUPLICATES AND SHOULD NOT STAY THAT WAY. `features/
+portable.mid` and `features/portable.spread_bp` are committed signatures that
+still raise `NotImplementedError`, owned by Prathamesh for step 6. This module
+computes both inline because it needed them before step 6 ran, and filling
+another lane's signature is not this file's call (`strategy-split.md` §4 splits
+`portable.py` by function name). **Two definitions of the same quantity is how
+two files quietly disagree** -- the same failure `bd675f5` records for
+first-touch. When those stubs are filled, `minute_bars` calls them instead; it
+is one line at each site. Recorded in `strategy-split.md` §9 as owed.
+
 WHAT A SPOT BAR CARRIES, AND WHAT IT DOES NOT.
 
     open high low close   from the MID, not the bid and not the ask

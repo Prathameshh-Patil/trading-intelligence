@@ -639,6 +639,19 @@ rather than a disappointment: 144 cells over ~220,000 legs is ~1,500 each if the
 was given, and from the argument written underneath it. That is the one number here that needs
 Varad's eye rather than his nod.**
 
+> **STILL UNSIGNED as of 2026-09-11, and the review now has evidence it did not have on 6 Sep.**
+> `REACH.md` §2 measured the two transition phases losing their entire CONTRACTING state — 16 of
+> 28 dead cells — because `CONTRACTING` is **4.7%** of `London-NY`'s legs against 28–36% in the
+> three phases that are not handoffs. **`phase` and `vol_state` are not independent where they
+> cross**, and both boundaries in question are these.
+>
+> **That is not a reason to move a boundary and this block is not a licence to.** The surface has
+> been looked at, so a boundary moved now is a fit — the rule at the bottom of this file. What it
+> changes is the *review*: the question is no longer "is ET defensible in principle" but "is ET
+> defensible knowing that `London-NY` at 08:00–09:30 contains the 08:30 release and is therefore
+> EXPANDING almost by construction". The answer may well still be yes. **It has to be said out
+> loud by Varad either way**, because three files of results now depend on it.
+
 ### The numbers
 
 ```
