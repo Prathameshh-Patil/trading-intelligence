@@ -24,6 +24,7 @@ the one genuine methodological upgrade the split buys (§7).
 | 5 | The event window, in minutes either side | Prathamesh | Varad | ✅ **committed 2026-09-06** |
 | 6 | The 2025/2026 split date | Prathamesh | Varad | ✅ **committed 2026-09-06** |
 | 7 | The opening-range length | Prathamesh | Varad | ✅ **committed 2026-09-06** — a fourth, not in the original six |
+| 11 | M4b's path-ordering prediction and kill condition | Prathamesh | Varad | ✅ **committed 2026-09-11**, before the first line of code |
 
 **Where the numbers live in code.** `ATR_BP_EDGES` is in `features/portable.py`, because that is
 where `atr_bp` is and a test fails if it drifts from what is written here. The grid and
@@ -630,6 +631,70 @@ the extreme `atr_bp` buckets, in the CONTRACTING and EXPANDING states rather tha
 **I expect the table to be honest and mostly empty at the edges**, which is the correct outcome
 rather than a disappointment: 144 cells over ~220,000 legs is ~1,500 each if they were even, and
 `M1_SURFACE.md` and the mix table both say they are nowhere near even.
+
+---
+
+## 11 · M4b — the path-ordering measurement. Prathamesh, committed 2026-09-11
+
+**Due before the run, and this one is due before the first line of code.** An eleventh, and the
+first of Prathamesh's since 6 Sep.
+
+**What M4b is, and what it is deliberately NOT.** `strategy-architecture.md` §S4 proposes a
+Path-Dependent Dynamic Exit with five pre-committed rules — *"`speed_to_mfe < 5 bars AND mfe > 1.5 *
+ATR` → move stop to BE + 0.5 ATR"*, and four more. **Those thresholds are invented constants
+presented as pre-commitments**, which is the exact thing `strategy-reconciliation.md` §2 rejected in
+the same document's `SESSION_MULTIPLIER`: *"the fix is a change of type, a measured table with an N
+per cell, not a multiplier."* **M4b implements none of those rules.** It measures the thing they all
+depend on, and it is a lookup like every other stage here.
+
+**The premise the rules rest on, stated so it can fail.** Every PDE rule reads a *sequence* —
+retracement *after* MFE, MAE *in the first five bars*. `regime_filter.py` named the problem:
+sequence inside a bar is *"exactly what D4 must measure at tick resolution"*.
+
+**And one thing is already settled and narrows the question usefully.** MFE *magnitude* is not at
+issue: `backtest.evaluate` takes it from `leg["high"].max()`, and a bar's high IS the maximum tick
+price inside it, so bar MFE and tick MFE are the same number. **What bars cannot carry is WHEN, and
+therefore in what ORDER.** M4b is about ordering and timing, not magnitude, and any write-up saying
+otherwise is wrong.
+
+### The decision
+
+```
+population   every leg m1_sweep already counts, all 19 months, both sides
+measure      the bar containing MFE vs the bar containing MAE, per leg
+unorderable  MFE and MAE fall in the SAME bar -- bars cannot sequence them
+resolve      the tape orders them, replay.py's walk, same window
+budget       3 DAYS, set before the first line -- strategy-split.md §5's precedent
+```
+
+### The pre-committed prediction — Prathamesh, before the run
+
+**Fewer than 10% of legs will have MFE and MAE in the same bar.**
+
+The reasoning, so the miss can be diagnosed rather than just scored: a leg's window is 3, 6 or 12
+five-minute bars, and MFE and MAE are extremes of a walk over that window — they should usually land
+in different bars simply because there are several. The tie work is the nearest evidence and it
+points the same way: ties needed *one bar* to span *both barriers* and came out at 0.61% of
+leg-brackets.
+
+### The kill condition, stated in what it licenses rather than in a p-value
+
+**If fewer than 10% of legs are unorderable, the PDE premise is weak and M4's path-dependent
+candidate should be decided against on this evidence** — not because path information is worthless,
+but because **bars already carry the sequence** and no tick replay is needed to act on it, which
+removes the reason M4b was blocking M4 at all.
+
+**If more than 30% are unorderable, bar-derived sequencing is unreliable** and any PDE rule built on
+`evaluate`'s MFE/MAE ordering is reading noise. That would make the tick path the only honest basis
+for the rules — and it would make the rules expensive rather than impossible.
+
+**Between the two, it is a conditioning question, not a verdict**, and the per-cell table says where.
+
+**What this does NOT decide either way: whether dynamic exits beat fixed brackets.** That is
+`strategy-architecture.md`'s own S4 gate — *"EV improvement < 10% vs. fixed → use static brackets"* —
+it needs the rules built and a threshold nobody has committed, and it is not this measurement.
+
+**`backtest.py` is untouched**, as in step 5. M4b measures.
 
 ---
 
