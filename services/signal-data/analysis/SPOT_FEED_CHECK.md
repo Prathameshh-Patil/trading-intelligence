@@ -18,6 +18,25 @@ decision is the room's. What this does is replace *"unverified"* with numbers.
 
 ## 1. The verdict
 
+> ## ⚠️ AMENDED 2026-09-11 — this verdict is true for one hour and false for a backtest
+>
+> **The datafeed endpoint has blocked this IP, and 22 hours was not enough for it to clear.**
+> Attempting step 6's bulk pull, roughly 40–60 requests over an evening were enough to trip it.
+> Since then every request to `datafeed.dukascopy.com` returns a 503, a connection reset or a
+> timeout — **across three header sets, across instruments (`EURUSD` too), and through `curl`
+> as well as `urllib`**, so it is neither a client bug nor the `User-Agent` problem §2 diagnoses.
+> Controls run in the same second: `example.com` 200 and **`www.dukascopy.com` itself 200**, so
+> the network is fine and only the data endpoint is refusing us.
+>
+> **What that does to the claim below: "free, complete and decodable" survives; "usable as a
+> backtest source" was never tested and does not.** One hour is a spot check. 19 months is
+> ~13,900 hour-files, three months is ~2,200, and this endpoint does not tolerate either from one
+> address. A free feed you cannot bulk-pull is a different proposition from a free feed, and that
+> belongs in the vendor decision rather than in a footnote.
+>
+> **Nothing below is retracted** — the spread numbers, the quote rate and the decoder are all
+> still good, and `dukascopy.py` is still correct. What changed is what the result licenses.
+
 **The feed works. XAUUSD tick history is free, complete and decodable, and the spread is not
 degenerate.** One hour, 2025-06-18 14:00 UTC — a Wednesday in the London–NY overlap:
 
