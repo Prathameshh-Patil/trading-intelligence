@@ -690,6 +690,26 @@ for the rules — and it would make the rules expensive rather than impossible.
 
 **Between the two, it is a conditioning question, not a verdict**, and the per-cell table says where.
 
+### Scored, 2026-09-12 — `analysis/M4_PATH.md`
+
+| Clause | Result |
+| :--- | :--- |
+| fewer than 10% of legs unorderable | ✅ **4.20%** pooled — 13,744 of 327,135 |
+| ...at 15m | ❌ **10.15%**, over the line by 0.15 pp |
+| ...at 30m / 60m | ✅ 1.93% / 0.37% |
+| the kill condition | **fires** — bars carry the sequence 95.8% of the time |
+| "a conditioning question, and the per-cell table says where" | ❌ **there is no where** — 1.8× spread across 63 cells against step 5's 276× |
+
+**The reasoning was right and the arithmetic was the miss.** This section argued that MFE and MAE
+should land in different bars *"simply because there are several"* — and then wrote "3, 6 or 12
+bars" and reasoned as though the number were always large. **A 15-minute horizon is three bars**,
+and with three bars two extremes sharing one is not a tail event. The breach is at exactly the
+horizon a PDE rule would live at: S4's own conditions are `mae > 0.6 * stop` in the first 5 bars and
+`speed_to_mfe < 5 bars`.
+
+**Recorded as a miss rather than rounded to a pass**, because the pooled number is the one the kill
+condition reads and the 15m number is the one a rule would have been built on.
+
 **What this does NOT decide either way: whether dynamic exits beat fixed brackets.** That is
 `strategy-architecture.md`'s own S4 gate — *"EV improvement < 10% vs. fixed → use static brackets"* —
 it needs the rules built and a threshold nobody has committed, and it is not this measurement.
