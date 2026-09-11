@@ -287,6 +287,160 @@ def month_ties(path: Path, inst: Instrument = GC) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
+# --------------------------------------------------------------------------
+# M4b -- the path-ordering measurement. precommit §11, committed before this
+# code existed.
+# --------------------------------------------------------------------------
+
+MFE_FIRST = 1
+MAE_FIRST = -1
+
+
+def path_bars(ex) -> pd.DataFrame:
+    """Per leg: which bar holds the MFE, which holds the MAE, and whether the
+    bars can order them at all.
+
+    **This is about ORDER, not magnitude, and the distinction is the whole
+    reason the measurement is narrow.** `backtest.evaluate` takes MFE from
+    `leg["high"].max()`, and a bar's high IS the maximum tick price inside it,
+    so bar MFE and tick MFE are the same number and no replay can improve it.
+    What a bar cannot carry is WHEN inside itself the extreme happened --
+    which is exactly what every PDE rule reads, since `retracement after mfe`
+    and `mae in the first five bars` are both sequence claims.
+
+    `unorderable` is the population M4b exists to size: MFE and MAE falling in
+    the same bar, where bar data has no sequence to offer. It is the same shape
+    as the tie in `tied_from` and is found the same way -- off `excursions`,
+    not re-derived from the frame.
+    """
+    mfe_bar = ex.up.argmax(axis=1)
+    mae_bar = ex.dn.argmin(axis=1)
+    return pd.DataFrame({
+        "leg": ex.legs,
+        "mfe_bar": mfe_bar,
+        "mae_bar": mae_bar,
+        "unorderable": (mfe_bar == mae_bar) & ex.valid,
+        "valid": ex.valid,
+    })
+
+
+def resolve_path(ticks: pd.DataFrame, unorderable: pd.DataFrame, inst: Instrument,
+                 *, bar: pd.Timedelta = BAR) -> pd.DataFrame:
+    """For legs whose MFE and MAE share a bar, walk the tape: which came first.
+
+    The extremes are read in the trade's own favour, the way `excursions` signs
+    them, so a long and a short are handled by the same two lines. **A print at
+    the extreme counts as the extreme** -- the bar already said both happened;
+    this asks only in which order, and a stricter test here would refuse legs
+    the bar never doubted.
+
+    Same refusal discipline as `resolve`: two prints in one nanosecond is
+    `UNRESOLVED`, not a guess.
+    """
+    cols = ["first", "gap_ns"]
+    if unorderable.empty:
+        return unorderable.assign(**{c: pd.Series(dtype="float64") for c in cols})
+
+    t = pd.DatetimeIndex(ticks["timestamp"])
+    price = ticks["price"].to_numpy(dtype="float64")
+    at = pd.DatetimeIndex(unorderable["bar"])
+    entry = unorderable["entry"].to_numpy(dtype="float64")
+    side = unorderable["side"].to_numpy(dtype="int64")
+    out: list[int] = []
+    gaps: list[float] = []
+
+    for k in range(len(unorderable)):
+        lo, hi = t.searchsorted(at[k]), t.searchsorted(at[k] + bar)
+        moved = side[k] * (price[lo:hi] - entry[k]) / inst.tick
+        if not len(moved):
+            out.append(UNRESOLVED)
+            gaps.append(np.nan)
+            continue
+        stamps = t[lo:hi]
+        i_f = int(moved.argmax())   # the favourable extreme
+        i_a = int(moved.argmin())   # the adverse one
+        gaps.append(float(abs(stamps[i_f].value - stamps[i_a].value)))
+        if stamps[i_f] < stamps[i_a]:
+            out.append(MFE_FIRST)
+        elif stamps[i_a] < stamps[i_f]:
+            out.append(MAE_FIRST)
+        else:
+            out.append(UNRESOLVED)
+
+    return unorderable.assign(first=out, gap_ns=gaps)
+
+
+def month_path(path: Path, inst: Instrument = GC) -> pd.DataFrame:
+    """One month of M4b: per leg, whether the bars can order MFE against MAE.
+
+    **Far cheaper than the tie work, and the reason is structural.** A tie is a
+    property of a BRACKET, so it needed the 72-point grid inside every cell.
+    MFE and MAE are properties of the LEG and its horizon alone -- no barrier
+    enters -- so `excursions` is built once per (side, horizon) over every leg
+    rather than once per cell.
+
+    The cell columns ride along unused by the headline, so the same table can
+    answer "where" without a second pass over the archive.
+
+    ⚠️ **`side` is a relabelling here, not a second observation, and both halves
+    of that are asserted in the tests.** A long and a short entered on the same
+    bar read the SAME two prices: the bar's high is the long's favourable
+    extreme and the short's adverse one. So `unorderable` is identical across
+    sides, and long `mfe_first` IS short `mae_first`, exactly. **The ordering
+    carries one number -- did the high come before the low -- and pooling the
+    sides forces it to 50/50**, which is the symmetric-bracket artefact of
+    `REPLAY.md` §4 arriving a second time in the same module. Report it once.
+    """
+    import m1_sweep
+    from backtest import evaluate
+    from features.portable import ATR_BP_EDGES, atr_bp, session_phase
+    from m2_magnitude import vol_state
+    from strategies import m1_geometry
+
+    ticks = load_ticks(path)
+    bars = m1_sweep.gc_bars(path, "5min")
+    rows = []
+
+    for side in (1, -1):
+        legs = evaluate(bars, m1_geometry(bars, inst, side=side), inst,
+                        horizons=m1_sweep.HORIZONS)
+        if legs.empty:
+            continue
+        at = pd.DatetimeIndex(legs["t"])
+        legs["atr_bp"] = atr_bp(bars, inst, window="60min", min_bars=6).reindex(at).to_numpy()
+        legs["phase"] = session_phase(bars, inst).reindex(at).to_numpy()
+        legs["vol_state"] = vol_state(bars).reindex(at).to_numpy()
+        legs["bucket"] = pd.cut(legs["atr_bp"].to_numpy(), list(ATR_BP_EDGES)).astype("object")
+        pos = bars.index.searchsorted(at)
+
+        for hz in m1_sweep.HORIZONS:
+            ex = excursions(bars, legs, inst, horizon=hz)
+            pb = path_bars(ex)
+            # The shared bar, for the legs that have one. `excursions` slices
+            # strictly after entry, so column j is position pos + 1 + j.
+            un = pb[pb["unorderable"]].copy()
+            if len(un):
+                idx = un.index.to_numpy()
+                un["bar"] = bars.index[pos[idx] + 1 + un["mfe_bar"].to_numpy()]
+                un["entry"] = legs["entry"].to_numpy()[idx]
+                un["side"] = side
+                got = resolve_path(ticks, un, inst)
+            else:
+                got = un.assign(first=pd.Series(dtype="float64"))
+
+            valid = int(pb["valid"].sum())
+            rows.append({
+                "side": side, "horizon": hz,
+                "legs": valid,
+                "unorderable": int(pb["unorderable"].sum()),
+                "mfe_first": int((got["first"] == MFE_FIRST).sum()) if len(got) else 0,
+                "mae_first": int((got["first"] == MAE_FIRST).sum()) if len(got) else 0,
+                "tape_unresolved": int((got["first"] == UNRESOLVED).sum()) if len(got) else 0,
+            })
+    return pd.DataFrame(rows)
+
+
+
 def _stamp() -> dict[str, object]:
     """What the cached months were produced under. `reach._stamp`'s discipline:
     a cache reused across a change to any of these pools two definitions into
@@ -342,6 +496,49 @@ def build(data: Path, *, months: list[str] | None = None,
     return pd.concat(frames, ignore_index=True)
 
 
+def build_path(data: Path, *, months: list[str] | None = None,
+               cache: Path = Path("analysis/.replay_path_cache")) -> pd.DataFrame:
+    """M4b over every month, checkpointed. `build`'s shape, different question."""
+    dirs = sorted(d for d in data.iterdir() if (d / "gc_trades.parquet").exists())
+    if months:
+        dirs = [d for d in dirs if d.name in set(months)]
+    if not dirs:
+        raise SystemExit(f"no YYYY-MM/gc_trades.parquet under {data}")
+    cache = _checked_cache(cache)
+
+    frames, t0 = [], time.perf_counter()
+    for d in dirs:
+        part = cache / f"{d.name}.parquet"
+        if part.exists():
+            frames.append(pd.read_parquet(part))
+            print(f"{d.name}  cached", flush=True)
+            continue
+        got = month_path(d / "gc_trades.parquet")
+        got.insert(0, "month", d.name)
+        got.to_parquet(part)
+        frames.append(got)
+        print(f"{d.name}  {int(got['unorderable'].sum()):>5,} unorderable of "
+              f"{int(got['legs'].sum()):>7,}   {time.perf_counter() - t0:6.0f}s", flush=True)
+    return pd.concat(frames, ignore_index=True)
+
+
+def path_summary(t: pd.DataFrame) -> pd.DataFrame:
+    """Per horizon, and per horizon only.
+
+    **Not per side.** See `month_path` -- the two sides are the same two prices
+    with the labels swapped, so a per-side table would report one measurement
+    twice and a pooled ordering would be forced to 50/50. `high_first` is taken
+    from the long leg's `mfe_first`, which IS the bar's high coming first.
+    """
+    long = t[t["side"] == 1].groupby("horizon", as_index=False)[
+        ["legs", "unorderable", "mfe_first", "mae_first", "tape_unresolved"]].sum()
+    long = long.rename(columns={"mfe_first": "high_first", "mae_first": "low_first"})
+    long["unorderable_rate"] = long["unorderable"] / long["legs"]
+    ordered = (long["high_first"] + long["low_first"]).replace(0, np.nan)
+    long["high_first_share"] = long["high_first"] / ordered
+    return long
+
+
 def by_bracket(t: pd.DataFrame) -> pd.DataFrame:
     """Cells and months summed away. The question is per BRACKET: how often did
     the tie matter, and which way did the tape send it."""
@@ -356,6 +553,8 @@ def by_bracket(t: pd.DataFrame) -> pd.DataFrame:
 def main() -> None:
     p = argparse.ArgumentParser(description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
+    p.add_argument("--what", choices=("ties", "path"), default="ties",
+                   help="ties = step 5's tie resolution; path = M4b's MFE/MAE ordering")
     p.add_argument("--data", type=Path, default=Path("data"))
     p.add_argument("--months", nargs="+", help="default: every month on disk")
     p.add_argument("--out", type=Path, default=Path("analysis/replay_ties.csv"))
@@ -363,8 +562,21 @@ def main() -> None:
                    help="per-month rows, so an interrupted build resumes")
     a = p.parse_args()
 
-    t = build(a.data, months=a.months, cache=a.cache)
     a.out.parent.mkdir(parents=True, exist_ok=True)
+
+    if a.what == "path":
+        t = build_path(a.data, months=a.months)
+        out = a.out if a.out != Path("analysis/replay_ties.csv") else Path("analysis/replay_path.csv")
+        t.to_csv(out, index=False)
+        by = path_summary(t)
+        print(f"\n{by.to_string(index=False)}\n\nwritten to {out}")
+        legs, un = int(by["legs"].sum()), int(by["unorderable"].sum())
+        print(f"\n=== {un:,} of {legs:,} legs have MFE and MAE in the same bar "
+              f"-- {un / legs:.2%}; precommit §11 predicted under 10% ===")
+        print("`side` is a relabelling, not a second observation -- see month_path.")
+        return
+
+    t = build(a.data, months=a.months, cache=a.cache)
     t.to_csv(a.out, index=False)
 
     by = by_bracket(t)

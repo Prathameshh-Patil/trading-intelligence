@@ -235,3 +235,97 @@ def test_summarize_reports_ticks_under_a_tick_name():
 
 def test_the_session_fixture_is_the_one_the_bars_claim():
     assert five_minute_bars(BOTH)["session"].unique().tolist() == [SESSION]
+
+
+# --------------------------------------------------------------------------
+# M4b -- the path-ordering measurement. precommit §11.
+# --------------------------------------------------------------------------
+
+def test_path_bars_finds_the_bar_each_extreme_lives_in():
+    # bar 1 is the high (favourable for a long), bar 2 the low.
+    bars = bars_at([0, 5, 10, 15, 20],
+                   [ENTRY, ENTRY + 1.0, ENTRY - 1.0, ENTRY, ENTRY],
+                   ranges=[0.0, 0.4, 0.4, 0.0, 0.0])
+    ex = excursions(bars, leg(), GC, horizon=B.horizon)
+    got = replay.path_bars(ex)
+    assert got["mfe_bar"].iloc[0] == 0
+    assert got["mae_bar"].iloc[0] == 1
+    assert not got["unorderable"].iloc[0]
+
+
+def test_one_bar_holding_both_extremes_is_unorderable():
+    """The population M4b exists to size: bar data has no sequence to offer."""
+    bars = five_minute_bars(BOTH)
+    got = replay.path_bars(excursions(bars, leg(), GC, horizon=B.horizon))
+    assert got["mfe_bar"].iloc[0] == got["mae_bar"].iloc[0]
+    assert got["unorderable"].iloc[0]
+
+
+def test_an_invalid_leg_is_never_unorderable():
+    """`excursions` marks a leg invalid when its session ends inside the horizon.
+    Counting one of those would be a path ordering for a trade never offered."""
+    bars = bars_at([0, 5, 10, 15, 20], [ENTRY] * 5, ranges=BOTH,
+                   session=[SESSION, SESSION, NEXT, NEXT, NEXT])
+    got = replay.path_bars(excursions(bars, leg(), GC, horizon=B.horizon))
+    assert not got["unorderable"].any()
+
+
+def test_side_is_a_relabelling_not_a_second_observation():
+    """⚠️ The artefact this module has now produced twice. A long and a short on
+    the same bar read the SAME two prices -- the high is the long's favourable
+    extreme and the short's adverse one -- so `unorderable` cannot differ by
+    side, and pooling the two would force the ordering to 50/50."""
+    bars = five_minute_bars(BOTH)
+    lo = replay.path_bars(excursions(bars, leg(1), GC, horizon=B.horizon))
+    sh = replay.path_bars(excursions(bars, leg(-1), GC, horizon=B.horizon))
+    assert lo["unorderable"].tolist() == sh["unorderable"].tolist()
+    # The long's favourable bar is the short's adverse one, and vice versa.
+    assert lo["mfe_bar"].tolist() == sh["mae_bar"].tolist()
+    assert lo["mae_bar"].tolist() == sh["mfe_bar"].tolist()
+
+
+def path_resolved(prints, side=1):
+    bars = five_minute_bars(BOTH)
+    ex = excursions(bars, leg(side), GC, horizon=B.horizon)
+    un = replay.path_bars(ex)
+    un = un[un["unorderable"]].copy()
+    un["bar"] = OPEN + pd.Timedelta(minutes=5)
+    un["entry"] = ENTRY
+    un["side"] = side
+    return int(replay.resolve_path(tape(prints), un, GC)["first"].iloc[0])
+
+
+def test_the_tape_orders_the_two_extremes():
+    # high at +10s, low at +20s -> for a long, MFE first.
+    assert path_resolved([(0, 100.0), (10, 101.5), (20, 98.5)]) == replay.MFE_FIRST
+    assert path_resolved([(0, 100.0), (10, 98.5), (20, 101.5)]) == replay.MAE_FIRST
+
+
+def test_a_short_reads_the_same_prints_the_other_way_round():
+    """The same tape, the same two prices, the opposite answer -- which is what
+    makes `side` a relabelling rather than evidence."""
+    prints = [(0, 100.0), (10, 101.5), (20, 98.5)]
+    assert path_resolved(prints, side=1) == replay.MFE_FIRST
+    assert path_resolved(prints, side=-1) == replay.MAE_FIRST
+
+
+def test_both_extremes_in_one_nanosecond_is_unresolved():
+    assert path_resolved([(10, 101.5), (10, 98.5)]) == replay.UNRESOLVED
+
+
+def test_path_summary_reports_the_ordering_once_not_per_side():
+    """A per-side table would report one measurement twice; a pooled ordering
+    would be forced to 50/50. `path_summary` takes the long leg's view."""
+    t = pd.DataFrame([
+        {"side": 1, "horizon": 15, "legs": 100, "unorderable": 10,
+         "mfe_first": 7, "mae_first": 3, "tape_unresolved": 0},
+        {"side": -1, "horizon": 15, "legs": 100, "unorderable": 10,
+         "mfe_first": 3, "mae_first": 7, "tape_unresolved": 0},
+    ])
+    got = replay.path_summary(t)
+    assert len(got) == 1, "one row per horizon, not per (horizon, side)"
+    assert got["legs"].iloc[0] == 100, "sides are not summed into the denominator"
+    assert got["high_first"].iloc[0] == 7
+    assert got["unorderable_rate"].iloc[0] == pytest.approx(0.10)
+    assert got["high_first_share"].iloc[0] == pytest.approx(0.70)
+
