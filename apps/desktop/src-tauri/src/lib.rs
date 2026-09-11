@@ -1,5 +1,42 @@
-use tauri::{Emitter, Manager};
+use std::sync::Mutex;
+
+use tauri::{Emitter, Manager, WindowEvent};
 use tauri_plugin_global_shortcut::ShortcutState;
+
+mod placement;
+use placement::{Placements, Rect};
+
+/// Where the remembered placements live. One file, under the app's own config
+/// directory, so uninstalling takes it with it.
+const PLACEMENTS_FILE: &str = "placements.json";
+
+/// Reads the current monitor arrangement as plain rectangles.
+///
+/// Deliberately lossy: `placement` needs geometry and nothing else, and taking
+/// only geometry keeps its logic testable without a display server. A machine
+/// that cannot enumerate monitors returns an empty slice, which makes every
+/// placement unreachable and every restore a no-op -- the window opens at its
+/// configured default, which is the safe direction to fail in.
+fn monitors_of(window: &tauri::WebviewWindow) -> Vec<Rect> {
+    window
+        .available_monitors()
+        .unwrap_or_default()
+        .iter()
+        .map(|m| Rect {
+            x: m.position().x,
+            y: m.position().y,
+            width: m.size().width,
+            height: m.size().height,
+        })
+        .collect()
+}
+
+/// The window's current outer geometry, or `None` if the OS will not say.
+fn current_placement(window: &tauri::WebviewWindow) -> Option<Rect> {
+    let pos = window.outer_position().ok()?;
+    let size = window.outer_size().ok()?;
+    Some(Rect { x: pos.x, y: pos.y, width: size.width, height: size.height })
+}
 
 /// Forwards a webview console message to the process's own stderr.
 ///
@@ -80,6 +117,56 @@ pub fn run() {
         .setup(|app| {
             use tauri_plugin_global_shortcut::GlobalShortcutExt;
             app.global_shortcut().register(DISARM_SHORTCUT)?;
+
+            let Some(window) = app.get_webview_window("main") else {
+                return Ok(());
+            };
+            let file = app
+                .path()
+                .app_config_dir()
+                .map(|d| d.join(PLACEMENTS_FILE))
+                .map_err(|e| format!("no app config dir: {e}"))?;
+
+            // Restore before the window is shown, so a remembered position does
+            // not read as the window jumping after paint.
+            let saved = Placements::load(&file);
+            if let Some(r) = saved.restore(&monitors_of(&window)) {
+                let _ = window.set_position(tauri::PhysicalPosition::new(r.x, r.y));
+                let _ = window.set_size(tauri::PhysicalSize::new(r.width, r.height));
+            }
+
+            // Held in memory and flushed on the events below rather than written
+            // on every `Moved`. A drag emits one per frame, and a JSON write per
+            // frame is the kind of thing that gets discovered as "it feels
+            // laggy" -- the exact phrasing W2D1 warns about for the hit-test.
+            let state = Mutex::new(saved);
+            let win = window.clone();
+            window.on_window_event(move |event| {
+                let flush = match event {
+                    // Moved and Resized only update memory.
+                    WindowEvent::Moved(_) | WindowEvent::Resized(_) => false,
+                    // Leaving the app and closing it both end an arrangement's
+                    // session, and between them they cover every ordinary way a
+                    // trader stops moving the window.
+                    WindowEvent::Focused(false) | WindowEvent::CloseRequested { .. } => true,
+                    _ => return,
+                };
+
+                let Some(now) = current_placement(&win) else { return };
+                let monitors = monitors_of(&win);
+                let Ok(mut placements) = state.lock() else { return };
+                placements.remember(&monitors, now);
+
+                if flush {
+                    if let Err(e) = placements.save(&file) {
+                        // A window that cannot remember where it was is worth a
+                        // line on stderr and nothing more; it is not worth
+                        // refusing to close over.
+                        eprintln!("[placement] could not save: {e}");
+                    }
+                }
+            });
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![log_webview])
