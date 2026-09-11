@@ -32,12 +32,14 @@ bar can be tied by two prints that share one. `resolve` reports those as
 is in the same position the bar was -- and inventing an order there would be
 the bar's rule wearing a tick-resolution label, which is worse than the rule.
 
-    PYTHONPATH=. uv run python replay.py --month 2026-07
+    PYTHONPATH=. uv run python replay.py            # every month on disk
 """
 
 from __future__ import annotations
 
 import argparse
+import json
+import time
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -240,76 +242,141 @@ def _first(hit: np.ndarray) -> int:
     return int(hit.argmax()) if hit.any() else -1
 
 
-def main() -> None:
-    p = argparse.ArgumentParser(description=__doc__,
-                                formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("--month", required=True, help="YYYY-MM under --data")
-    p.add_argument("--data", type=Path, default=Path("data"))
-    p.add_argument("--out", type=Path, default=None)
-    a = p.parse_args()
-    raise SystemExit(_run(a.month, a.data, a.out))
+def month_ties(path: Path, inst: Instrument = GC) -> pd.DataFrame:
+    """Every cell x bracket in one month, with its ties resolved off the tape.
 
-
-def _run(month: str, data: Path, out: Path | None) -> int:
+    Cells are `m1_sweep.month_counts`' cells, formed the same way and scaled by
+    the same `atr_ticks` -- see `cell_atr_ticks`. The window is built three
+    times per cell rather than 144, because `excursions` depends on the horizon
+    and not on the barriers.
+    """
     import m1_sweep
     from backtest import evaluate
     from features.portable import ATR_BP_EDGES, atr_bp, session_phase
     from m2_magnitude import vol_state
     from strategies import m1_geometry
 
-    path = data / month / "gc_trades.parquet"
-    if not path.exists():
-        print(f"no {path}")
-        return 1
-
     ticks = load_ticks(path)
     bars = m1_sweep.gc_bars(path, "5min")
     rows = []
 
     for side in (1, -1):
-        legs = evaluate(bars, m1_geometry(bars, GC, side=side), GC,
+        legs = evaluate(bars, m1_geometry(bars, inst, side=side), inst,
                         horizons=m1_sweep.HORIZONS)
         if legs.empty:
             continue
         at = pd.DatetimeIndex(legs["t"])
-        legs["atr_bp"] = atr_bp(bars, GC, window="60min", min_bars=6).reindex(at).to_numpy()
+        legs["atr_bp"] = atr_bp(bars, inst, window="60min", min_bars=6).reindex(at).to_numpy()
         legs["close"] = bars["close"].reindex(at).to_numpy()
-        legs["phase"] = session_phase(bars, GC).reindex(at).to_numpy()
+        legs["phase"] = session_phase(bars, inst).reindex(at).to_numpy()
         legs["vol_state"] = vol_state(bars).reindex(at).to_numpy()
         legs["bucket"] = pd.cut(legs["atr_bp"].to_numpy(), list(ATR_BP_EDGES)).astype("object")
         sized = legs.dropna(subset=["bucket", "phase", "vol_state", "atr_bp", "close"])
 
-        for _, sub in sized.groupby(["bucket", "phase", "vol_state"], observed=True):
-            atr_ticks = cell_atr_ticks(sub, GC)
-            win = {hz: excursions(bars, sub, GC, horizon=hz) for hz in m1_sweep.HORIZONS}
+        for key, sub in sized.groupby(["bucket", "phase", "vol_state"], observed=True):
+            atr_ticks = cell_atr_ticks(sub, inst)
+            win = {hz: excursions(bars, sub, inst, horizon=hz) for hz in m1_sweep.HORIZONS}
             for tgt_a, stp_a, hz in m1_sweep.GRID:
                 b = Bracket(tgt_a * atr_ticks, stp_a * atr_ticks, hz)
-                got = resolve(ticks, tied_from(win[hz], bars, sub, b), GC, b)
-                rows.append({"side": side, "target_atr": tgt_a, "stop_atr": stp_a,
-                             **summarize(got, b, n=int(win[hz].valid.sum()))})
+                got = resolve(ticks, tied_from(win[hz], bars, sub, b), inst, b)
+                rows.append({
+                    "bucket": str(key[0]), "phase": str(key[1]), "vol_state": str(key[2]),
+                    "side": side, "target_atr": tgt_a, "stop_atr": stp_a,
+                    **summarize(got, b, n=int(win[hz].valid.sum())),
+                })
+    return pd.DataFrame(rows)
 
-    t = pd.DataFrame(rows)
-    # Cells are summed away: the question this month answers is "how often did
-    # the tie matter, per bracket", and a per-cell tie count is below
-    # MIN_SAMPLES long before the bracket's is.
+
+def _stamp() -> dict[str, object]:
+    """What the cached months were produced under. `reach._stamp`'s discipline:
+    a cache reused across a change to any of these pools two definitions into
+    one table, and nothing downstream can see it."""
+    import m1_sweep
+    from features.portable import ATR_BP_EDGES
+    return {
+        "grid": [list(g) for g in m1_sweep.GRID],
+        "edges": list(ATR_BP_EDGES),
+        "bars": "5min", "atr_window": "60min", "atr_min_bars": 6,
+        "bar_window": str(BAR),
+    }
+
+
+def _checked_cache(cache: Path) -> Path:
+    cache.mkdir(parents=True, exist_ok=True)
+    f = cache / "_stamp.json"
+    if f.exists():
+        was = json.loads(f.read_text())
+        if was != _stamp():
+            raise SystemExit(
+                f"{cache} was built under different parameters. Delete it and rebuild.\n"
+                f"  cached: {was}\n     now: {_stamp()}"
+            )
+    else:
+        f.write_text(json.dumps(_stamp(), indent=2))
+    return cache
+
+
+def build(data: Path, *, months: list[str] | None = None,
+          cache: Path = Path("analysis/.replay_cache")) -> pd.DataFrame:
+    """Every month, checkpointed per month so an interrupted run resumes."""
+    dirs = sorted(d for d in data.iterdir() if (d / "gc_trades.parquet").exists())
+    if months:
+        dirs = [d for d in dirs if d.name in set(months)]
+    if not dirs:
+        raise SystemExit(f"no YYYY-MM/gc_trades.parquet under {data}")
+    cache = _checked_cache(cache)
+
+    frames, t0 = [], time.perf_counter()
+    for d in dirs:
+        part = cache / f"{d.name}.parquet"
+        if part.exists():
+            frames.append(pd.read_parquet(part))
+            print(f"{d.name}  cached", flush=True)
+            continue
+        got = month_ties(d / "gc_trades.parquet")
+        got.insert(0, "month", d.name)
+        got.to_parquet(part)
+        frames.append(got)
+        print(f"{d.name}  {int(got['ties'].sum()):>6,} ties  "
+              f"{time.perf_counter() - t0:6.0f}s", flush=True)
+    return pd.concat(frames, ignore_index=True)
+
+
+def by_bracket(t: pd.DataFrame) -> pd.DataFrame:
+    """Cells and months summed away. The question is per BRACKET: how often did
+    the tie matter, and which way did the tape send it."""
     by = t.groupby(["target_atr", "stop_atr", "horizon"], as_index=False)[
         ["n", "ties", "target_first", "stop_first", "unresolved"]].sum()
     by["tie_rate"] = by["ties"] / by["n"]
-    by["target_share"] = by["target_first"] / (by["ties"] - by["unresolved"]).replace(0, np.nan)
+    ordered = (by["ties"] - by["unresolved"]).replace(0, np.nan)
+    by["target_share"] = by["target_first"] / ordered
+    return by.sort_values(["horizon", "target_atr", "stop_atr"]).reset_index(drop=True)
 
-    if out:
-        out.parent.mkdir(parents=True, exist_ok=True)
-        t.to_csv(out, index=False)
-        print(f"per-cell rows written to {out}")
 
-    print(by.sort_values(["horizon", "target_atr", "stop_atr"]).to_string(index=False))
+def main() -> None:
+    p = argparse.ArgumentParser(description=__doc__,
+                                formatter_class=argparse.RawDescriptionHelpFormatter)
+    p.add_argument("--data", type=Path, default=Path("data"))
+    p.add_argument("--months", nargs="+", help="default: every month on disk")
+    p.add_argument("--out", type=Path, default=Path("analysis/replay_ties.csv"))
+    p.add_argument("--cache", type=Path, default=Path("analysis/.replay_cache"),
+                   help="per-month rows, so an interrupted build resumes")
+    a = p.parse_args()
+
+    t = build(a.data, months=a.months, cache=a.cache)
+    a.out.parent.mkdir(parents=True, exist_ok=True)
+    t.to_csv(a.out, index=False)
+
+    by = by_bracket(t)
+    print(f"\n{by.to_string(index=False)}")
     ties, unres = int(by["ties"].sum()), int(by["unresolved"].sum())
-    print(f"\n=== {ties} ties over {int(by['n'].sum())} leg-brackets; "
-          f"{ties - unres} ordered by the tape, {unres} the tape could not order ===")
-    if ties:
-        print(f"the rule sends every one of them to the stop; the tape sends "
-              f"{int(by['target_first'].sum())} to the target.")
-    return 0
+    won = int(by["target_first"].sum())
+    print(f"\nwritten to {a.out}")
+    print(f"\n=== {ties:,} ties over {int(by['n'].sum()):,} leg-brackets; "
+          f"{ties - unres:,} ordered by the tape, {unres:,} it could not ===")
+    if ties - unres:
+        print(f"the rule sends every one to the stop. The tape sends {won:,} "
+              f"({won / (ties - unres):.1%}) to the target.")
 
 
 if __name__ == "__main__":
