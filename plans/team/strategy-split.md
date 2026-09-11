@@ -200,7 +200,16 @@ change to `first_touch` is Varad's, later, and only if the number says it is wor
 **Budget it before starting.** ARCHITECTURE §9 open question 5 asks for a time budget set now rather
 than halfway through. Write the number in this file before the first line of `replay.py`.
 
-**Time budget: ______ days.** *(unset — Prathamesh writes it here before starting)*
+**Time budget: 3 days.** *(Set 2026-09-11 by Prathamesh, before the first line of `replay.py`,
+which is what ARCHITECTURE §9 open question 5 asks for — "a budget set now is worth more than one
+set halfway through".)*
+
+**What the three days buy, and what being over means.** Day one is the tape walk proven on one
+month against a hand-checked leg; day two is the archive; day three is the write-up and whichever
+of the two downstream questions the number turns out to bear on. **Over budget does not mean stop
+— it means the remaining scope goes back to the room rather than being absorbed quietly.** The
+thing this protects against is the largest work item in the track expanding to fill the lane while
+the reason for doing it stops being checked.
 
 ---
 
