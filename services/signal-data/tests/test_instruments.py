@@ -151,12 +151,24 @@ def test_every_committed_portable_name_exists_in_its_frozen_order() -> None:
 
 
 def test_the_unwritten_bodies_refuse_rather_than_return_something() -> None:
+    """**`mid` and `spread_bp` left this list 2026-09-11** — filled to delete the
+    second copy `spot.minute_bars` was carrying (issue #6), so they are asserted
+    below to WORK rather than to refuse. `quote_rate_z` is still a signature and
+    still has to refuse: a stub that returns something plausible is worse than
+    one that raises, which is the whole point of committing the names first."""
     bars = bars_at([0, 1], [100.0, 100.5])
-    for fn in (pt.mid, pt.spread_bp):
-        with pytest.raises(NotImplementedError):
-            fn(bars)
+    with pytest.raises(NotImplementedError):
+        pt.quote_rate_z(bars, window="60min", min_bars=3)
     for name in ("m1_geometry", "m2_vol_momentum", "m3_session_event"):
         assert callable(getattr(st, name)), "committed on day one, filled in later"
+
+
+def test_the_filled_bodies_answer() -> None:
+    """The other half of the line above: once a signature is filled it must stop
+    being in the refusing set, or the test stops meaning anything."""
+    quotes = pd.DataFrame({"bid": [100.0], "ask": [101.0]})
+    assert pt.mid(quotes).iloc[0] == 100.5
+    assert pt.spread_bp(quotes).iloc[0] == pytest.approx(1.0 / 100.5 * 1e4)
 
 
 def test_the_committed_atr_bp_edges_have_not_drifted() -> None:

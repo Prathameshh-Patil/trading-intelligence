@@ -1,4 +1,4 @@
-# Contracts — the seven seams, and why nobody ever waits
+# Contracts — the nine seams, and why nobody ever waits
 
 This is the file that answers *"how do we not depend on each other."*
 
@@ -21,13 +21,9 @@ A fake that always returns the same tidy row teaches you nothing and hides bugs 
 
 A frozen contract changes only by all three agreeing in standup, and the change lands as **one
 commit that updates the type, the fake, the real implementation and both consumers together**.
-Never half. `plans/current.md` already carries this rule for the analyze contract; these seven join
-it — **S7 joined 2026-09-10**, the first contract frozen after the file was written.
-
-**Two more are drafted and not yet frozen.** [`strategy-split.md`](strategy-split.md) §8 proposes
-**S8 · `Instrument`** and **S9 · the bars frame** for the Track B strategy programme. They are
-written there rather than here precisely because this file changes only in standup. Put them to the
-room before either strategy lane writes code.
+Never half. `plans/current.md` already carries this rule for the analyze contract; these nine join
+it — **S7 joined 2026-09-10**, the first contract frozen after the file was written, and **S8 and
+S9 joined 2026-09-11**.
 
 ---
 
@@ -428,6 +424,113 @@ implementation and every consumer together.
 is **~120 minutes, not 60**. `volState` reads `rv_slope`, two chained 60-minute windows, so a feed
 that has just connected serves `forecast: null` for its first two hours. That is correct rather than
 broken, it is in `reach.cell_of`'s docstring, and it is in the UI as a countdown.
+
+---
+
+## S8 · `Instrument` — Varad → both lanes
+
+**Frozen 2026-09-11**, all three agreeing. Drafted in
+[`strategy-split.md`](strategy-split.md) §8 on 2026-09-06 with the line *"put them to the room
+before either lane writes code"*; ten days of code went on top of it first, which is the reason
+[issue #6](https://github.com/Prathameshh-Patil/trading-intelligence/issues/6) exists.
+
+The type's home is [`services/signal-data/instruments.py`](../../services/signal-data/instruments.py).
+Quoted here, unlike S7's, because it is six fields rather than a hundred lines:
+
+```python
+@dataclass(frozen=True)
+class Instrument:
+    name: str
+    tick: float
+    tick_value: float | None        # USD per tick per contract; None where there is no contract
+    session_shift: pd.Timedelta
+    anchors: tuple[str, ...]
+    has_flow: bool
+```
+
+**The rule that is the point of this seam: `has_flow: False` RAISES.** It does not degrade, fall
+back, or substitute a proxy. A flow feature asked for on spot is a bug in the caller, and the
+failure mode this prevents is the invisible one — a degraded number looks exactly like a real one.
+
+**`tick_value: None` is the same rule for money.** No contract means no USD per tick, so
+`backtest.summarize` returns NaN for `expectancy_usd` rather than repeating a tick count as
+dollars.
+
+**`XAUUSD.tick = 0.001` is Dukascopy's price quantum and NOT a tradeable tick.** Safe because the
+geometry is measurably tick-free — `m1_sweep.month_counts` over one month at tick 0.10 and at 0.01
+returns byte-identical counts, with only `cost_atr` moving — so every `p_target`/`p_stop`
+comparison is free of it. **Forbidden for any cost or EV claim.** ⚠️ **The room still owns the
+tradeable tick, and this is logged as open rather than settled**: Prathamesh's condition on
+signing is that defining a number here may invite someone to cost something in spot ticks later,
+and the alternative — a constant that refuses instead of a number — was not taken today. Revisit
+with the spot vendor decision (`plans/current.md` C1).
+
+**Known gap, recorded rather than fixed.** `s1.minute_bars` and `regimes.resample_bars` read a
+module-level `SESSION_SHIFT` instead of `inst.session_shift`, so a second instrument's sessions are
+cut by GC's constant unless its loader avoids those functions — which is exactly what `spot.py` had
+to do. Closing it means editing `regimes.py`, a parked Track A module `ARCHITECTURE.md` §2 forbids
+Track B from touching. **It sits inside S9's shared core**, since `session` is a core column, and
+it is named in both places for that reason.
+
+---
+
+## S9 · The bars frame — either loader → both lanes
+
+**Frozen 2026-09-11**, all three agreeing, **on the amended text** — which matters, because two
+versions exist and "signed S9" is ambiguous without saying which. The original required both
+loaders to produce *the same frame* and said spot would add `bid`/`ask`. **Measured, both loaders,
+same bar size:**
+
+```
+shared     open, high, low, close, session      on a UTC index
+GC only    volume, delta, trades, cvd
+spot only  ticks, spread_bp                     <- NOT bid, ask
+```
+
+The original was violated and could never have held. `bid`/`ask` are tick-level and do not survive
+bar aggregation, so bars are built from the **mid** with `spread_bp` carried separately; and it is
+GC that holds the extra columns, because it has a tape and spot does not — the opposite direction
+to what the draft assumed. Satisfying it as written would mean inventing a `volume` for spot, which
+is the precise thing `has_flow` exists to prevent.
+
+**The three rules that replace it:**
+
+1. **The shared core is `open, high, low, close, session`, on a UTC index.** Both loaders produce
+   it, and it is the contract.
+2. **Each loader may add instrument-specific columns.** They are not gaps in the other frame; they
+   are quantities the other instrument does not have.
+3. **No portable feature may read outside the shared core** unless `Instrument.has_flow` gates it.
+
+**Rule 3 is enforced, not promised.** `tests/test_shared_core.py` hands every portable feature a
+frame carrying nothing but the core and requires it to answer, so a feature that starts reading
+`volume` fails the day it is written rather than the first time the pipeline runs on the instrument
+with no tape. The test was added as Prathamesh's condition on signing: the rule was true when it
+was written and nothing made it stay true, which is `reach_table.json` again — 41,280 numbers
+correct on the day with nothing reconciling them.
+
+**One definition per quantity.** `features/portable.mid` and `spread_bp` were filled 2026-09-11 and
+`spot.minute_bars` calls them; it had computed both inline while step 6's signatures were empty.
+The swap was verified to move no number.
+
+---
+
+## How S8 and S9 were signed, written down rather than implied
+
+| | S8 | S9 |
+| :--- | :--- | :--- |
+| Varad | ✅ 2026-09-11 | ✅ 2026-09-11, the amended text |
+| Prathamesh | ✅ 2026-09-11 | ✅ 2026-09-11, the amended text |
+| Shreyas | ✅ 2026-09-11, **relayed by Prathamesh** | ✅ 2026-09-11, **relayed by Prathamesh** |
+
+**All three were verbal and none is a logged artefact from the moment** — the same basis S7 and
+rows #2 and #8 are closed on, recorded that way rather than dressed up.
+
+**And the irony is worth stating once, here, because it is the thing most likely to repeat.**
+Issue #6 was opened specifically to be *"a durable artefact, which is the thing every other
+signature in this repo lacks"* — and it was closed by two verbal approvals that reached the record
+through one person, with the issue itself carrying no reply at the time of this commit. The
+mechanism was built and then not used. If that is worth fixing, the fix is a comment on #6 from
+each signer in their own account, and it costs each of them one message.
 
 ---
 

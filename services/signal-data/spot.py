@@ -19,15 +19,15 @@ Track B work may modify one. Both it and `s1.minute_bars` also hardcode
 is one field short of complete. Recorded here rather than fixed here: fixing it
 means editing a parked module.
 
-TWO NAMES HERE ARE DUPLICATES AND SHOULD NOT STAY THAT WAY. `features/
-portable.mid` and `features/portable.spread_bp` are committed signatures that
-still raise `NotImplementedError`, owned by Prathamesh for step 6. This module
-computes both inline because it needed them before step 6 ran, and filling
-another lane's signature is not this file's call (`strategy-split.md` §4 splits
-`portable.py` by function name). **Two definitions of the same quantity is how
-two files quietly disagree** -- the same failure `bd675f5` records for
-first-touch. When those stubs are filled, `minute_bars` calls them instead; it
-is one line at each site. Recorded in `strategy-split.md` §9 as owed.
+THE TWO DUPLICATED NAMES ARE GONE, 2026-09-11. `features/portable.mid` and
+`features/portable.spread_bp` were committed signatures raising
+`NotImplementedError`, and this module computed both inline because it needed
+them before step 6 ran -- **two definitions of the same quantity, which is how
+two files quietly disagree**, the same failure `bd675f5` records for
+first-touch. Prathamesh filled them (issue #6) and `minute_bars` now calls
+them: one line at each site, exactly as `strategy-split.md` §9 said it would
+be. **The swap was verified to move no number** -- `minute_bars` returns a
+frame equal to the inline version's, column for column.
 
 WHAT A SPOT BAR CARRIES, AND WHAT IT DOES NOT.
 
@@ -63,6 +63,7 @@ from pathlib import Path
 import pandas as pd
 
 import dukascopy as dk
+from features import portable
 from instruments import Instrument
 
 # The feed throttles by IP and the failure is a reset or a 503, not a refusal.
@@ -143,11 +144,14 @@ def minute_bars(ticks: pd.DataFrame, inst: Instrument) -> pd.DataFrame:
     bar N -- `s1.minute_bars`'s rule, and `backtest.py` slices on the index for
     exactly this reason.
     """
-    mid = (ticks["bid"] + ticks["ask"]) / 2
+    # `features/portable`'s, not a second copy. Both were computed inline here
+    # because step 6's signatures were still empty when this file needed them;
+    # `strategy-split.md` §9 and issue #6 both recorded that as one line at each
+    # site once they were filled, and this is that line.
     df = pd.DataFrame({
         "timestamp": ticks["timestamp"],
-        "mid": mid,
-        "spread_bp": (ticks["ask"] - ticks["bid"]) / mid * 1e4,
+        "mid": portable.mid(ticks),
+        "spread_bp": portable.spread_bp(ticks),
     })
     bars = (
         df.set_index("timestamp")

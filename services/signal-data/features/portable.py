@@ -19,8 +19,10 @@ quantity in basis points of price is already instrument-free. `atr_bp` is the
 exception, because it wraps a tick-denominated function it must not re-derive.
 
 STATUS. `atr_bp` ships with the seam (`plans/team/strategy-split.md` §3), so
-the clock lane has its bucket axis on day one. **Every other function here is a
-committed SIGNATURE with no body.** Ownership is by function name and is listed
+the clock lane has its bucket axis on day one. `mid` and `spread_bp` were
+filled 2026-09-11 to delete the second copy `spot.minute_bars` was carrying
+(issue #6). **Every other function here is a committed SIGNATURE with no
+body.** Ownership is by function name and is listed
 in split.md §4; the order below is that table's order. Never reorder, never
 rename, never add a function without standup -- two people fill in disjoint
 bodies in this file and none of that works against a moving target.
@@ -424,8 +426,20 @@ def anchors(bars: pd.DataFrame, inst: Instrument) -> pd.DataFrame:
 
 
 def mid(quotes: pd.DataFrame) -> pd.Series:
-    """(bid + ask) / 2. Spot-native; GC has no quote data in this repo. Step 6."""
-    raise NotImplementedError("mid -- Prathamesh, step 6")
+    """(bid + ask) / 2. Spot-native; GC has no quote data in this repo.
+
+    **Filled 2026-09-11, and the point of filling it was to delete a second
+    copy rather than to add a capability.** `spot.minute_bars` computed this
+    inline because it needed a mid before step 6 ran, which left the same
+    quantity defined in two files -- flagged in `strategy-split.md` §9 and in
+    issue #6. `spot.py` now calls this, so there is one definition.
+
+    Bars are built from the mid for a reason worth keeping next to the
+    formula: a bracket measured on the bid and filled on the ask is a
+    measurement of the spread wearing a strategy's name. The spread is carried
+    in its own column instead, where it can be charged explicitly.
+    """
+    return (quotes["bid"] + quotes["ask"]) / 2
 
 
 def spread_bp(quotes: pd.DataFrame) -> pd.Series:
@@ -435,9 +449,13 @@ def spread_bp(quotes: pd.DataFrame) -> pd.Series:
     pricing decision, not a market outcome: a dealer widens on its own risk
     policy and its own client flow, so two brokers disagree about the same
     instant. This yields a legitimate yes/no on whether spread structure
-    predicts anything. It is never a threshold that transfers. Step 6.
+    predicts anything. It is never a threshold that transfers.
+
+    Denominated in the mid, and it calls `mid` rather than recomputing it --
+    the whole reason this function has a body today is that the same quantity
+    existed twice.
     """
-    raise NotImplementedError("spread_bp -- Prathamesh, step 6")
+    return (quotes["ask"] - quotes["bid"]) / mid(quotes) * 1e4
 
 
 def quote_rate_z(quotes: pd.DataFrame, *, window: str, min_bars: int) -> pd.Series:

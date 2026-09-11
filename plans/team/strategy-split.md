@@ -274,42 +274,46 @@ are tabulated there. **Varad's three are still open, and M1 cannot run until the
 
 ---
 
-## 8. Proposed seams — ⏳ 1 of 3 (Varad signed 2026-09-11; still not frozen)
+## 8. ~~Proposed~~ seams — ✅ **FROZEN 3 of 3, 2026-09-11.** Registered in `contracts.md` as S8 and S9
 
-[`contracts.md`](contracts.md) changes only by all three agreeing in standup, so these two are
-drafted here rather than added there. **Put them to the room before either lane writes code.**
+[`contracts.md`](contracts.md) changes only by all three agreeing in standup, which is why these
+two were drafted here rather than added there. ~~**Put them to the room before either lane writes
+code.**~~ That line went unhonoured for ten days while both lanes built on them; it was finally
+answered on 2026-09-11, after the code rather than before it, and the drafts below are kept as the
+record of what was proposed and what the room changed.
 
-> ### Sign-off state
+> ### Sign-off state — closed
 >
 > | | S8 · `Instrument` | S9 · The bars frame |
 > | :--- | :--- | :--- |
 > | Varad | ✅ **2026-09-11** | ✅ **2026-09-11**, the amended text |
-> | Prathamesh | ⬜ | ⬜ |
-> | Shreyas | ⬜ | ⬜ |
+> | Prathamesh | ✅ **2026-09-11** | ✅ **2026-09-11**, the amended text |
+> | Shreyas | ✅ **2026-09-11**, relayed by Prathamesh | ✅ **2026-09-11**, relayed by Prathamesh |
 >
-> **Given verbally in session, and not a logged artefact from the moment** — recorded the way S7's
-> approvals were, because a signature nobody can point at later is worse than an unsigned contract.
+> **All three verbal, none a logged artefact from the moment** — the same basis S7 closed on, and
+> [issue #6](https://github.com/Prathameshh-Patil/trading-intelligence/issues/6) carried no reply
+> when this landed. The issue was opened to be the durable artefact this repo's signatures lack,
+> and then the signatures arrived the old way. Said out loud in `contracts.md` rather than tidied.
 >
-> **What Varad signed on S9 is the AMENDED text**, not the original: the shared core of
-> `open/high/low/close/session`, instrument-specific columns permitted, and no portable feature
-> reading outside the core unless `has_flow` gates it. The original "both loaders produce the same
-> frame" is superseded — it was measurably violated and could not have held. Stated explicitly
-> because "signed S9" is ambiguous once two versions exist.
+> **What Prathamesh signed on S9 is the AMENDED text** — shared core, instrument-specific columns
+> permitted, no portable feature reading outside the core unless `has_flow` gates it.
 >
-> **Prathamesh was asked on 2026-09-11: [issue #6](https://github.com/Prathameshh-Patil/trading-intelligence/issues/6).**
-> Deliberately an issue rather than a message — it is a durable artefact, which is the thing every
-> other signature in this repo lacks. It lists what changed since he last saw each seam and, in its
-> own section, the four things he might reasonably refuse.
+> **Two conditions came with the signature and both are met in the same commit:**
 >
-> **One signature does not freeze a contract.** `contracts.md`'s own discipline is all three in
-> standup, and S7 was held to exactly that on 10 Sep — 3 of 3, with each approval and how it was
-> obtained written down. **Prathamesh has built against both seams for ten days**, which is
-> evidence he agrees and is not the same thing as agreeing; and Shreyas has not seen either.
+> 1. **Rule 3 now has a test.** `tests/test_shared_core.py` hands every portable feature a frame
+>    carrying nothing but the core. It was true by inspection before and nothing made it stay true.
+> 2. **The `mid`/`spread_bp` duplication is closed** — filled, `spot.py` calls them, verified to
+>    move no number.
 >
-> **When the other two land, these move into `contracts.md` as S8 and S9** the way S7 was
-> registered, and the freeze discipline binds from that moment: any later change needs all three
-> again, in one commit carrying the type, the fake, the real implementation and every consumer.
-> Until then this file remains where they live.
+> **One thing is flagged and NOT settled by this freeze:** whether `XAUUSD.tick = 0.001` should
+> exist at all before the spot vendor decision, or be a constant that refuses. The number stands on
+> the tick-invariance measurement; the objection is that defining it invites a cost denominated in
+> it later. Logged in `contracts.md` §S8 and revisited with C1.
+>
+> **These two now live in `contracts.md`.** The freeze discipline binds from 2026-09-11: any later
+> change needs all three again, in one commit carrying the type, the fake, the real implementation
+> and every consumer together. The drafts below are kept as the record of what was proposed and
+> what the room changed.
 
 ### S8 · `Instrument` — Varad → both lanes
 
@@ -404,12 +408,20 @@ Spot adds `bid`, `ask` — nullable, and **null on GC is the correct value, not 
 > original could only ever have been satisfied by inventing a `volume` for spot — the precise
 > thing `has_flow` exists to prevent. **Still not frozen. This is what there is to sign.**
 
-**One name is duplicated and should not stay that way.** `features/portable.mid` and
-`features/portable.spread_bp` are committed signatures raising `NotImplementedError`, owned by
-Prathamesh for step 6. `spot.minute_bars` computes both inline because it needed them before
-step 6 ran. **Two definitions of the same quantity is how two files quietly disagree**, and the
-fix is one line at each site once those stubs are filled — recorded here rather than resolved by
-one lane implementing the other's function.
+**~~One name is duplicated~~ — CLOSED 2026-09-11, Prathamesh, issue #6.** `features/portable.mid`
+and `features/portable.spread_bp` were committed signatures raising `NotImplementedError` while
+`spot.minute_bars` computed both inline, because it needed them before step 6 ran. They are filled
+and `spot.py` calls them — one line at each site, as this note said. **The swap was verified to
+move no number:** `minute_bars` returns a frame equal to the inline version's, column for column.
+
+**§9 rule 3 now has a test, and it did not before.** *"No portable feature may read outside the
+shared core unless `has_flow` gates it"* was true when it was written and nothing made it stay
+true — which is the `reach_table.json` situation exactly, 41,280 numbers correct on the day with
+nothing reconciling them. `tests/test_shared_core.py` hands every portable feature a frame
+carrying **nothing but the core** and requires it to answer, so a feature that starts reading
+`volume` fails on the day it is written rather than the first time the pipeline runs on the
+instrument that has no tape. A rule that is about to be frozen and is guarded only by everyone
+remembering is the weaker half of its own argument.
 
 **Every feature, bucket and threshold downstream is in basis points of price** (ARCHITECTURE §4.6).
 GC's tick is 0.10; an MT5 broker may call a XAUUSD pip 0.01 or 0.10. A mis-scaled *display* renders
