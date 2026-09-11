@@ -287,6 +287,11 @@ drafted here rather than added there. **Put them to the room before either lane 
 > frame" is superseded — it was measurably violated and could not have held. Stated explicitly
 > because "signed S9" is ambiguous once two versions exist.
 >
+> **Prathamesh was asked on 2026-09-11: [issue #6](https://github.com/Prathameshh-Patil/trading-intelligence/issues/6).**
+> Deliberately an issue rather than a message — it is a durable artefact, which is the thing every
+> other signature in this repo lacks. It lists what changed since he last saw each seam and, in its
+> own section, the four things he might reasonably refuse.
+>
 > **One signature does not freeze a contract.** `contracts.md`'s own discipline is all three in
 > standup, and S7 was held to exactly that on 10 Sep — 3 of 3, with each approval and how it was
 > obtained written down. **Prathamesh has built against both seams for ten days**, which is
