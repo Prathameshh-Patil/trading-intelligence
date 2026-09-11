@@ -39,6 +39,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -295,6 +296,24 @@ def month_ties(path: Path, inst: Instrument = GC) -> pd.DataFrame:
 MFE_FIRST = 1
 MAE_FIRST = -1
 
+CELL = ["bucket", "phase", "vol_state"]
+
+# A leg inside the ~120-minute warm-up has no `atr_bp` and therefore no bucket.
+# **Labelled rather than dropped**: dropping it would move the denominator and
+# quietly make day one's 4.20% irreproducible from this table, and a leg with no
+# cell is a real thing the warm-up produces rather than a defect.
+UNCLASSIFIED = "unclassified"
+
+
+def _label(k: object) -> str:
+    """One cell coordinate as a string, with a missing one NAMED.
+
+    `str(nan)` is `"nan"`, which sorts and groups like any other label and is
+    indistinguishable from a real one in a CSV. The warm-up produces these
+    legitimately, so they get a word instead.
+    """
+    return UNCLASSIFIED if k is None or (isinstance(k, float) and math.isnan(k)) else str(k)
+
 
 def path_bars(ex) -> pd.DataFrame:
     """Per leg: which bar holds the MFE, which holds the MAE, and whether the
@@ -428,15 +447,23 @@ def month_path(path: Path, inst: Instrument = GC) -> pd.DataFrame:
             else:
                 got = un.assign(first=pd.Series(dtype="float64"))
 
-            valid = int(pb["valid"].sum())
-            rows.append({
-                "side": side, "horizon": hz,
-                "legs": valid,
-                "unorderable": int(pb["unorderable"].sum()),
-                "mfe_first": int((got["first"] == MFE_FIRST).sum()) if len(got) else 0,
-                "mae_first": int((got["first"] == MAE_FIRST).sum()) if len(got) else 0,
-                "tape_unresolved": int((got["first"] == UNRESOLVED).sum()) if len(got) else 0,
-            })
+            # Per CELL, not per month. The cell columns were already computed
+            # above; grouping by them is what turns "how often do bars mislead"
+            # into "where", and it costs one groupby rather than a second pass
+            # over the archive.
+            part = pb[pb["valid"]].copy()
+            part[CELL] = legs[CELL].to_numpy()[part.index.to_numpy()]
+            part["first"] = got["first"].reindex(part.index)
+            for key, sub in part.groupby(CELL, observed=True, dropna=False):
+                rows.append({
+                    **dict(zip(CELL, (_label(k) for k in key), strict=True)),
+                    "side": side, "horizon": hz,
+                    "legs": len(sub),
+                    "unorderable": int(sub["unorderable"].sum()),
+                    "mfe_first": int((sub["first"] == MFE_FIRST).sum()),
+                    "mae_first": int((sub["first"] == MAE_FIRST).sum()),
+                    "tape_unresolved": int((sub["first"] == UNRESOLVED).sum()),
+                })
     return pd.DataFrame(rows)
 
 
@@ -494,6 +521,28 @@ def build(data: Path, *, months: list[str] | None = None,
         print(f"{d.name}  {int(got['ties'].sum()):>6,} ties  "
               f"{time.perf_counter() - t0:6.0f}s", flush=True)
     return pd.concat(frames, ignore_index=True)
+
+
+def by_cell(t: pd.DataFrame, *, min_legs: int = 400) -> pd.DataFrame:
+    """Where bars mislead, not just how often. One row per cell x horizon.
+
+    **Side is dropped, not summed.** `month_path` explains why: the two sides
+    are the same two prices relabelled, so summing them would double every
+    denominator and force the ordering to 50/50.
+
+    `min_legs` is `reach.MIN_SAMPLES`, borrowed rather than re-derived --
+    `strategy-precommit.md` §3 derives 400 from `horizon.n_for_rate`, and a rate
+    computed on fewer legs than that is noise with a number attached here for
+    exactly the reason it is there. Thin cells are returned and flagged rather
+    than dropped, because which cells are thin is itself part of the answer.
+    """
+    g = t[t["side"] == 1].groupby([*CELL, "horizon"], as_index=False)[
+        ["legs", "unorderable", "mfe_first", "mae_first"]].sum()
+    g["unorderable_rate"] = g["unorderable"] / g["legs"]
+    ordered = (g["mfe_first"] + g["mae_first"]).replace(0, np.nan)
+    g["high_first_share"] = g["mfe_first"] / ordered
+    g["thin"] = g["legs"] < min_legs
+    return g.sort_values("unorderable_rate", ascending=False).reset_index(drop=True)
 
 
 def build_path(data: Path, *, months: list[str] | None = None,

@@ -17,6 +17,7 @@ known by construction.
 
 from __future__ import annotations
 
+import numpy as np
 import pandas as pd
 import pytest
 from conftest import NEXT, OPEN, SESSION, bars_at
@@ -328,4 +329,41 @@ def test_path_summary_reports_the_ordering_once_not_per_side():
     assert got["high_first"].iloc[0] == 7
     assert got["unorderable_rate"].iloc[0] == pytest.approx(0.10)
     assert got["high_first_share"].iloc[0] == pytest.approx(0.70)
+
+
+def cells(rows):
+    base = {"bucket": "(7.0, 10.0]", "phase": "London", "vol_state": "STABLE",
+            "horizon": 15, "legs": 1000, "unorderable": 100,
+            "mfe_first": 60, "mae_first": 40, "tape_unresolved": 0}
+    return pd.DataFrame([{**base, **r} for r in rows])
+
+
+def test_by_cell_drops_side_rather_than_summing_it():
+    """Summing the sides would double every denominator and force the ordering
+    to 50/50 -- the same relabelling trap as `path_summary`."""
+    got = replay.by_cell(cells([{"side": 1}, {"side": -1, "mfe_first": 40, "mae_first": 60}]))
+    assert len(got) == 1
+    assert got["legs"].iloc[0] == 1000, "not 2000"
+    assert got["high_first_share"].iloc[0] == pytest.approx(0.6)
+
+
+def test_by_cell_flags_thin_rather_than_dropping_it():
+    """Which cells are thin is part of the answer, so they come back labelled."""
+    got = replay.by_cell(cells([{"side": 1, "legs": 399, "unorderable": 40},
+                                {"side": 1, "phase": "NY"}]))
+    assert got["thin"].sum() == 1
+    assert len(got) == 2, "a thin cell is still returned"
+
+
+def test_by_cell_borrows_reachs_floor_rather_than_inventing_one():
+    assert replay.by_cell(cells([{"side": 1, "legs": 400}]))["thin"].iloc[0] is np.False_
+    assert replay.by_cell(cells([{"side": 1, "legs": 399}]))["thin"].iloc[0] is np.True_
+
+
+def test_a_warm_up_leg_has_a_named_cell_not_a_stringified_nan():
+    """`str(nan)` is `"nan"`, which is indistinguishable from a real label in a
+    CSV. The warm-up produces these legitimately."""
+    assert replay._label(float("nan")) == replay.UNCLASSIFIED
+    assert replay._label(None) == replay.UNCLASSIFIED
+    assert replay._label("London") == "London"
 
