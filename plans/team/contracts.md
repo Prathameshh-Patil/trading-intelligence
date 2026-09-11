@@ -414,11 +414,20 @@ suggested derived from `reach`, or null                      -- never chosen
    derived or null. This is the field that must never exist, written down so nobody adds it in a
    week when it would be convenient.
 
-**Not yet real.** The type, the fake (`forecastMock.ts`) and one consumer (`ForecastView.tsx`) exist;
-there is no real implementation and no `services/api` route. Writing those fills slots this contract
-already specifies and is not a contract change. **Changing the shape after they exist is** — and by
-the freeze discipline above that lands as one commit moving the type, the fake, the real
-implementation and every consumer together.
+**Half real, 2026-09-11 — and which half matters.** The type, the fake (`forecastMock.ts`) and one
+consumer (`ForecastView.tsx`) were here on day one. **The `services/api` route now exists** —
+`GET /api/v1/forecast/table` (`a64af5d`), serving the table in the `Fixture` shape the client
+already reads, and `forecastMock` fetches it when `VITE_FORECAST_API` is set (`54b1764`).
+
+**There is still no real implementation, and the reason is not the contract.** `reach.py` has two
+public functions and the route only answers one of them. `reach()` is a lookup and needs nothing but
+the table. `cell_of()` turns a bar into the key and needs `atr_bp` and `rv_slope` — so it needs a
+live feed, and `plans/current.md` C1 reopened on 5 Sep. **Until there is a feed, the key is derived
+from a timestamp and that is a fake**, which is why the forecaster stays behind `VITE_ENGINE=mock`.
+Filling that last slot is not a contract change either.
+
+**Changing the shape after they exist is** — and by the freeze discipline above that lands as one
+commit moving the type, the fake, the real implementation and every consumer together.
 
 **One operational fact this contract implies and nobody should discover in production:** the warm-up
 is **~120 minutes, not 60**. `volState` reads `rv_slope`, two chained 60-minute windows, so a feed
