@@ -639,7 +639,21 @@ rather than a disappointment: 144 cells over ~220,000 legs is ~1,500 each if the
 was given, and from the argument written underneath it. That is the one number here that needs
 Varad's eye rather than his nod.**
 
-> **STILL UNSIGNED as of 2026-09-11, and the review now has evidence it did not have on 6 Sep.**
+> ## ✅ SIGNED 2026-09-11 by Varad. The ET boundaries stand.
+>
+> Given verbally in session; **not a logged artefact from the moment**, the same basis rows #2 and
+> #8 are closed on and the same way S7's two approvals are recorded. This block asked for one
+> person's eye — Varad's — and it has it, so it closes here rather than needing the room.
+>
+> **The boundaries do not move**, and the review below is the reason it is a decision rather than
+> an omission: it was made knowing that `London-NY` at 08:00–09:30 ET contains the 08:30 release
+> and is therefore EXPANDING almost by construction, and that `REACH.md` §2 measured the cost of
+> that — 16 of 28 dead cells. Frozen in `features/portable.py` as `PHASE_TZ`, `_PHASE_EDGES` and
+> `PHASES`; `M3_CLOCK.md`, `M1_SURFACE.md` and `REACH.md` all rest on them and none is invalidated.
+>
+> *The review as it stood before the signature, kept because it is why the answer means anything:*
+>
+> **The evidence that arrived after 6 Sep.**
 > `REACH.md` §2 measured the two transition phases losing their entire CONTRACTING state — 16 of
 > 28 dead cells — because `CONTRACTING` is **4.7%** of `London-NY`'s legs against 28–36% in the
 > three phases that are not handoffs. **`phase` and `vol_state` are not independent where they

@@ -265,10 +265,37 @@ are tabulated there. **Varad's three are still open, and M1 cannot run until the
 
 ---
 
-## 8. Proposed seams — ⏳ NOT FROZEN (S8 is now built; it is still not frozen)
+## 8. Proposed seams — ⏳ 1 of 3 (Varad signed 2026-09-11; still not frozen)
 
 [`contracts.md`](contracts.md) changes only by all three agreeing in standup, so these two are
 drafted here rather than added there. **Put them to the room before either lane writes code.**
+
+> ### Sign-off state
+>
+> | | S8 · `Instrument` | S9 · The bars frame |
+> | :--- | :--- | :--- |
+> | Varad | ✅ **2026-09-11** | ✅ **2026-09-11**, the amended text |
+> | Prathamesh | ⬜ | ⬜ |
+> | Shreyas | ⬜ | ⬜ |
+>
+> **Given verbally in session, and not a logged artefact from the moment** — recorded the way S7's
+> approvals were, because a signature nobody can point at later is worse than an unsigned contract.
+>
+> **What Varad signed on S9 is the AMENDED text**, not the original: the shared core of
+> `open/high/low/close/session`, instrument-specific columns permitted, and no portable feature
+> reading outside the core unless `has_flow` gates it. The original "both loaders produce the same
+> frame" is superseded — it was measurably violated and could not have held. Stated explicitly
+> because "signed S9" is ambiguous once two versions exist.
+>
+> **One signature does not freeze a contract.** `contracts.md`'s own discipline is all three in
+> standup, and S7 was held to exactly that on 10 Sep — 3 of 3, with each approval and how it was
+> obtained written down. **Prathamesh has built against both seams for ten days**, which is
+> evidence he agrees and is not the same thing as agreeing; and Shreyas has not seen either.
+>
+> **When the other two land, these move into `contracts.md` as S8 and S9** the way S7 was
+> registered, and the freeze discipline binds from that moment: any later change needs all three
+> again, in one commit carrying the type, the fake, the real implementation and every consumer.
+> Until then this file remains where they live.
 
 ### S8 · `Instrument` — Varad → both lanes
 
