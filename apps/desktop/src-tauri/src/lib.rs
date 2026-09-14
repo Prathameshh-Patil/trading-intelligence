@@ -129,41 +129,62 @@ pub fn run() {
 
             // Restore before the window is shown, so a remembered position does
             // not read as the window jumping after paint.
+            let monitors = monitors_of(&window);
             let saved = Placements::load(&file);
-            if let Some(r) = saved.restore(&monitors_of(&window)) {
+            if let Some(r) = saved.restore(&monitors) {
                 let _ = window.set_position(tauri::PhysicalPosition::new(r.x, r.y));
                 let _ = window.set_size(tauri::PhysicalSize::new(r.width, r.height));
             }
 
-            // Held in memory and flushed on the events below rather than written
-            // on every `Moved`. A drag emits one per frame, and a JSON write per
-            // frame is the kind of thing that gets discovered as "it feels
-            // laggy" -- the exact phrasing W2D1 warns about for the hit-test.
-            let state = Mutex::new(saved);
-            let win = window.clone();
+            // ⚠️ THE HANDLER BELOW MUST NOT CALL BACK INTO THE WINDOW, and that is
+            // not a style preference. The first version of this asked the window
+            // for `outer_position`, `outer_size` and `available_monitors` from
+            // inside its own event callback. The window appeared, the terminal
+            // kept focus so `Focused(false)` fired immediately, the handler
+            // re-entered the window system on the main thread -- and the window
+            // was gone about a second after launch, with the process still alive
+            // and nothing on stderr. Reverting just this file to the previous
+            // commit brought the window back, which is how it was pinned.
+            //
+            // So geometry comes from the EVENT PAYLOAD, which `Moved` and
+            // `Resized` already carry, and the monitor list is read once here in
+            // `setup` where the call is safe.
+            let start = current_placement(&window);
+            let state = Mutex::new((saved, monitors, start));
+
             window.on_window_event(move |event| {
-                let flush = match event {
-                    // Moved and Resized only update memory.
-                    WindowEvent::Moved(_) | WindowEvent::Resized(_) => false,
+                let Ok(mut st) = state.lock() else { return };
+                let (placements, monitors, latest) = &mut *st;
+
+                match event {
+                    // Payload, not a query. Size is unchanged by a move and
+                    // position by a resize, so each updates only its own half.
+                    WindowEvent::Moved(pos) => {
+                        if let Some(r) = latest.as_mut() {
+                            r.x = pos.x;
+                            r.y = pos.y;
+                        }
+                    }
+                    WindowEvent::Resized(size) => {
+                        if let Some(r) = latest.as_mut() {
+                            r.width = size.width;
+                            r.height = size.height;
+                        }
+                    }
                     // Leaving the app and closing it both end an arrangement's
                     // session, and between them they cover every ordinary way a
                     // trader stops moving the window.
-                    WindowEvent::Focused(false) | WindowEvent::CloseRequested { .. } => true,
-                    _ => return,
-                };
-
-                let Some(now) = current_placement(&win) else { return };
-                let monitors = monitors_of(&win);
-                let Ok(mut placements) = state.lock() else { return };
-                placements.remember(&monitors, now);
-
-                if flush {
-                    if let Err(e) = placements.save(&file) {
-                        // A window that cannot remember where it was is worth a
-                        // line on stderr and nothing more; it is not worth
-                        // refusing to close over.
-                        eprintln!("[placement] could not save: {e}");
+                    WindowEvent::Focused(false) | WindowEvent::CloseRequested { .. } => {
+                        let Some(r) = *latest else { return };
+                        placements.remember(monitors, r);
+                        if let Err(e) = placements.save(&file) {
+                            // A window that cannot remember where it was is worth
+                            // a line on stderr and nothing more; it is not worth
+                            // refusing to close over.
+                            eprintln!("[placement] could not save: {e}");
+                        }
                     }
+                    _ => {}
                 }
             });
 
