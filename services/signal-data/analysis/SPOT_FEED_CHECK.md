@@ -253,3 +253,37 @@ So, in order, and none of it costs a signup until step 3:
 holds exactly as written: the result is a **yes/no on the hypothesis and never a threshold that
 transfers** to GC or to another broker. A demo account's spread is additionally not guaranteed to
 be its live spread, which weakens the yes/no but does not invalidate it.
+
+### ⛔ Amendment, same day: an MT5 demo account now exists, and it is the wrong one
+
+`54ac312` closed Week 1's gate line #3 against **a real MetaQuotes demo account (XAUUSD M5) in the
+MT5 web terminal**. So step 1 above appears answered — an account exists and nobody has to sign up.
+**It is not answered, and using that account would produce a confidently wrong result.** Two
+reasons, and the second is disqualifying:
+
+1. **The web terminal cannot run MQL5 scripts, EAs or indicators.** Custom code is desktop-terminal
+   only. So that account supplies no export path at all — not a `CopyTicksRange` one, and the GUI
+   tick export the web terminal lacks is the one that drops `flags` anyway. The desktop terminal
+   (macOS build) with the same credentials is a different question from the web terminal.
+2. ⛔ **`MetaQuotes-Demo` is not a broker.** MetaQuotes does not operate a live venue, and the demo
+   server exists to exercise the platform and its beta builds. Its prices are widely reported to
+   diverge from real brokers' — there is a forum thread asking whether its XAUUSD is artificial,
+   another titled *"real ticks in MetaQuotes Demo account are missing"* — and MetaQuotes' own
+   guidance is not to rely on the feed.
+
+**Why (2) ends it rather than complicating it.** Route 2 asks whether **a broker's** spot bid/ask
+spread varies enough to filter on. §6's standing caveat — *spot spread is a broker pricing decision,
+so the answer is a yes/no and never a transferable threshold* — assumes there is a broker. On
+`MetaQuotes-Demo` there is not one, so a spread measured there is **MetaQuotes' demo price generator
+and nothing else**. That is the same "plausible number from the wrong population" this repo keeps
+naming, arriving this time through a convenient account rather than a file copy.
+
+⚠️ **Weigh the evidence honestly.** (1) is a documented platform limitation. (2) rests on user
+reports and an absence — MetaQuotes publishes no claim that its demo carries real broker ticks,
+which is not the same as a documented statement that it does not. It is enough to disqualify the
+server for a measurement whose entire content is *whose* spread this is, and not enough to call the
+prices fabricated.
+
+**So step 1 stands exactly as written, with one name struck out:** the depth check must run in the
+**desktop** terminal against a **real broker's** demo server, and `MetaQuotes-Demo` is not a
+candidate. The existing account closes a gate line; it does not open this route.
