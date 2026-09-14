@@ -19,6 +19,8 @@ would have caught either. Every test here is one of those shapes:
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -346,3 +348,31 @@ def test_the_phase_axis_still_behaves_exactly_as_it_did() -> None:
     named = m1.surface(pd.DataFrame(rows), axes=("phase",))
     pd.testing.assert_frame_equal(default, named)
     assert default["p_null"].iloc[0] == pytest.approx(0.20)
+
+
+def test_the_committed_surface_carries_every_column_surface_writes() -> None:
+    """The drift that actually happened, made loud.
+
+    `ff569bb` added `ev_null` and `ev_delta` to `surface()` hours after
+    `2abc2b3` committed the CSV, so the published file sat two columns short
+    with three derived columns off by one ULP, for weeks, with nothing in the
+    suite to say so -- `cae9b72` caught it by hand. This is the guard
+    `test_reach.py` puts between the app's fixture and the table, applied to
+    the artifact that actually drifted.
+
+    **Membership, not order.** Column order follows the caller's counts frame
+    rather than `surface()`, so ordering here would fail on the test helper's
+    dict order and prove nothing. A full regeneration is what proves the
+    NUMBERS -- it reproduces byte for byte, checked 14 Sep, and takes ~3
+    minutes, which is too slow to sit in the suite. This proves the SHAPE in
+    milliseconds, which is the half that silently rotted.
+    """
+    csv = Path("analysis/m1_surface.csv")
+    if not csv.exists():
+        pytest.skip("m1_surface.csv not built")
+    written = set(pd.read_csv(csv, nrows=0).columns)
+    produced = set(m1.surface(pd.DataFrame([cell()])).columns)
+    assert written == produced, (
+        f"missing {sorted(produced - written)}, stale {sorted(written - produced)}"
+        " -- regenerate analysis/m1_surface.csv"
+    )
