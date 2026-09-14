@@ -59,6 +59,7 @@ from __future__ import annotations
 import argparse
 import time
 from pathlib import Path
+from shutil import rmtree
 
 import pandas as pd
 
@@ -93,6 +94,18 @@ def pull(symbol: str, months: list[str], out: Path, *, pause: float = PAUSE) -> 
     zero-byte file means the market was shut and is a real answer; a connection
     reset means we do not know. Recording them the same way would put a
     fabricated quiet hour into a volatility feature.
+
+    RESUME IS BY HOUR, NOT BY DAY, AND THAT IS NOT AN OPTIMISATION. Measured
+    2026-09-14: the feed serves ~17 requests from cold and then refuses every
+    one, and it does not recover in 90s. Resuming by day discards the hours a
+    throttled pass *did* win, so with a budget under 24 the loop can never
+    finish a single day however many times it is re-run -- not slow,
+    non-convergent. Each hour is cached the moment it lands, so a pass keeps
+    what it got and the next one starts from there.
+
+    **The day-completeness invariant is unchanged.** The day parquet is still
+    only written when all 24 hours are present; the hour cache is scratch, and
+    it is deleted once the day it belongs to is assembled.
     """
     out.mkdir(parents=True, exist_ok=True)
     for month in months:
@@ -101,12 +114,17 @@ def pull(symbol: str, months: list[str], out: Path, *, pause: float = PAUSE) -> 
             f = out / f"{day:%Y-%m-%d}.parquet"
             if f.exists():
                 continue
-            t0, frames, lost = time.perf_counter(), [], []
+            cache = out / ".hours" / f"{day:%Y-%m-%d}"
+            cache.mkdir(parents=True, exist_ok=True)
+            t0, lost = time.perf_counter(), []
             for h in range(24):
-                hour = day + pd.Timedelta(hours=h)
+                hf = cache / f"{h:02d}.parquet"
+                if hf.exists():
+                    continue
                 time.sleep(pause)
                 try:
-                    frames.append(dk.fetch_hour(symbol, hour, retries=RETRIES, timeout=TIMEOUT))
+                    hour = day + pd.Timedelta(hours=h)
+                    dk.fetch_hour(symbol, hour, retries=RETRIES, timeout=TIMEOUT).to_parquet(hf)
                 except ConnectionError:
                     lost.append(h)
                     print(f"  {day:%Y-%m-%d} {h:02d}h LOST", flush=True)
@@ -114,12 +132,16 @@ def pull(symbol: str, months: list[str], out: Path, *, pause: float = PAUSE) -> 
             if lost:
                 # NOT written. A day with holes looks exactly like a quiet day
                 # once it is on disk, and `atr_bp` and `rv_slope` would read the
-                # hole as calm rather than as absent. Left missing so the next
-                # run retries it -- which is the whole point of resuming by day.
-                print(f"{day:%Y-%m-%d}  SKIPPED, {len(lost)} of 24 hours lost  {dt:5.0f}s", flush=True)
+                # hole as calm rather than as absent. The hours that did land
+                # stay in the cache, so the next run retries only the holes.
+                kept = 24 - len(lost)
+                print(f"{day:%Y-%m-%d}  INCOMPLETE, {len(lost)} of 24 lost, "
+                      f"{kept} cached  {dt:5.0f}s", flush=True)
                 continue
-            ticks = pd.concat(frames, ignore_index=True) if frames else dk.decode_bi5(b"", symbol, day)
+            ticks = pd.concat([pd.read_parquet(cache / f"{h:02d}.parquet") for h in range(24)],
+                              ignore_index=True)
             ticks.to_parquet(f)
+            rmtree(cache)
             print(f"{day:%Y-%m-%d}  {len(ticks):>7,} ticks  {dt:5.0f}s", flush=True)
 
 

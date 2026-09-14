@@ -37,6 +37,62 @@ decision is the room's. What this does is replace *"unverified"* with numbers.
 > **Nothing below is retracted** — the spread numbers, the quote rate and the decoder are all
 > still good, and `dukascopy.py` is still correct. What changed is what the result licenses.
 
+> ## 🔄 RE-MEASURED 2026-09-14 — it is a request budget, not a blanket refusal
+>
+> **The 11 Sep amendment said "every request returns a 503, a reset or a timeout". That is no
+> longer what happens, and the correction matters because it changes what to build.** Three cold
+> probes returned real payloads — 49,523 bytes, 104,222 bytes, and a zero-byte hour that is a
+> legitimate answer (2026-05-10 is a Sunday). Then, sequentially from the same address:
+>
+> ```
+> pull, 2026-07-01          14 of 24 hours ok, 10 LOST, 519s
+> pull, 2026-07-02 00h      LOST
+> 8 probes @ 6s pause       0 of 8, after a 90s cooldown
+> ```
+>
+> **~17 successful requests from cold, then the wall, and 90 seconds does not lift it.** The
+> post-wall failures are immediate rather than timeouts — refusal, not congestion.
+>
+> **The recovery probe is the decisive part. 8 attempts across 13h 40m, every one refused:**
+>
+> ```
+> 00:13  00:18  00:23  02:26  07:31  09:05  13:37  13:53      all fail
+> ```
+>
+> ⚠️ **The probe was written to fire every five minutes and the machine slept**, so its own `t+N`
+> labels are wrong and the intervals are uneven. The span and the outcome are what the run
+> supports; the cadence is not. Consistent with 11 Sep's "22 hours was not enough".
+>
+> **So the budget is ~17 requests and the period is longer than half a day — call it ~17
+> hour-files a day:**
+>
+> ```
+> 3 months     2,208 hour-files    ~130 days
+> 19 months   13,896 hour-files    ~817 days
+> ```
+>
+> **That closes it. Dukascopy is finished as a bulk source from this address** — not "throttled"
+> and not "retry tomorrow". §5's cost model below should be read as superseded: it prices a
+> download this endpoint will not serve.
+>
+> **A longer pause is not the lever, and that retires the theory `PAUSE` was raised on.** 0 of 8 at
+> six seconds is *worse* than 14 of 24 at two, because the budget is consumed cumulatively rather
+> than per unit time. §5's cost model below is a throughput calculation and this is not a
+> throughput limit; plan against requests-per-period instead, once that number exists.
+>
+> **What this changes about the verdict: nothing, and that is worth saying plainly.** "Free,
+> complete and decodable" still survives. "Usable as a backtest source" still does not — a
+> ~17-request budget against 2,208 hour-files for three months is not closer to usable than a
+> blanket 503 was. What changed is the *shape* of the obstacle, which is what a fix has to fit.
+>
+> ⚠️ **It also exposed a defect in `spot.py` that the blanket 503 had been hiding.** `pull()`
+> resumed by **day** — it accumulated 24 hours and discarded all of them if any one was lost. With
+> a budget under 24 that loop is **non-convergent**: every pass burns the budget, throws the result
+> away, and leaves the next pass where the last one started. Re-running it forever would have
+> produced nothing, and it would have been read as the block never clearing. **Fixed the same day:
+> resume is now by hour**, with the day parquet still written only when all 24 are present, so the
+> no-holes-on-disk invariant is unchanged. 330 tests pass and the mutation fails.
+
 **The feed works. XAUUSD tick history is free, complete and decodable, and the spread is not
 degenerate.** One hour, 2025-06-18 14:00 UTC — a Wednesday in the London–NY overlap:
 

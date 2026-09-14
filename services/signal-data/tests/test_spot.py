@@ -107,6 +107,45 @@ def test_a_clean_day_is_written_and_a_shut_market_is_a_real_answer(
     assert len(pd.read_parquet(written[0])) == 0
 
 
+def test_a_throttled_pass_keeps_the_hours_it_won(tmp_path: Path, monkeypatch) -> None:
+    """The property that makes the pull converge under a budget below 24.
+
+    Measured 2026-09-14: the feed serves ~17 requests from cold, then refuses.
+    Resuming by day threw away the hours a pass did win, so no day could ever
+    complete. Here the first pass gets a budget of 10 and the second finishes
+    the day -- and the total fetch count proves nothing was fetched twice.
+    """
+    budget, calls = 10, []
+
+    def throttled(symbol, hour, **kw):
+        calls.append(hour)
+        if len(calls) > budget:
+            raise ConnectionError("reset")
+        return ticks(n=2, start=f"{hour:%Y-%m-%dT%H:%M:%S}Z")
+
+    monkeypatch.setattr(dk, "fetch_hour", throttled)
+    spot.pull("XAUUSD", ["2026-05"], tmp_path, pause=0.0)
+    assert list(tmp_path.glob("*.parquet")) == [], "wrote a day with a hole in it"
+    first_pass = len(calls)
+
+    budget = 10_000
+    spot.pull("XAUUSD", ["2026-05"], tmp_path, pause=0.0)
+    assert (tmp_path / "2026-05-01.parquet").exists(), "second pass never finished day one"
+    resumed = [h.hour for h in calls[first_pass:] if h.day == 1]
+    assert resumed == list(range(10, 24)), \
+        "second pass should fetch only the 14 hours the first one lost"
+
+
+def test_the_hour_cache_is_scratch_and_does_not_survive_the_day(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """The day parquet is the artefact; the cache is deleted once it exists."""
+    monkeypatch.setattr(dk, "fetch_hour",
+                        lambda symbol, hour, **kw: ticks(n=1, start=f"{hour:%Y-%m-%dT%H:%M:%S}Z"))
+    spot.pull("XAUUSD", ["2026-05"], tmp_path, pause=0.0)
+    assert not list((tmp_path / ".hours").glob("*")), "left hour files behind"
+
+
 def test_a_day_already_on_disk_is_not_fetched_again(tmp_path: Path, monkeypatch) -> None:
     calls = []
 
