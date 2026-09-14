@@ -186,3 +186,70 @@ validating it, and only the manifest's `sha256` caught a partial download.
   this way; 2025-06-21 (Saturday) 14:00 UTC returns 0 quotes in 0.8 s. `decode_bi5` returns an
   empty frame rather than raising, because on a 24×5 instrument the gap is the normal case and a
   retry loop should not chase a hole that is meant to be there.
+
+## 7. The MT5 fallback, assessed 2026-09-14 — read from the documentation, not from a terminal
+
+⚠️ **Nothing here was run. No broker account exists, no terminal is installed, and not one tick
+has been exported.** This is a desk check of §7.4's second free source done *before* a signup, on
+the principle that the signup is the expensive part. Everything below is a documentation claim with
+a source, and every one of them needs confirming against a real terminal before it is worth
+anything. Two of them are load-bearing enough that the signup should not happen until they are.
+
+**The Python API is Windows-only, and that is not the obstacle it looks like.** The official
+`MetaTrader5` package requires the Windows terminal; on macOS it needs Wine/CrossOver or a
+Docker-QEMU bridge (`mt5-mac`, `mt5linux`, `silicon-metatrader5`), and `plans/current.md`'s row B
+already records that **there is no Windows or Linux dev machine in the loop**. But the export does
+not need Python: an **MQL5 script runs inside the terminal**, which has an official macOS build,
+and `CopyTicksRange` writes CSV directly. The `Historex` script in the MQL5 Code Base already does
+exactly this with a `FilterStart`/`FilterStop` date range. **So the platform objection is real for
+the *API* and does not reach the *export*.**
+
+### ⛔ The finding that decides it: depth, and what lives past the edge
+
+**Real tick history in MT5 is served by the broker, and the depth is the broker's choice — commonly
+1–3 months.** Nineteen months of *real* spot ticks from a demo account should be assumed
+unavailable until a specific broker proves otherwise. **That retires the 19-month target for this
+source** and leaves the 3-month one, which is the smaller of the two already in the plan and which
+a single dated export could satisfy outright — no throttle, no 130 days, no resume bookkeeping.
+On depth alone, MT5 is a plausible 3-month source and not a 19-month one.
+
+**And the part that would quietly poison the result.** MT5's Strategy Tester documents that when a
+minute bar has no tick data it **generates ticks from the M1 bar using a fixed spread inside the
+bar**. Route 2's entire question is *does spot bid/ask spread vary enough to filter on* — so a
+generated tick does not merely add noise, it **answers the question by construction**, and it
+answers it wrongly in the confident direction: a fixed intra-bar spread reads as a degenerate
+spread, which is precisely the null §7 was built to test. **A study fed generated ticks would
+conclude "spot spread is degenerate" and be measuring MetaQuotes' interpolation.**
+
+This is the same shape as the trap the day-completeness invariant exists to stop — an absent hour
+reading as a calm one — and it deserves the same treatment: **make it impossible rather than
+remember it.**
+
+⚠️ **One distinction is deliberately left open, because the documentation does not close it.** Tick
+generation is documented as **Strategy Tester** behaviour. Whether a terminal-side
+`CopyTicksRange` export can *also* contain synthesized ticks is **not established here**, and it
+would be dishonest to assert it either way from the docs alone. The point is that the question has
+an empirical answer and does not need a ruling: **the `flags` field settles it per tick.**
+
+### The acceptance test, to be passed before any MT5 tick is trusted
+
+`MqlTick` carries a `flags` bitmask — `TICK_FLAG_BID` / `TICK_FLAG_ASK` mark a tick that actually
+moved the bid or the ask. **Any export used for route 2 must carry that column**, and this is the
+second reason to prefer the MQL5 script over the GUI: the MQL5 forum reports the **`Flags` column
+missing from GUI-exported tick CSV**, and an export without it cannot be audited at all.
+
+So, in order, and none of it costs a signup until step 3:
+
+1. **Name the broker and check the depth first** — the Symbols panel (`Ctrl+U`) reports available
+   tick history per symbol. A broker that does not serve 3 months of real XAUUSD ticks ends this
+   route before an account is opened.
+2. **Export via `CopyTicksRange`, keeping `flags`.** GUI export is not acceptable.
+3. **Refuse the file if the flags do not vouch for it.** A loader for this source must reject an
+   export with no `flags` column outright, and must not average a spread over ticks that never
+   moved a quote. This is a hard failure, not a warning — the whole value of the source is that
+   the spread is a real one.
+
+**What this does not change.** Spot spread is a broker's pricing decision, so §6's standing caveat
+holds exactly as written: the result is a **yes/no on the hypothesis and never a threshold that
+transfers** to GC or to another broker. A demo account's spread is additionally not guaranteed to
+be its live spread, which weakens the yes/no but does not invalidate it.
