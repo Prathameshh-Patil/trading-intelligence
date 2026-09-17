@@ -806,6 +806,34 @@ in-sample number over one instrument in a bull market, and `xauusd-regimes.md`'s
 applies: a drift measured over a period gold rose 84% is a statement about that period until a
 second period says otherwise. **`backtest.py`, `m3_profile.py` and the served table are untouched.**
 
+### Scored, 2026-09-17 — `analysis/M3B_DRIFT.md`
+
+| Clause | Result |
+| :--- | :--- |
+| 0 of 6 phases clear cost on the residual | ✅ **0 of 6** — largest `edge_lo` is −0.42 bp |
+| the unconditional drift is smaller than one round trip | ✅ **+0.1878 bp vs 0.3504 bp** — barely half |
+| ~18,000 disjoint windows | ✅ **18,244** |
+| pooled drift ≈ 0.33 bp/window | ❌ **0.1878** — the estimate was built on a wrong rise, below |
+| cost floor ≈ 0.45 bp | ❌ **0.3504** — overestimated by 1.28× |
+| outcome 1 (pattern retired) | ✅ **fires** |
+| outcome 3 (signs opposite — the bracket, not the tape) | ✅ **does not fire** — signs AGREE with M3 |
+
+⚠️ **The prediction was right and its arithmetic was carrying someone else's error.** This section
+wrote *"gold rose 84%"*, taken from `M3_CLOCK.md` §6. **The archive's actual rise is 55.2%**
+(2,640.40 → 4,098.60, first close to last). The corrected per-window figure is **0.241 bp**, not
+0.33 — **much closer to the 0.1878 measured**, with the remainder explained by the weekend and
+session-break gaps M3b drops by construction (78% of the rise falls inside tradeable windows).
+**Correcting the input moves the prediction toward the measurement**, which is the good case, but
+the number was repeated from another document without being checked and that is how it got here.
+
+⚠️ **The clause that needed the most care in scoring: the signs replicate.** `London-NY` came back
+**negative (−0.487 bp)** and `Asia-London` **positive (+0.792 bp)** — exactly M3's implication,
+through a completely different instrument with no bracket in it. **Scored as outcome 1 anyway**,
+because no phase reaches `t = 1.25` and every `edge_lo` is below zero. **A sign that replicates at
+t < 1.3 is not evidence of a drift; and the two phases involved are the two THINNEST in the table**
+(814 and 1,223 windows against `Asia`'s 6,508) — the two transition phases, the same thinness
+`REACH.md` found when both lost their entire CONTRACTING state.
+
 ---
 
 ## 4 · Session-phase boundaries — Prathamesh, committed 2026-09-06

@@ -322,6 +322,13 @@ exactly by its stop rate.
   with a wider stop. That is the shape of an intraday drift pattern over a period when gold rose
   84%. **M3 is non-directional and its null controls for side but not for time-of-day drift.** It
   needs its own experiment and its own null; it is not a finding from this one.
+  ✅ **ANSWERED 2026-09-17 — `M3B_DRIFT.md`, and the answer is no.** Measured in plain forward
+  returns over 18,244 disjoint 30-minute windows: **0 of 6 phases clear the cost floor on the
+  residual**, and the period's *entire* unconditional drift (+0.1878 bp per window) is **barely
+  half a round trip (0.3504 bp)** — there was never room for a clock effect to pay for itself.
+  ⚠️ **The signs DO replicate** (`London-NY` −0.487 bp, `Asia-London` +0.792 bp, exactly as
+  implied here) **but at t = −0.60 and +1.23**, and those two are the thinnest phases in the
+  table. ⚠️ **And the 84% above is wrong: the archive rose 55.2%** (2,640.40 → 4,098.60).
 - **The second instrument.** Every feature used here is portable by construction, so the whole
   profile re-runs on spot XAUUSD the day a vendor exists. That is the strongest available check on
   all of the above, and it is still step 6.
