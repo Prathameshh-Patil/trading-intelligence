@@ -85,6 +85,23 @@ def folds(
         train_start = train_start + pd.DateOffset(months=roll_m)
 
 
+def independent_folds(n_folds: int, *, val_m: int, roll_m: int) -> int:
+    """How many of `n_folds` validation windows are non-overlapping.
+
+    **§14's own defaults overlap.** Rolling 3 months with a 6-month window
+    means consecutive folds share three months, so a good month is scored
+    twice and reads as two confirmations. Ten such folds span
+    `9*3 + 6 = 33` months, which holds five disjoint 6-month windows.
+
+    This is the count `deflated_sharpe` may be given, because it treats
+    trials as independent and overlapping folds are not. `folds` still
+    returns all of them -- §14 asks for them and they are useful for
+    stability inspection; what they are not is five extra observations.
+    """
+    span = (n_folds - 1) * roll_m + val_m
+    return min(n_folds, span // val_m)
+
+
 class Trials:
     """Counts configurations evaluated. No reset, no decrement, read-only count.
 
@@ -117,9 +134,14 @@ def expected_max_sharpe(*, n_trials: int, n_obs: int) -> float:
         raise ValueError(f"n_trials must be at least 1, got {n_trials}")
     if n_obs < 2:
         raise ValueError(f"n_obs must be at least 2, got {n_obs}")
-    se = sqrt(1.0 / (n_obs - 1))
     if n_trials == 1:
-        return se * _N.inv_cdf(1.0 - 1.0 / (2.0 * _e))
+        # E[max of ONE standard normal] is 0, so there is nothing to deflate
+        # and DSR reduces to the probabilistic Sharpe against a zero
+        # benchmark. An earlier version returned se * inv_cdf(1 - 1/(2e))
+        # here -- a haircut present in no theory, invented to satisfy a test
+        # that passes without it.
+        return 0.0
+    se = sqrt(1.0 / (n_obs - 1))
     k = float(n_trials)
     emax = (1.0 - _EULER) * _N.inv_cdf(1.0 - 1.0 / k) + _EULER * _N.inv_cdf(1.0 - 1.0 / (k * _e))
     return se * emax

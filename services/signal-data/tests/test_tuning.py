@@ -36,12 +36,37 @@ def test_folds_are_train_then_validate_never_the_reverse() -> None:
         assert tr.max() < va.min()
 
 
-def test_validation_windows_do_not_overlap_each_other() -> None:
-    # Overlapping validation is the same sample scored twice, which makes a
-    # lucky month look like two independent confirmations.
+def test_validation_windows_do_not_overlap_when_the_roll_matches_the_window() -> None:
     fs = tuning.folds(idx("2020-01-01", 60), holdout_start=HOLDOUT, roll_m=6, val_m=6)
     for (_, a), (_, b) in pairwise(fs):
         assert a.max() < b.min()
+
+
+def test_at_section_14s_own_defaults_every_validation_window_overlaps_the_next() -> None:
+    # NOT A DEFECT IN `folds` -- §14 specifies roll 3 with a 6-month window,
+    # so consecutive folds share three months BY CONSTRUCTION. It is pinned
+    # because the consequence is easy to miss: ten folds are not ten
+    # independent observations, a good month is scored twice and looks like
+    # two confirmations, and `deflated_sharpe` treats trials as independent.
+    #
+    # An earlier version of the test above passed `roll_m=6` and so never
+    # exercised the defaults -- it asserted no-overlap on parameters chosen
+    # to produce none, which is false assurance rather than a check.
+    fs = tuning.folds(idx("2020-01-01", 60), holdout_start=HOLDOUT)
+    assert len(fs) > 1
+    assert all(b.min() <= a.max() for (_, a), (_, b) in pairwise(fs))
+
+
+def test_independent_folds_discounts_the_overlap() -> None:
+    # 10 folds at roll 3 / val 6 span 9*3 + 6 = 33 months, which holds 5
+    # non-overlapping 6-month windows. 5 is the number the haircut may use.
+    assert tuning.independent_folds(10, val_m=6, roll_m=3) == 5
+    # When the roll matches the window there is nothing to discount.
+    assert tuning.independent_folds(10, val_m=6, roll_m=6) == 10
+
+
+def test_independent_folds_never_exceeds_the_fold_count() -> None:
+    assert tuning.independent_folds(4, val_m=6, roll_m=12) == 4
 
 
 def test_the_holdout_never_appears_in_any_fold() -> None:
@@ -135,9 +160,12 @@ def test_deflated_sharpe_falls_as_trials_rise() -> None:
         tuning.deflated_sharpe(0.10, n_trials=200, n_obs=500)
 
 
-def test_one_trial_still_haircuts_something() -> None:
-    # Even a single configuration was selected by someone. A DSR that equals
-    # the raw Sharpe's p-value at K=1 is not deflating anything.
+def test_one_trial_has_no_haircut_because_there_is_nothing_to_deflate() -> None:
+    # E[max of ONE standard normal] is 0, so at K=1 the deflated Sharpe
+    # reduces to the probabilistic Sharpe against a zero benchmark. An
+    # earlier version special-cased K=1 with an invented constant and
+    # returned 0.040 -- a haircut that is in no theory, only in the code.
+    assert tuning.expected_max_sharpe(n_trials=1, n_obs=500) == 0.0
     assert 0.0 < tuning.deflated_sharpe(0.10, n_trials=1, n_obs=500) < 1.0
 
 
