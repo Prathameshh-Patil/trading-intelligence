@@ -1028,3 +1028,232 @@ only thing it is ever consulted for.
 **A number in here changes only in a commit that says what measurement moved it, and never after
 the surface it governs has been looked at.** If that rule and a promising result ever disagree, the
 result is the thing that is wrong.
+
+---
+
+# The spot XAUUSD block — §13–§17, committed 2026-09-18
+
+**`mathematical.md` supersedes the programme from here.** Design:
+[`docs/superpowers/specs/2026-09-18-magnitude-expansion-design.md`](../../docs/superpowers/specs/2026-09-18-magnitude-expansion-design.md).
+Five experiments across Fri 18 – Sun 20 Sep. **Four of them carry a prediction and the rule that
+outlives this file applies unchanged: the prediction is committed before the code that reads it.**
+
+---
+
+## 13 · E0 — is five years of XAUUSD actually reachable? Prathamesh, committed 2026-09-18
+
+**This one carries no prediction, deliberately.** E0 asks whether an S3 bucket serves a symbol. That
+is a fact about a vendor, not a hypothesis about a market, and there is nothing in it to p-hack. It
+gets a decision record and a kill condition instead. **§14–§17 are measurements and do carry
+predictions.**
+
+**Why this exists.** `analysis/SPOT_FEED_CHECK.md` concludes *"Dukascopy is finished as a bulk
+source from this address"* and has gated route 2 since 11 Sep. Measured 2026-09-17: the wall is an
+explicit **HTTP 429**, not the IP ban the connection resets read as, and its own JSON body names
+Dukascopy's data-export docs, which document an S3 requester-pays bucket. **The transport conclusion
+stands; the source conclusion does not.**
+
+### The decision
+
+```
+verify       cfg-public-proper-wallaby, eu-west-1, --request-payer requester
+question     does XAUUSD exist, from what date, at what cost for 5 years
+cross-check  2025-06-18 14:00 UTC must return 20,654 quotes, median spread 1.91 bp
+             -- the hour SPOT_FEED_CHECK.md §1 already validated
+fallback     Quant_Trading/scripts/fetch_dukascopy.py's BID_candles_min_1.bi5
+             daily candle endpoint: ~1,300 requests for 5y, not 43,800
+```
+
+### The kill condition
+
+- **Neither S3 nor the daily-candle endpoint serves five years** → the five-year walk-forward is
+  unavailable, **§14's protocol reverts to the 19-month GC archive**, and the block is re-scoped on
+  Friday rather than on Sunday. The degradation rule is stated in the design §7.1 and is followed
+  rather than improvised.
+- **The cross-check returns a count other than 20,654** → stop. A transport that returns a different
+  number for a known hour is not a transport, and nothing is pulled until that is understood.
+
+---
+
+## 14 · E1 — is §Objective's own filter ever satisfied? Varad, committed 2026-09-18
+
+**Why this exists.** `mathematical.md`'s §Objective permits a trade only when
+`P(M_{t,60} ≥ 150 ticks) ≥ 0.60`. **That quantity is not new to this repo** — `reach.py` has
+computed "does price reach X within H" over 19 months since 9 Sep, and `reach_table.csv` is 4.7 MB
+of it. E1 restates the spec's own gate in USD/oz and asks whether any conditioning cell reaches it.
+
+**Two design choices, stated so they can be wrong.**
+
+**(a) Disjoint windows, not rolling.** 60-minute windows stepped by one minute share 59/60 of their
+bars. `n` inflates ~60× and every confidence interval built on it is a lie. `m3b_drift.py`'s
+elapsed-time filter exists for this exact reason and its mutation test is the precedent.
+
+**(b) Absolute move, not signed.** §Objective is explicitly non-directional. A signed measure would
+be asking M1's question, and M1 already answered it: the geometry surface is a random walk minus
+cost.
+
+### The decision
+
+```
+population   19 months GC 5-min bars, then spot once E0 lands
+measure      |close(t+60m) - close(t)| in USD/oz, DISJOINT windows
+threshold    $15.00/oz  (= mathematical.md's 150 GC ticks, restated per §2 of the design)
+axis         the regime cells reach.py already conditions on
+floor        a cell with n < 400 is reported and NOT interpreted -- §3's derivation, reused
+decide on    max p across cells, against the spec's own 0.60
+```
+
+### The pre-committed prediction — Varad, before the run
+
+> 🚫 **UNWRITTEN — and E1 does not run until it is filled in and committed.**
+>
+> This is a blocking gap, not a placeholder. A threshold chosen after seeing the distribution is not
+> a threshold, and the same is true of a prediction. **Write the number you expect `max p` to be,
+> and the reasoning, so a miss can be diagnosed rather than merely scored.**
+>
+> The material to argue from is already in this repo: M2 cleared and it was about scale;
+> `REACH.md` finds `ev_sym` positive on 4.4% of served rows; M1 is a random walk minus cost. A
+> forecast that gold moves $15 in an hour with probability ≥ 0.60 is a claim about the upper tail of
+> the hourly magnitude distribution, and `BASE_RATES.md` bounds it.
+
+### The kill condition, stated in what it licenses
+
+1. **No cell reaches 0.60** → §Objective's trade-quality filter is **unsatisfiable as written**. The
+   threshold moves *before* Day 2 builds anything on it, and the new threshold is written down here
+   with its reasoning rather than tuned into existence later.
+2. **Some cell reaches 0.60** → the filter is satisfiable, and E3 then decides whether the trades it
+   admits can pay for themselves. **Clearing E1 is necessary and nowhere near sufficient.**
+3. **A cell reaches 0.60 only at n < 400** → treated as outcome 1. A base rate on 200 windows is not
+   a base rate.
+
+---
+
+## 15 · E2 — does §9's funnel produce a testable number of events? Prathamesh, committed 2026-09-18
+
+**Why this exists.** §9 stacks **sixteen** conditions. If fewer than 100 candidates survive the
+archive, no parameter setting makes the spec testable — and every hour spent on §2's ensemble before
+knowing that is an hour spent on a strategy with no sample.
+
+**The design choice that is the whole experiment: this counts and never trades.** No P&L, no fills,
+no position. An attrition table is immune to the failure mode a backtest has, which is that a
+promising equity curve makes nobody ask how many trades it rests on.
+
+### The decision
+
+```
+population   the longest archive available on the day
+measure      survivors after each of §9's 16 conditions, applied in order, cumulative AND
+report       16 rows always -- a stage that kills everything still prints its row
+dead stages  8, 9, 10, 14 (CVD_z, CVD-rising, OFI_z, Hawkes) print as SKIPPED (no tape)
+             rather than being dropped, so the reader sees what was not tested
+decide on    survivors at stage 12
+```
+
+### The pre-committed prediction — Prathamesh, before the run
+
+> 🚫 **UNWRITTEN — and E2 does not run until it is filled in and committed.**
+>
+> **Write the number of stage-12 survivors you expect, and which single condition you expect to do
+> most of the killing.** The second half matters more than the first: if the funnel dies at the
+> sweep-reclaim stage that is a structure finding, and if it dies at `OFI_z > 2.5 for 3 bars` it
+> died at a condition that cannot even run here.
+
+### The kill condition, stated in what it licenses
+
+1. **Fewer than 100 at stage 12** → the spec **cannot be validated on this archive at any parameter
+   setting**. The funnel is loosened before it is tuned, and which condition was loosened is
+   recorded here.
+2. **100–400 at stage 12** → testable but underpowered. §7.3's three-tuned-parameters-per-fold cap
+   becomes load-bearing rather than cautious, and the deflated-Sharpe haircut will do real work.
+3. **Above 400** → proceed as designed.
+
+⚠️ **The outcome that looks good and is not:** a very high survivor count means the funnel is not
+conditioning on anything, and §13's `Score ≥ 0.72` is carrying the whole filter. Report the count at
+every stage precisely so that reads as the warning it is.
+
+---
+
+## 16 · E3 — the cost floor, and where §10's stop range actually starts. Varad, committed 2026-09-18
+
+**Why this exists.** Execution moves to spot XAUUSD on a CFD prop firm, which voids §1's GC-tick
+economics entirely. Three venues differ by ~6×: GC **0.29 bp**, a prop firm **0.88 bp**
+(`Quant_Trading/src/backtest/fill_model.py`'s measured $0.30), Dukascopy **1.91 bp**
+(`SPOT_FEED_CHECK.md` §1). **`M3B_DRIFT.md`'s 0.3504 bp round-trip floor is a GC number and does not
+transfer.**
+
+⚠️ **A factor-of-ten error in the design's first draft is recorded here rather than quietly fixed.**
+An intermediate version put $0.30 at 8.8 bp and concluded the spec's 42% win rate was below
+break-even at a prop firm. It is **0.88 bp** and that conclusion is withdrawn. The reason it is
+recorded: it reversed a decision, and `e3_cost.to_bp` now carries two pinned tests against known
+values specifically so the class of error cannot recur silently.
+
+### The decision
+
+```
+measure      realised spread_bp from spot ticks, PER SESSION -- the 1.91 bp figure is
+             one London-NY hour and Asian spreads are wider
+compute      EV and break-even win rate over §10's full (D, R) rectangle
+             EV = p*R - (1-p)*D - c        p_breakeven = (D + c) / (R + D)
+costs        0.9 / 1.9 / 4.0 bp -- venue, archive, and a stress beyond either
+constraint   §13 rejects a trade whose slippage exceeds 25% of intended risk;
+             spread alone is charged against that, so the D floor is c / 0.25
+decide on    the surviving (D, R) region, and the D floor
+```
+
+### The pre-committed prediction — Varad, before the run
+
+> 🚫 **UNWRITTEN — and E3's spread measurement does not run until it is filled in and committed.**
+>
+> The arithmetic half is already settled and is not a prediction: at `D = $5.00/oz` and
+> `R = 2.5D`, EV is positive at 42% at all three costs, and the design §4 predicts the §13 exclusion
+> puts the D floor at **$2.60/oz** under a 1.91 bp spread. **What needs predicting is the empirical
+> half: what the per-session spread distribution looks like, and whether the Asian session — where
+> §9's sweep of the Asian extreme is defined — is wide enough to move that floor materially.**
+
+### The kill condition, stated in what it licenses
+
+1. **The surviving `(D, R)` region needs a win rate above anything E1's base rates support** →
+   §10's stop and target ranges are wrong for this instrument and are re-derived **before Day 2
+   builds against them**.
+2. **The Asian-session spread puts the D floor above $5.00/oz** → §9's Asian-extreme sweep and
+   §10's stop range are mutually incompatible, and one of them goes. That would be the most
+   consequential outcome of Day 1 and it is not the expected one.
+3. **The floor lands near $2.60** → §10's range is restated as `$2.60 ≤ D ≤ $5.00` and the block
+   proceeds.
+
+---
+
+## 17 · E4 — is a three-state HMM identifiable on five observations? Varad, committed 2026-09-18
+
+**Why this exists.** §7's observation vector is eight components. **Three of them — `OFI_z`,
+`CVD_z`, `λ_t` — died with the tape.** Fitting the same three-state model on the remaining five and
+reading `P(B_t) > 0.60 → P(E_{t+1}) > 0.60` off it is an assumption, not a result.
+
+### The decision
+
+```
+fit          3-state Gaussian/Student-t HMM on [r_hat_60_bp, h_*, spread_bp,
+             range-compression, sigma-ratio]
+diagnose     state persistence, transition-matrix conditioning, loglik against k=2
+refuse       any state capturing <2% of observations -- that is an outlier bucket,
+             not a regime, and P(B_t) > 0.60 on it means nothing
+decide on    whether k=3 separates anything k=2 does not
+```
+
+### The pre-committed prediction — Varad, before the run
+
+> 🚫 **UNWRITTEN — and E4 does not run until it is filled in and committed.**
+>
+> **Predict whether three states survive on five observations, and say what you expect the third
+> state to be made of.** `analysis/regimes_2026-09-02/` already fit `k=3` on this instrument under a
+> different feature set; that is the nearest prior and it is the thing to argue from.
+
+### The kill condition, stated in what it licenses
+
+1. **States not separable, or one degenerate** → **§7 is dropped.** `r_hat_60_bp` carries the regime
+   signal alone, and `p_build`/`p_expand` stay in the S13 frame carrying NaN — **a column is never
+   removed to signal a dead feature**, because removing one is a seam change needing both lanes.
+2. **k=3 separates and persists** → §7 wires into the score as specified, and §9's conditions 4–6
+   become live.
+3. **k=3 fits but k=2 fits as well** → treated as outcome 1. A third state that buys no separation
+   is two states and a parameter.

@@ -569,3 +569,42 @@ Prath.  W1 ── W2 ── W3 ── W4 ── W5 ── W6 ── W7 ── W8
 
 **Two one-day integration points in twelve weeks.** W3D3 and W5D3. Everywhere else the two lanes
 are genuinely independent, because everywhere else each side is talking to a fake it controls.
+
+---
+
+## S13 · `ExpansionFeatures` — both lanes → the scorer
+
+**Frozen 2026-09-18**, both engineers, one file, before either lane wrote a feature.
+[`services/signal-data/features/frame.py`](../../services/signal-data/features/frame.py).
+
+`FEATURES` is the exact column set. `require()` rejects **missing and extra** columns and **names
+the offending column** in both cases — S9's rule applied one level up: a lane that adds a column has
+changed the seam without the other lane knowing.
+
+```
+identity      ts, mid, spread_bp                                    Prathamesh
+§2 vol        r_hat_60_bp, r_ratio,                                 Varad
+              sigma_yz_12, sigma_yz_48, sigma_yz_288, sigma_garch
+§6 Hurst      h_dfa_15m, h_vt_15m, h_agree                          Varad
+§7 HMM        p_build, p_expand                                     Varad
+§1 §12 clock  session, phase, news_lockout                          Prathamesh
+§9 structure  swept_level, reclaim_dt_s, wick_w                     Prathamesh
+```
+
+**The three rules:**
+
+1. **Varad's lane writes the magnitude columns, Prathamesh's writes identity, clock and structure.**
+   The scorer imports both lanes; **neither lane imports the scorer or the other lane.**
+2. **No column is named in ticks or pips.** Distances are USD per ounce, rates are basis points.
+   `mathematical.md` §1 says pip conventions are broker-dependent; here that stops being advice and
+   becomes a test. Two tests enforce it — one on what passes through the seam, one on `FEATURES`
+   itself, so the rule survives whoever next edits the tuple.
+3. **A column is never dropped to signal a dead feature.** If E4 retires the HMM, `p_build` and
+   `p_expand` stay and carry NaN. Removing a column is a seam change and needs both lanes.
+
+⚠️ **What is deliberately absent.** `mathematical.md` §3–§5 specify OFI, CVD and Hawkes intensity.
+None are here. Spot XAUUSD has no tape, no aggregate size and no aggressor — `XAUUSD.has_flow` is
+`False` and `instruments.require_flow` raises on it. They are **absent rather than present-and-NaN**
+so that a lane cannot quietly begin writing an indicative-volume proxy into them. `spot.py` and
+`Quant_Trading/scripts/fetch_dukascopy_ticks.py` independently record the same ruling: Dukascopy's
+`bid_vol`/`ask_vol` are indicative liquidity, not traded size.
