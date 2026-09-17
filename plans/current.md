@@ -72,6 +72,32 @@ everything moving a week right on 28 Aug — so the two disagree by a week, and 
 Week 1's gate"* is still **unvoted**. **Until the room votes, a week number is ambiguous and a date
 is not.** The next gate is **Friday 18 September, 16:00**, whatever it ends up being called.
 
+> ## ⏸️ SUSPENDED 2026-09-17 — three days, and the misses are recorded here
+>
+> **`mathematical.md` supersedes the Track A/B programme**, execution moves to **spot XAUUSD on a
+> CFD prop firm**, and **Fri 18 – Sun 20 Sep** is a dedicated block against it. Spec:
+> [`docs/superpowers/specs/2026-09-18-magnitude-expansion-design.md`](../docs/superpowers/specs/2026-09-18-magnitude-expansion-design.md).
+> Plan: [`docs/superpowers/plans/2026-09-18-magnitude-expansion.md`](../docs/superpowers/plans/2026-09-18-magnitude-expansion.md).
+>
+> **Suspended for the block, and recorded as missed rather than absorbed**, per the rule at the
+> bottom of this section:
+>
+> | | Item | Owner | New slot |
+> | :--- | :--- | :--- | :--- |
+> | — | 💻 Install the MT5 desktop terminal on a real broker's demo | Prathamesh | Mon 21 Sep |
+> | R7 | 🌍 Read XAUUSD tick depth — `Ctrl+U` | Varad | Mon 21 Sep, after the install |
+> | — | 🧪 Add `vitest` | Prathamesh | Mon 21 Sep, unchanged |
+>
+> 🔑 **#0, the Anthropic key, is NOT suspended.** Ten minutes, a key exposed in a chat transcript,
+> and a Week 0 gate line unmet at four consecutive gates. It stays on Fri 18.
+>
+> ⚠️ **R7 gets cheaper, not just later.** `vrd07/Quant_Trading`'s `mt5_bridge/EA_DOMProbe.mq5` is a
+> read-only `MarketBookGet` probe with an explicit *"broker likely publishes no book"* path — the
+> depth check is already written, and only the terminal is missing.
+>
+> **R10's blank gate votes and the calendar decision are unaffected** — they need the room, and the
+> room is not what is suspended.
+
 ### Friday 18 Sep — before the 16:00 gate
 
 | | Item | Owner | Why this date |
