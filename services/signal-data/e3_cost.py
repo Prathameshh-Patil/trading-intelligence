@@ -38,6 +38,8 @@ TARGET_CAP_USD = 15.00
 
 def to_bp(usd_per_oz: float, price: float) -> float:
     """A distance in USD per ounce, as basis points of price."""
+    if price <= 0:
+        raise ValueError(f"price must be positive, got {price}")
     return usd_per_oz / price * 1e4
 
 
@@ -70,6 +72,10 @@ def surface(*, price: float, cost_bp: float, p: float,
     the multiple leg yields $5.00, the floor lifts it to $10.00, and the
     realised payoff is 5:1 rather than the 2.5:1 the multiple names.
     """
+    if any(d <= 0 for d in d_usd):
+        # A zero-width stop is not an excluded trade, it is invalid input, and
+        # `ZeroDivisionError` names neither. Found by review 2026-09-18.
+        raise ValueError(f"every d_usd must be positive, got {list(d_usd)}")
     rows = []
     for d in d_usd:
         d_bp = to_bp(d, price)

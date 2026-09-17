@@ -78,4 +78,20 @@ def fetch_day(symbol: str, day: date) -> pd.DataFrame:
         Key=f"{day_prefix(symbol, day)}{OBJECT_SUFFIX}",
         RequestPayer="requester",
     )
-    return dk.decode_bi5(obj["Body"].read(), symbol, pd.Timestamp(day, tz="UTC"))
+    ticks = dk.decode_bi5(obj["Body"].read(), symbol, pd.Timestamp(day, tz="UTC"))
+
+    # THE ANCHOR CHECK, AND IT IS NOT PARANOIA. `decode_bi5` stamps ticks as
+    # `anchor + milliseconds`, and Dukascopy's `.bi5` records carry
+    # milliseconds FROM THE START OF THE HOUR. The HTTP layout confirms the
+    # files are hourly -- `.../05/18/14h_ticks.bi5`, day as a directory -- so
+    # if the S3 objects turn out to be those same hourly files, every tick in
+    # a day would land inside hour 0 and decode perfectly cleanly. A frame
+    # that is wrong and well-formed is the worst outcome available here, so
+    # the span is asserted rather than trusted. Found by review 2026-09-18.
+    if len(ticks) and ticks["timestamp"].max() - ticks["timestamp"].min() < pd.Timedelta(hours=2):
+        raise ValueError(
+            f"{symbol} {day}: {len(ticks)} ticks span under two hours "
+            f"({ticks['timestamp'].min()} .. {ticks['timestamp'].max()}). "
+            "The object is probably hourly, not daily -- fix OBJECT_SUFFIX and "
+            "the decoder anchor together, and record what the bucket actually holds.")
+    return ticks

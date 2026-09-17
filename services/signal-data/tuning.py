@@ -28,8 +28,8 @@ the exemption is arithmetic rather than discretion.
 from __future__ import annotations
 
 from itertools import pairwise
+from math import ceil, sqrt
 from math import e as _e
-from math import sqrt
 from statistics import NormalDist
 
 import pandas as pd
@@ -63,6 +63,12 @@ def folds(
     train+validate window -- a walk-forward with a truncated training window
     is a walk-forward in name only, and it would be scored as if it were not.
     """
+    if min(train_m, val_m, roll_m) < 1:
+        # `roll_m = 0` never advances `train_start`, so the loop below appends
+        # the same fold forever -- a hang and unbounded memory rather than an
+        # error. Found by review 2026-09-18.
+        raise ValueError(
+            f"train_m, val_m and roll_m must all be >= 1; got {train_m}, {val_m}, {roll_m}")
     cv = index[index < holdout_start]
     if len(cv) == 0:
         return []
@@ -98,8 +104,16 @@ def independent_folds(n_folds: int, *, val_m: int, roll_m: int) -> int:
     returns all of them -- §14 asks for them and they are useful for
     stability inspection; what they are not is five extra observations.
     """
-    span = (n_folds - 1) * roll_m + val_m
-    return min(n_folds, span // val_m)
+    if n_folds < 1:
+        return 0
+    # NOT `span // val_m`. That counts how many windows FIT in the span, but
+    # folds are pinned to a `roll_m` grid and can only be taken whole, so the
+    # largest disjoint subset is every `ceil(val_m / roll_m)`-th fold. At
+    # val 6 / roll 4 the folds start at months 0,4,8,... and the best subset is
+    # 5, not the 7 that fit in 42 months -- and the error ran in the UNSAFE
+    # direction, a larger count being a weaker haircut. §14's own 3/6 divides
+    # exactly, which is why it went unnoticed. Found by review 2026-09-18.
+    return ceil(n_folds / ceil(val_m / roll_m))
 
 
 class Trials:
@@ -161,14 +175,22 @@ def deflated_sharpe(sr: float, *, n_trials: int, n_obs: int) -> float:
     return float(_N.cdf((sr - sr0) / se))
 
 
-def is_monotone(profile: list[float], *, max_reversals: int = 0) -> bool:
+def is_monotone(profile: list[float], *, max_reversals: int = 0,
+                param: str | None = None) -> bool:
     """§7.3's guard: does performance move one way across a parameter's range?
 
     Real profiles are noisy, so `max_reversals` allows a stated number of
     sign changes. A profile needing more than that is being fit to noise, and
     §7.3 says that is a finding -- the parameter freezes at the spec's value.
+
+    **Pass `param` and the exemption is enforced rather than remembered.**
+    `MONOTONICITY_EXEMPT` was exported and tested but never consulted, so a
+    tuner could apply this guard to `d_usd` and reject §10's own target
+    formula as noise. Found by review 2026-09-18.
     """
-    d = [b - a for a, b in pairwise(profile) if b != a]
+    if param is not None and param in MONOTONICITY_EXEMPT:
+        return True
+    d =[b - a for a, b in pairwise(profile) if b != a]
     if len(d) < 2:
         return True
     reversals = sum(1 for a, b in pairwise(d) if (a > 0) != (b > 0))
@@ -189,4 +211,4 @@ def haircut_report(sr: float, trials: Trials, n_obs: int) -> str:
 
 
 __all__ = ["MONOTONICITY_EXEMPT", "Trials", "deflated_sharpe", "expected_max_sharpe",
-           "folds", "haircut_report", "is_monotone"]
+           "folds", "haircut_report", "independent_folds", "is_monotone"]

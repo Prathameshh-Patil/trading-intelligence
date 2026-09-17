@@ -53,6 +53,14 @@ def require(df: pd.DataFrame) -> None:
     Naming the column is the point. "S13 frame invalid" sends someone diffing
     two 20-column frames by eye; "missing ['r_hat_60_bp']" does not.
     """
+    # `set(df.columns)` collapses duplicate labels, so a frame with 21 labels
+    # and 20 unique ones passed -- and `df["mid"]` downstream then returns a
+    # DataFrame rather than a Series, which is exactly the silent seam change
+    # this module exists to reject. Found by review 2026-09-18.
+    if len(df.columns) != len(set(df.columns)):
+        cols = list(df.columns)
+        raise ValueError(
+            f"S13 frame has duplicate column labels: {sorted({c for c in cols if cols.count(c) > 1})}")
     got, want = set(df.columns), set(FEATURES)
     if missing := sorted(want - got):
         raise ValueError(f"S13 frame is missing {missing}")

@@ -234,3 +234,47 @@ def test_the_d_profile_measured_on_2026_09_18_is_not_monotone() -> None:
     # this guard to D would reject the construction rather than find noise.
     assert not tuning.is_monotone([7.03, 6.01, 5.33, 3.62, 5.00])
     assert "d_usd" in tuning.MONOTONICITY_EXEMPT
+
+
+# --------------------------------------------- code review 2026-09-18, fixes
+
+def test_independent_folds_respects_the_roll_grid_not_just_the_span() -> None:
+    # Folds start on a roll_m grid, so the largest DISJOINT subset is not
+    # "how many windows fit in the span". At val 6 / roll 4 the folds begin
+    # at months 0,4,8,... and picking every second one is the best you can
+    # do: 5, not the 7 that fit in 42 months. The error was in the unsafe
+    # direction -- a larger count is a weaker haircut.
+    assert tuning.independent_folds(10, val_m=6, roll_m=4) == 5
+    assert tuning.independent_folds(10, val_m=6, roll_m=5) == 5
+    # §14's own 3/6 divides exactly, which is why this went unnoticed.
+    assert tuning.independent_folds(10, val_m=6, roll_m=3) == 5
+
+
+def test_independent_folds_of_nothing_is_zero_not_minus_one() -> None:
+    assert tuning.independent_folds(0, val_m=6, roll_m=12) == 0
+
+
+def test_folds_refuses_a_non_advancing_roll_rather_than_hanging() -> None:
+    # roll_m = 0 never advances train_start, so the loop appends the same
+    # fold forever: a hang plus unbounded memory, not an error.
+    with pytest.raises(ValueError, match="roll_m"):
+        tuning.folds(idx("2020-01-01", 60), holdout_start=HOLDOUT, roll_m=0)
+
+
+def test_folds_refuses_non_positive_windows() -> None:
+    for kw in ({"train_m": 0}, {"val_m": -1}):
+        with pytest.raises(ValueError):
+            tuning.folds(idx("2020-01-01", 60), holdout_start=HOLDOUT, **kw)  # type: ignore[arg-type]
+
+
+def test_the_exemption_is_enforced_not_merely_documented() -> None:
+    # MONOTONICITY_EXEMPT was exported and tested but never consulted, so the
+    # exemption depended on whoever wrote the tuner remembering it.
+    d_profile = [7.03, 6.01, 5.33, 3.62, 5.00]
+    assert not tuning.is_monotone(d_profile)
+    assert tuning.is_monotone(d_profile, param="d_usd")
+    assert not tuning.is_monotone(d_profile, param="p_e_threshold")
+
+
+def test_independent_folds_is_exported() -> None:
+    assert "independent_folds" in tuning.__all__

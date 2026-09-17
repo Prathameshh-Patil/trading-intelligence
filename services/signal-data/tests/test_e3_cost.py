@@ -85,3 +85,15 @@ def test_the_target_floor_of_ten_dollars_binds_at_tight_stops():
     # a much stronger claim than the spec argues for anywhere.
     surf = e3_cost.surface(price=GOLD, cost_bp=1.91, p=0.42, d_usd=[2.00], r_mult=[2.5])
     assert surf["r_bp"].iloc[0] == pytest.approx(e3_cost.to_bp(10.00, GOLD), abs=1e-6)
+
+
+def test_a_zero_stop_is_refused_rather_than_dividing_by_zero() -> None:
+    # A zero-width stop is not an excluded trade, it is invalid input, and
+    # ZeroDivisionError names neither. Found by review 2026-09-18.
+    with pytest.raises(ValueError, match="d_usd"):
+        e3_cost.surface(price=GOLD, cost_bp=1.91, p=0.42, d_usd=[0.0], r_mult=[2.5])
+
+
+def test_a_zero_price_is_refused() -> None:
+    with pytest.raises(ValueError, match="price"):
+        e3_cost.to_bp(0.30, 0.0)

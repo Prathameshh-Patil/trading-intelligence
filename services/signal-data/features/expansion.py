@@ -91,7 +91,12 @@ def _yz_k(n: int) -> float:
 
     `0.34 / (1.34 + (n+1)/(n-1))`. Rises from 0.078 at n=2 toward 0.34/2.34
     = 0.1453 as n grows; a value outside that band means a mistyped formula.
+
+    `n = 1` divides by zero, and a one-bar variance is not a window anyway.
+    Found by review 2026-09-18.
     """
+    if n < 2:
+        raise ValueError(f"Yang-Zhang needs a window of at least 2 bars, got {n}")
     return 0.34 / (1.34 + (n + 1) / (n - 1))
 
 
@@ -150,10 +155,21 @@ _SCALES: tuple[int, ...] = (4, 8, 16, 32, 64, 128, 256)
 AGREE_TOL = 0.05
 
 
+# DFA cannot use a scale below this and neither may variance-time, even though
+# variance-time alone would be fine: `hurst_agree` compares the two, and H is
+# scale-dependent, so two estimators regressed over DIFFERENT scale sets are
+# not two readings of one quantity. Measured 2026-09-18 with a shared
+# `(2,4,8,16,32)` on a pure random walk -- DFA silently dropped the 2 and VT
+# did not -- `dfa 0.563, vt 0.510, agree False`: the gate closed on the one
+# series whose answer is known to be 0.5. Found by review.
+MIN_SCALE = 4
+
+
 def _usable_scales(n: int, scales: tuple[int, ...]) -> list[int]:
-    """Scales with at least four windows in `n` points. Fewer than four and
-    the fluctuation at that scale is an average of two or three numbers."""
-    return [s for s in scales if n // s >= 4]
+    """Scales with at least four windows in `n` points, and never below
+    `MIN_SCALE`. Fewer than four windows and the fluctuation at that scale is
+    an average of two or three numbers."""
+    return [s for s in scales if s >= MIN_SCALE and n // s >= 4]
 
 
 def _loglog_slope(x: list[float], y: list[float]) -> float:
@@ -176,12 +192,11 @@ def hurst_dfa(logprice: np.ndarray, scales: tuple[int, ...] = _SCALES) -> float:
         return float("nan")
     profile = np.cumsum(r - r.mean())
     f = []
-    # SCALES BELOW 4 ARE DROPPED, and this is not tidiness. A least-squares
-    # line through 2 or 3 points fits them almost exactly, so F(s) collapses
-    # toward zero, log F(s) toward -inf, and the slope explodes: measured
-    # 2026-09-18, including s=2 returned H = 14.0 on a series whose true H is
-    # below 0.5. Variance-time has no such floor -- it fits no trend.
-    used = [s for s in _usable_scales(len(profile), scales) if s >= 4]
+    # `_usable_scales` applies MIN_SCALE. A least-squares line through 2 or 3
+    # points fits them almost exactly, so F(s) collapses toward zero, log F(s)
+    # toward -inf, and the slope explodes: measured 2026-09-18, including s=2
+    # returned H = 14.0 on a series whose true H is below 0.5.
+    used = _usable_scales(len(profile), scales)
     if len(used) < 3:
         return float("nan")
     for s in used:

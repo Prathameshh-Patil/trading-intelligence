@@ -11,6 +11,8 @@ missing weight.
 
 from __future__ import annotations
 
+from functools import cache
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -291,8 +293,12 @@ def test_sigma_is_never_negative() -> None:
 # function can tell.
 
 
+@cache
 def walk(n: int, phi: float = 0.0, seed: int = 0) -> np.ndarray:
     """Log prices whose increments are AR(1) with coefficient `phi`.
+
+    Cached: eight tests ask for the same 20,000-step series and the AR(1)
+    recursion is a Python loop. Callers must not mutate the result.
 
     phi = 0 is a random walk and H = 0.5. phi > 0 makes increments persistent
     and lifts H; phi < 0 makes them mean-reverting and lowers it. This is
@@ -397,3 +403,43 @@ def test_a_constant_series_is_nan_not_zero() -> None:
     flat = np.full(5_000, np.log(3000.0))
     assert np.isnan(ex.hurst_dfa(flat))
     assert np.isnan(ex.hurst_vt(flat))
+
+
+def test_both_hurst_estimators_use_the_same_scale_set() -> None:
+    # H is scale-dependent, so two estimators regressed over DIFFERENT scales
+    # are not two readings of one quantity -- and `hurst_agree` compares them.
+    # Before the fix DFA dropped s=2 and VT did not: on a pure random walk
+    # with a shared (2,4,8,16,32) that gave dfa 0.563 / vt 0.510 / agree
+    # False, closing the gate on the one series whose answer is known.
+    # Found by review 2026-09-18.
+    x = walk(20_000)
+    mixed, floored = (2, 4, 8, 16, 32), (4, 8, 16, 32)
+    assert ex.hurst_dfa(x, mixed) == ex.hurst_dfa(x, floored)
+    assert ex.hurst_vt(x, mixed) == ex.hurst_vt(x, floored)
+
+
+def test_dfa_is_biased_high_on_a_short_scale_ladder_and_agreement_fails_there() -> None:
+    # A SECOND REASON §6's 15-MINUTE HURST CANNOT COME FROM COARSE BARS.
+    # Sharing a scale set (the fix above) is necessary and not sufficient: on
+    # a pure random walk restricted to scales (4,8,16,32), DFA reads 0.563
+    # against variance-time's 0.513 and a true 0.5 -- DFA's well-known
+    # finite-size bias at small windows. The gap is 0.050 against AGREE_TOL
+    # of 0.05, so `hurst_agree` returns False on the one series whose answer
+    # is known, and `h_agree` would be systematically False for any feature
+    # computed over a short ladder.
+    #
+    # Pinned rather than tuned around: widening AGREE_TOL to make this pass
+    # would hide the bias instead of measuring it.
+    x = walk(20_000)
+    short = (4, 8, 16, 32)
+    d, v = ex.hurst_dfa(x, short), ex.hurst_vt(x, short)
+    assert d - v > 0.04, "DFA's short-ladder bias, measured 2026-09-18"
+    assert not ex.hurst_agree(d, v)
+    # Over the default ladder, which reaches 256, they do agree.
+    assert ex.hurst_agree(ex.hurst_dfa(x), ex.hurst_vt(x))
+
+
+def test_yang_zhang_refuses_a_one_bar_window_rather_than_dividing_by_zero() -> None:
+    # (n+1)/(n-1) divides by zero at n=1. Found by review 2026-09-18.
+    with pytest.raises(ValueError, match="at least 2"):
+        ex._yz_k(1)

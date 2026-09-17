@@ -55,3 +55,13 @@ def test_no_seam_column_is_named_in_ticks_or_pips():
     # The unit rule applied to the seam itself, not just to what passes through
     # it. Stops the rule being broken by whoever next edits FEATURES.
     assert not [c for c in frame.FEATURES if "tick" in c or "pip" in c]
+
+
+def test_a_duplicated_column_label_is_rejected() -> None:
+    # `set(df.columns)` collapses duplicates, so a frame with 21 labels and
+    # 20 unique ones passed. Downstream `df["mid"]` then returns a DataFrame
+    # rather than a Series -- precisely the silent seam change this module
+    # exists to reject. Found by review 2026-09-18.
+    df = pd.concat([full(), full()[["mid"]]], axis=1)
+    with pytest.raises(ValueError, match="duplicate"):
+        frame.require(df)
