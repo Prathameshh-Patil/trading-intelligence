@@ -98,6 +98,30 @@ is not.** The next gate is **Friday 18 September, 16:00**, whatever it ends up b
 > **R10's blank gate votes and the calendar decision are unaffected** — they need the room, and the
 > room is not what is suspended.
 
+> ### Day 1 progress, 2026-09-18 01:00 — [`daily_updates/2026-09-18.md`](../daily_updates/2026-09-18.md)
+>
+> **Built:** S13 seam (registered in `contracts.md`) · E3's cost model · Yang-Zhang · Hurst by DFA
+> and variance-time · `spot_s3`'s offline half. **381 tests passing, up from 337**; `ruff` and
+> `mypy` clean across 64 files. Merged `5092450..0841fed`.
+>
+> **Blocked, and all four on a person:**
+>
+> | | Item | Whose |
+> | :--- | :--- | :--- |
+> | §14–§17 | **Four unwritten predictions** — they gate E1, E2, E4 and E3's empirical half | Varad ×3, Prathamesh ×1 |
+> | E0 | **An AWS account** for the requester-pays bucket. ~$0.06 by Dukascopy's worked example | Varad |
+> | T7 | **`scipy`** into the lockfile, which unblocks GARCH and the ensemble | Varad |
+> | #0 | 🔑 **The Anthropic key** — explicitly *not* suspended | Varad |
+>
+> Drafts for the four predictions are in
+> [`strategy-precommit-drafts.md`](team/strategy-precommit-drafts.md), deliberately outside
+> `strategy-precommit.md` so that file only ever holds signed text.
+>
+> ⚠️ **One decision the Hurst work forces, before E0 pulls anything.** §6 wants a 15-minute Hurst,
+> and it cannot be computed from 5-minute bars — three bars is not three scales. If E0 pulls 5min
+> only, `h_dfa_15m` and `h_vt_15m` are NaN by construction and two S13 columns are dead. **That is a
+> choice about granularity, and it belongs before the pull rather than after it.**
+
 ### Friday 18 Sep — before the 16:00 gate
 
 | | Item | Owner | Why this date |
