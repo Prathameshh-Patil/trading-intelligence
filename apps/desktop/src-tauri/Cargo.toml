@@ -26,4 +26,9 @@ tauri-plugin-opener = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tauri-plugin-global-shortcut = "2"
+# Feed credentials go to the OS keychain and nowhere else (W3D1: "never
+# plaintext on disk, never to our servers"). Native backends only -- the
+# crate's file-based fallbacks are exactly the plaintext-on-disk this exists
+# to rule out, so they are not enabled.
+keyring = { version = "3", features = ["apple-native", "windows-native", "sync-secret-service"] }
 
