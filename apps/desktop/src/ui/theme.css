@@ -136,7 +136,9 @@ body.standalone .shell {
 .topbar {
   display: flex;
   align-items: center;
-  gap: 10px;
+  /* 8, not 10: at 380px with the feed pill added, 10 costs the brand its last
+     letters even in the live state. Measured, not eyeballed. */
+  gap: 8px;
   padding: 14px 16px;
   border-bottom: 1px solid var(--border);
   background: rgba(7, 8, 12, 0.72);
@@ -188,6 +190,24 @@ body.standalone .shell {
   font-size: 14px;
   font-weight: 600;
   letter-spacing: -0.01em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* At 380px the topbar cannot always hold the brand, the feed pill, the
+   crosshair and the rule pill at full width -- `Stale 42s` next to
+   `Trading Intelligence` is ~30px over. The name is decoration and the feed
+   state is information, so the name is what truncates. */
+.topbar .brand,
+.topbar .row {
+  min-width: 0;
+}
+
+.brand-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .spacer {
@@ -246,6 +266,105 @@ body.standalone .shell {
 }
 .rule-pill.breach .dot {
   background: var(--red);
+}
+
+/* ------------------------------------------------------------------ */
+/* Feed status indicator                                               */
+/* ------------------------------------------------------------------ */
+
+/* Same footprint as .rule-pill so the two read as a pair. Four states, each
+   distinct by hue AND glyph shape AND label -- the reduced-motion rule at the
+   bottom of this file zeroes every animation, so nothing below may depend on
+   the spin or the blink to be legible. */
+.feed-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px 5px 8px;
+  border-radius: 99px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  white-space: nowrap;
+  flex: none;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.feed-glyph {
+  width: 8px;
+  height: 8px;
+  flex: none;
+  border-radius: 99px;
+  box-sizing: border-box;
+}
+
+/* live: filled circle, steady, and no word -- see FeedPill */
+.feed-pill.live {
+  color: var(--green);
+  border-color: rgba(52, 211, 153, 0.28);
+  background: rgba(52, 211, 153, 0.1);
+  padding: 5px 6px;
+  gap: 0;
+}
+.feed-pill.live .feed-glyph {
+  background: var(--green);
+}
+
+/* connecting: hollow ring; spins while motion is allowed */
+.feed-pill.connecting {
+  color: #a5b4fc;
+  border-color: rgba(99, 102, 241, 0.35);
+  background: rgba(99, 102, 241, 0.12);
+}
+.feed-pill.connecting .feed-glyph {
+  border: 2px solid #a5b4fc;
+  border-top-color: transparent;
+  animation: feed-spin 0.9s linear infinite;
+}
+
+/* stale: filled circle like live, but amber, blinking slowly, and carrying a
+   seconds counter in the label. The counter is the part that survives
+   reduced motion and a colour-blind trader. */
+.feed-pill.stale {
+  color: var(--amber);
+  border-color: rgba(251, 191, 36, 0.3);
+  background: rgba(251, 191, 36, 0.1);
+}
+.feed-pill.stale .feed-glyph {
+  background: var(--amber);
+  animation: feed-blink 1.6s ease-in-out infinite;
+}
+
+/* disconnected: a square. The only non-circle, so it is unmistakable even as
+   a silhouette. */
+.feed-pill.disconnected {
+  color: #fca5a5;
+  border-color: rgba(248, 113, 113, 0.38);
+  background: rgba(248, 113, 113, 0.13);
+}
+.feed-pill.disconnected .feed-glyph {
+  background: var(--red);
+  border-radius: 1px;
+}
+
+@keyframes feed-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes feed-blink {
+  50% { opacity: 0.3; }
 }
 
 /* ------------------------------------------------------------------ */
@@ -972,6 +1091,7 @@ body.standalone .shell {
 }
 
 .feed-ok .feed-dot { background: var(--green); }
+.feed-sync .feed-dot { background: #a5b4fc; }
 .feed-warn .feed-dot { background: var(--amber); }
 .feed-bad .feed-dot { background: var(--red); }
 
@@ -982,6 +1102,7 @@ body.standalone .shell {
 }
 
 .feed-ok .feed-state { color: var(--green); }
+.feed-sync .feed-state { color: #a5b4fc; }
 .feed-warn .feed-state { color: var(--amber); }
 .feed-bad .feed-state { color: var(--red); }
 

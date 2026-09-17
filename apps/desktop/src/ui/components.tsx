@@ -4,6 +4,8 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { AlertIcon, CheckIcon } from "./Icons";
 import { pressable, riseIn, softSpring, spring } from "./motion";
 import type { RiskLevel } from "../lib/rules";
+import { formatDuration, type Feed } from "../lib/feed";
+import type { FeedState } from "../lib/engine/types";
 
 /* ------------------------------------------------------------------ */
 /* Animated number                                                     */
@@ -141,6 +143,75 @@ export function RulePill({
       />
       {LEVEL_COPY[level]}
       {count > 0 && ` · ${count}`}
+    </motion.button>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Feed status indicator                                               */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Four states, told apart three ways at once — hue, glyph shape, and label —
+ * because `theme.css` zeroes every animation under `prefers-reduced-motion`
+ * and a design that leaned on the blink would collapse `stale` into `live`
+ * for exactly the trader who asked for less motion.
+ *
+ *   live          green   filled circle, steady
+ *   connecting    indigo  hollow ring (spins when motion is allowed)
+ *   stale         amber   filled circle + a counter of time spent stale
+ *   disconnected  red     square
+ *
+ * `stale` is the one S2 says is easy to get wrong, so it is the only state
+ * that carries a number: `Stale 42s` reads as "connected, heard nothing for
+ * 42 seconds" from across a desk, where `Stale` alone reads as a quiet market.
+ * The number is time in state, not time since a tick — `feed.ts` says why.
+ */
+const FEED_COPY: Record<FeedState, { label: string; hint: string }> = {
+  live: { label: "Live", hint: "Feed connected and receiving ticks" },
+  connecting: { label: "Connecting", hint: "Opening the feed connection" },
+  stale: {
+    label: "Stale",
+    hint: "Connected but not receiving. This is not a quiet market — no tick has arrived.",
+  },
+  disconnected: { label: "No feed", hint: "Not connected to any feed" },
+};
+
+export function FeedPill({ feed, onClick }: { feed: Feed; onClick: () => void }) {
+  const { state, vendor } = feed.status;
+  const copy = FEED_COPY[state];
+
+  const counting = state === "stale";
+  const elapsed = formatDuration(feed.inStateMs);
+
+  const title = [
+    copy.hint,
+    vendor ? `Vendor: ${vendor}` : null,
+    counting ? `Stale for ${elapsed}` : null,
+    feed.error ? `Connect failed: ${feed.error}` : null,
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  return (
+    <motion.button
+      className={`feed-pill ${state}`}
+      onClick={onClick}
+      whileTap={{ scale: 0.95 }}
+      transition={spring}
+      title={title}
+      aria-live="polite"
+      aria-atomic="true"
+    >
+      <span className="feed-glyph" aria-hidden />
+      {/* Live is the steady state, so it is a steady green dot and nothing
+          else -- at 380px the word costs the brand its last syllable, and the
+          three states that need a trader's attention stand out more against
+          a wordless normal. Screen readers still get the label. */}
+      {state === "live" ? <span className="sr-only">{copy.label}</span> : copy.label}
+      {/* Announce a change of state, not every second of the stale counter:
+          the counter is hidden from the live region and the state is not. */}
+      {counting && <span aria-hidden>{`\u00a0${elapsed}`}</span>}
     </motion.button>
   );
 }

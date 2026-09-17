@@ -2,11 +2,12 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { BackIcon, CrosshairIcon } from "./ui/Icons";
-import { RulePill, Toast } from "./ui/components";
+import { FeedPill, RulePill, Toast } from "./ui/components";
 import { viewVariants } from "./ui/motion";
 import "./ui/theme.css";
 
 import { useClickThrough } from "./lib/clickThrough";
+import { useFeed } from "./lib/feed";
 import { computeStats, evaluateRules, riskLevel } from "./lib/rules";
 import {
   addJournalEntry,
@@ -60,6 +61,10 @@ export default function SidePanel() {
   const [direction, setDirection] = useState(1);
 
   const clickThrough = useClickThrough();
+
+  // The feed belongs to the shell, not to whichever view is open -- see
+  // `lib/feed.ts`. Connected here once; every view reads the same status.
+  const feed = useFeed();
 
   // Diagnostic aid: an opaque panel makes click-through untestable, because
   // there is nothing under it to aim at. Faded while armed so what is being
@@ -207,7 +212,7 @@ export default function SidePanel() {
         <div className="topbar" data-tauri-drag-region>
           <div className="brand">
             <div className="brand-mark">T</div>
-            Trading Intelligence
+            <span className="brand-text">Trading Intelligence</span>
           </div>
         </div>
       </div>
@@ -299,7 +304,7 @@ export default function SidePanel() {
               transition={{ duration: 0.16 }}
             >
               <div className="brand-mark">T</div>
-              Trading Intelligence
+              <span className="brand-text">Trading Intelligence</span>
             </motion.div>
           ) : (
             <motion.div
@@ -324,6 +329,10 @@ export default function SidePanel() {
         </AnimatePresence>
 
         <div className="spacer" data-tauri-drag-region />
+
+        {/* W3D1: the four feed states, visible from every view. Tapping it
+            opens Order Flow, where the detail (vendor, gaps, last tick) lives. */}
+        <FeedPill feed={feed} onClick={() => navigate("flow")} />
 
         <button
           className={`click-through-btn${clickThrough.enabled ? " armed" : ""}`}

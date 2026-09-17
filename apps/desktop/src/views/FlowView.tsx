@@ -16,11 +16,14 @@ import { motion } from "framer-motion";
 
 import { getEngine, getMockControls } from "../lib/engine";
 import { unsignedVolume } from "../lib/engine/mock";
+import { useFeed } from "../lib/feed";
 import type { DeltaBar, FeedStatus, Outlier } from "../lib/engine/types";
 
 const STATE_COPY: Record<FeedStatus["state"], { label: string; tone: string }> = {
   live: { label: "Live", tone: "ok" },
-  connecting: { label: "Connecting", tone: "warn" },
+  // Its own tone. The first version gave `connecting` and `stale` the same
+  // amber, which is the exact confusion S2 warns about, one level up.
+  connecting: { label: "Connecting", tone: "sync" },
   // The state S2 calls out as easy to get wrong: connected but not receiving,
   // which looks exactly like a quiet market and is not one.
   stale: { label: "Stale — no ticks", tone: "warn" },
@@ -48,32 +51,27 @@ export default function FlowView() {
   const engine = useMemo(() => getEngine(), []);
   const controls = useMemo(() => getMockControls(), []);
 
-  const [status, setStatus] = useState<FeedStatus | null>(null);
+  // Status and the connection itself come from the shell's store (W3D1).
+  // Connecting from here meant the feed only existed while this view was
+  // open, and re-opening it restarted the replay.
+  const { status, error } = useFeed();
   const [bar, setBar] = useState<DeltaBar | null>(null);
   const [outliers, setOutliers] = useState<Outlier[]>([]);
   const [symbol, setSymbol] = useState("GC");
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const offBar = engine.onBar(setBar);
-    const offStatus = engine.onStatus(setStatus);
     const offOutlier = engine.onOutlier((o) =>
       setOutliers((prev) => [o, ...prev].slice(0, 8)),
     );
 
-    engine
-      .connect({ vendor: "mock" })
-      .then(setStatus)
-      .catch((e: unknown) => setError(e instanceof Error ? e.message : String(e)));
-
     return () => {
       offBar();
-      offStatus();
       offOutlier();
     };
   }, [engine]);
 
-  const state = status?.state ?? "disconnected";
+  const state = status.state;
   const copy = STATE_COPY[state];
 
   // contracts.md's pending 'N' amendment: any consumer reporting delta must
@@ -102,8 +100,8 @@ export default function FlowView() {
       <div className={`feed-row feed-${copy.tone}`}>
         <span className="feed-dot" />
         <span className="feed-state">{copy.label}</span>
-        <span className="feed-vendor" title={status?.vendor ?? ""}>
-          {status?.vendor ?? "—"}
+        <span className="feed-vendor" title={status.vendor ?? ""}>
+          {status.vendor ?? "—"}
         </span>
       </div>
 
@@ -112,9 +110,9 @@ export default function FlowView() {
         <span>·</span>
         <span>1m</span>
         <span>·</span>
-        <span>{status?.gapCount ?? 0} gaps</span>
+        <span>{status.gapCount} gaps</span>
         <span>·</span>
-        <span>{status?.lastTickAt ? clock(status.lastTickAt) : "no ticks"} ET</span>
+        <span>{status.lastTickAt ? clock(status.lastTickAt) : "no ticks"} ET</span>
       </div>
 
       {error && <div className="feed-error">{error}</div>}
