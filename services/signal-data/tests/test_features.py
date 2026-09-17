@@ -12,6 +12,7 @@ missing weight.
 from __future__ import annotations
 
 import numpy as np
+import pandas as pd
 from conftest import NEXT, SESSION, bars_at
 
 from features import expansion as ex
@@ -176,3 +177,102 @@ def test_absorption_is_still_contracts_per_tick() -> None:
     # one-sided flow across a 20-tick bar is 20 contracts per tick.
     bars = bars_at([0], [100.0], deltas=[400], ranges=[2.0])
     assert of.absorption(bars, GC).iloc[0] == 20.0
+
+
+# --------------------------------------------------------------------------
+# Yang-Zhang -- mathematical.md §2. Task 6 of the 18-20 Sep block.
+#
+# What gets tested hardest is drift-independence, because it is the entire
+# reason §2 specifies Yang-Zhang over close-to-close: gold rose 55.2% across
+# the archive (M3B_DRIFT.md's correction), and an estimator that reads that
+# trend as volatility would report the bull market as risk.
+
+
+def ohlc(rows: list[tuple[float, float, float, float]]) -> pd.DataFrame:
+    """Bars from explicit (open, high, low, close). `bars_at` cannot serve
+    here: it sets open == close, which zeroes Yang-Zhang's open-to-close leg
+    and would let a missing `k` term pass every test."""
+    idx = pd.date_range("2025-06-02T13:30:00Z", periods=len(rows), freq="5min")
+    return pd.DataFrame(rows, columns=["open", "high", "low", "close"], index=idx)
+
+
+def test_k_matches_the_published_constant() -> None:
+    # k = 0.34 / (1.34 + (n+1)/(n-1)). Yang & Zhang (2000).
+    assert ex._yz_k(12) == np.float64(0.34 / (1.34 + 13 / 11))
+    assert abs(ex._yz_k(12) - 0.134823) < 1e-6
+
+
+def test_k_approaches_the_large_n_limit() -> None:
+    # (n+1)/(n-1) -> 1, so k -> 0.34/2.34. A k that drifts outside
+    # [0.078, 0.146] for any n >= 2 means the formula was mistyped.
+    assert abs(ex._yz_k(10_000) - 0.34 / 2.34) < 1e-4
+    assert all(0.078 <= ex._yz_k(n) <= 0.146 for n in (2, 12, 48, 288))
+
+
+def test_a_series_of_identical_flat_bars_has_zero_volatility() -> None:
+    bars = ohlc([(3000.0, 3000.0, 3000.0, 3000.0)] * 30)
+    assert ex.yang_zhang(bars, n=12).dropna().eq(0.0).all()
+
+
+def test_it_is_drift_independent() -> None:
+    # The whole claim. Identical bar SHAPES, one series flat and one ramping
+    # hard: Yang-Zhang must return the same sigma, because the ramp lives in
+    # the close-to-close return it deliberately does not use.
+    shape = [(0.0, 2.0, -2.0, 1.0)] * 40  # o, h, l, c as offsets from a base
+    flat = ohlc([(3000 + o, 3000 + h, 3000 + lo, 3000 + c) for o, h, lo, c in shape])
+    ramp = ohlc([(3000 + o + 5 * i, 3000 + h + 5 * i, 3000 + lo + 5 * i, 3000 + c + 5 * i)
+                 for i, (o, h, lo, c) in enumerate(shape)])
+    a = ex.yang_zhang(flat, n=12).dropna()
+    b = ex.yang_zhang(ramp, n=12).dropna()
+    # Not exactly equal: the log transform makes the same dollar range a
+    # slightly smaller LOG range at a higher price. Same order, though --
+    # a close-to-close estimator would be several times larger on the ramp.
+    assert (b / a).max() < 1.05
+
+
+def test_a_close_to_close_estimator_would_fail_that_test() -> None:
+    # The control for the test above. If this ever stops holding, the ramp
+    # fixture is too weak to distinguish the two estimators and the
+    # drift-independence test above is passing vacuously.
+    shape = [(0.0, 2.0, -2.0, 1.0)] * 40
+    ramp = ohlc([(3000 + o + 5 * i, 3000 + h + 5 * i, 3000 + lo + 5 * i, 3000 + c + 5 * i)
+                 for i, (o, h, lo, c) in enumerate(shape)])
+    flat = ohlc([(3000 + o, 3000 + h, 3000 + lo, 3000 + c) for o, h, lo, c in shape])
+    def c2c(b: pd.DataFrame) -> pd.Series:
+        return np.log(b["close"]).diff().rolling(12).std()
+
+    assert c2c(ramp).dropna().mean() > 5 * c2c(flat).dropna().mean()
+
+
+def test_a_window_shorter_than_n_is_nan_not_a_partial_estimate() -> None:
+    # A partial-window estimate is a smaller number that looks like calm, and
+    # `r_ratio` divides by it.
+    #
+    # FIRST VALID IS INDEX n, NOT n-1, and the extra bar is not an off-by-one.
+    # The overnight term is ln(O_t / C_{t-1}), so n overnight returns need
+    # n+1 bars. An implementation that produced a number at index 11 would be
+    # computing the window from 11 overnight returns and one NaN.
+    out = ex.yang_zhang(ohlc([(3000.0, 3001.0, 2999.0, 3000.5)] * 30), n=12)
+    assert out.iloc[:12].isna().all()
+    assert out.iloc[12:].notna().all()
+
+
+def test_wider_bars_give_a_larger_sigma() -> None:
+    narrow = ohlc([(3000.0, 3000.5, 2999.5, 3000.2)] * 30)
+    wide = ohlc([(3000.0, 3005.0, 2995.0, 3002.0)] * 30)
+    assert ex.yang_zhang(wide, n=12).dropna().mean() > \
+        ex.yang_zhang(narrow, n=12).dropna().mean()
+
+
+def test_sigma_is_never_negative() -> None:
+    # The Rogers-Satchell term is a sum of products that can go negative on a
+    # single bar. Summed into a variance it must not drive the total below
+    # zero and produce a NaN from the square root.
+    rng = np.random.default_rng(0)
+    rows = []
+    for _ in range(200):
+        o, c = 3000 + rng.normal(0, 2), 3000 + rng.normal(0, 2)
+        rows.append((o, max(o, c) + abs(rng.normal(0, 1)), min(o, c) - abs(rng.normal(0, 1)), c))
+    out = ex.yang_zhang(ohlc(rows), n=12).dropna()
+    assert (out >= 0).all()
+    assert out.notna().all()

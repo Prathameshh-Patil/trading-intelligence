@@ -337,6 +337,25 @@ performance should move in across its plausible range is written down. A paramet
 comes back non-monotone and jagged is **being fit to noise, and that is a finding, not a setting** —
 it gets frozen at the spec's stated value and recorded.
 
+⚠️ **`D` is exempt, and the exemption is not a loophole — it is arithmetic.** Computed 2026-09-18
+from `e3_cost.surface` at the archive's 1.91 bp, EV against `D` runs:
+
+```
+D      $2.00   $2.60   $3.00   $4.00   $5.00
+EV bp   7.03    6.01    5.33    3.62    5.00      <- minimum at $4.00, then rises
+```
+
+**§10's `R = max(2.5D, $10.00)` is the cause.** Below `D = $4.00` the `$10.00` floor binds, so the
+payoff ratio slides from 5:1 down to 2.5:1 as `D` widens and EV falls; past `$4.00` the multiple
+takes over and EV climbs again. The dip is the target formula, not noise, and **a monotonicity check
+applied naively to `D` would reject the spec's own construction.** So `D` is scored on the *shape*
+above rather than on monotonicity, and any tuner implementing §7.3 must special-case it.
+
+**The general lesson, which is why this is in the spec and not a code comment:** the rule assumes a
+parameter enters EV once. `D` enters twice — as the loss leg and, through the target formula, as the
+win leg. **Before exempting anything else, check whether it enters twice.** `R`'s multiple has the
+same property and needs the same look.
+
 ### 7.4 Guard 3 — multiple-testing haircut
 
 Every configuration evaluated increments a counter **inside the tuner**, so the trial count cannot be
