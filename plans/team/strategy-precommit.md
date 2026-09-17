@@ -718,6 +718,96 @@ it needs the rules built and a threshold nobody has committed, and it is not thi
 
 ---
 
+## 12 · M3b — is there a time-of-day drift at all? Varad, committed 2026-09-17
+
+**Due before the run, and before the first line of code.** A twelfth, and the first since M4b.
+
+**Why this exists.** `M3_CLOCK.md` §6 logs a pattern it explicitly refuses to claim: `London-NY`
+runs **−0.018 long / +0.035 short** and `Asia-London` runs **+0.036 long / −0.031 short** — large,
+opposite, and *growing with a wider stop*, over a period when gold rose **84%**. M3's own words:
+*"M3 is non-directional and its null controls for side but not for time-of-day drift. It needs its
+own experiment and its own null."* This is that experiment. It has sat open since 6 Sep.
+
+**What M3b is NOT.** It is not a directional strategy, not a new slot in the six, and it proposes no
+rule. It answers one question — **is there a time-of-day drift in the tape, beyond the bull market
+that every phase inherits?** — because until that is answered, M3's per-side asymmetry has two
+readings and nobody can say which.
+
+**Two design choices that are the whole experiment, stated so they can be wrong.**
+
+**(a) Returns, not brackets.** M3's numbers reached us *through* a bracket, and a bracket confounds
+direction with volatility — which is precisely the axis M3 found to be non-flat, and precisely the
+`atr_bp` quiet-hour-before-the-release artefact that `M1_SURFACE.md` §3, `M3_CLOCK.md` §2 and
+`REACH.md` have now each found independently. **A drift question must be asked in plain forward
+returns or it is asking a bracket question again.**
+
+**(b) Non-overlapping windows.** Overlapping forward returns share bars and are autocorrelated by
+construction; pooling them would inflate n by ~6× and manufacture significance out of nothing. Every
+window here is disjoint.
+
+### The decision
+
+```
+population   19 months GC 5-min bars, the same archive as M1 and M3
+measure      forward log-return over 30m (6 bars), NON-OVERLAPPING, in bp
+axis         session_phase -- the six ET boundaries signed 6 Sep, re-verified 17 Sep
+null         the POOLED mean forward return over all windows -- i.e. the 84% rise
+statistic    phase mean MINUS pooled mean, with its own standard error
+cost         COST_TICKS = 1.4 round trip -> 0.14 in price -> ~0.45 bp at gold's range
+decide on    the residual, net of cost. M3's lesson: a kill condition is stated net of cost
+```
+
+**The null is the point.** M3's null pooled over phases and so could not see a drift shared by all
+of them. Subtracting the pooled mean is what makes a *phase* claim separable from a *period* claim,
+and it is the thing M3 said it did not have.
+
+### The pre-committed prediction — Varad, before the run
+
+**No phase's residual drift will clear the cost floor. I expect 0 of 6, and I will accept ≤1 of 6 as
+consistent with this prediction.**
+
+The reasoning, so a miss can be diagnosed rather than merely scored. Gold rose 84% over 19 months.
+Spread across roughly 18,000 disjoint 30-minute windows that is on the order of **0.33 bp per
+window** — and the round-trip cost floor is **~0.45 bp**. **The entire unconditional drift of a
+historic bull market is smaller than one round trip.** A *phase's share* of that drift is a fraction
+of it again, so for a phase residual to clear cost it would have to be several times the whole
+period's drift, concentrated in one part of the day, and stable across 19 months. That is a large
+claim and the base rates in this repo do not support it: M1 is a random walk minus cost, M3's best
+phase reaches 41% of a round trip, `REACH.md` finds `ev_sym` positive on 4.4% of served rows, and
+M4b found no conditioning pocket at all.
+
+**The magnitudes M3 implies are consistent with that and are the reason this is worth running
+rather than assumed.** For a symmetric bracket, `EV_long − EV_short ≈ 2 × drift`, so M3's numbers
+imply **≈ −0.027 ATR for `London-NY`** and **≈ +0.034 ATR for `Asia-London`** — about 0.3 bp at a
+10 bp ATR, which is the same order as the unconditional drift itself. **That coincidence is the
+hypothesis: M3's asymmetry is the bull market landing unevenly across the day, not a clock effect.**
+
+### The kill condition, stated in what it licenses
+
+**Three outcomes, and they are not the same finding.**
+
+1. **No phase clears cost on the residual** → **the directional pattern is retired.** `M3_CLOCK.md`
+   §6's open item closes as *"there is no time-of-day drift worth controlling for"*, M3's
+   non-directional framing stands unchallenged, and no strategy slot is owed. **This is the
+   predicted outcome.**
+2. **≥1 phase clears cost AND the sign matches M3** (`London-NY` negative, `Asia-London` positive)
+   → **there is a real time-of-day drift.** It is not M3 and it is not one of the six; it needs its
+   own slot, its own pre-commitment and its own out-of-sample half before anything is built on it.
+3. **≥1 phase clears cost but the sign is OPPOSITE to M3's** → **the bracket produced M3's
+   asymmetry, not the tape.** That is a finding about `evaluate` rather than about the clock, and it
+   would put every per-side number in `M3_CLOCK.md` in question rather than confirming them.
+
+**Outcome 3 is the one to watch for**, because it is the only one that would send work backwards,
+and it is exactly the shape of the two M3 bugs — every component right in isolation, wrong in
+composition.
+
+**What no outcome licenses.** None of the three makes a tradeable claim. Even outcome 2 is one
+in-sample number over one instrument in a bull market, and `xauusd-regimes.md`'s standing warning
+applies: a drift measured over a period gold rose 84% is a statement about that period until a
+second period says otherwise. **`backtest.py`, `m3_profile.py` and the served table are untouched.**
+
+---
+
 ## 4 · Session-phase boundaries — Prathamesh, committed 2026-09-06
 
 **⚠️ Committed in ET wall clock, not in UTC — which is a departure from the heading this block
