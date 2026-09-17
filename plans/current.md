@@ -57,6 +57,70 @@ Varad to Prathamesh for the same reason.
 
 ---
 
+## Scheduled — every open item has a date and an owner. **Added 2026-09-17.**
+
+**Why this section exists.** R10's finding was not that the Week 1 gate went badly. It was that
+**the gate never happened**, and `gates.md` names that exact failure: *"Sliding gates is how
+twelve-week plans become nine-month plans, and it happens one reasonable-sounding Friday at a
+time."* As of 17 Sep every remaining item is blocked on a person rather than on work, which is
+precisely the state in which things slide. **So each one gets a date here, and a missed date is
+recorded rather than absorbed.**
+
+⚠️ **Dates below are calendar dates, not week numbers, and that is deliberate.** `gates.md` still
+carries the **unshifted** schedule (it dates Week 3 to Sep 18) while `current.md`'s header records
+everything moving a week right on 28 Aug — so the two disagree by a week, and R10's *"Week 2 is
+Week 1's gate"* is still **unvoted**. **Until the room votes, a week number is ambiguous and a date
+is not.** The next gate is **Friday 18 September, 16:00**, whatever it ends up being called.
+
+### Friday 18 Sep — before the 16:00 gate
+
+| | Item | Owner | Why this date |
+| :--- | :--- | :--- | :--- |
+| #0 | 🔑 **Revoke the Anthropic key** | Varad | Ten minutes at `console.anthropic.com`. **Open since Week 0 and it is a Week 0 gate line still unmet** — without it, Friday records it unmet for the fourth gate running. Verified 17 Sep that the repo half is clean: both `.env.example` files hold placeholders and no non-placeholder `sk-ant-` exists in any commit, so **this is the whole remaining task** |
+| — | 💻 **Install the MT5 *desktop* terminal on a real broker's demo** | Prathamesh | **The shared prerequisite, and the reason to do it first:** it unblocks R7, B and the compositing measurement in one sitting. ⛔ **Not `MetaQuotes-Demo`** and not the web terminal — see R7 |
+| R7 | 🌍 **Read XAUUSD tick depth — Symbols panel, `Ctrl+U`** | Varad | Five minutes once the terminal exists. **Highest-leverage item on the board:** `strategy-reconciliation.md` §415 makes route-2 spot the last thing between here and `M4 decided`, with M1, M3, M2, replay and the PDE all done behind it. A broker that will not serve 3 months of real XAUUSD ticks ends the route on the spot |
+| B | 🪟 **Float the overlay over the live desktop terminal** | Prathamesh | Click-through and `⌘⇧O` against a real MT5, not the web terminal. **The code is all in** (`e0171bf`, `909fe78`, `54ac312`, `ed0154f`); the on-device proof is the only part missing |
+| — | ♿ **Grant Accessibility permission** | Prathamesh | Standing gap, and it blocks the proof directly above |
+
+### Friday 18 Sep — at the 16:00 gate, all three in a room
+
+| | Item | Owner | Why this date |
+| :--- | :--- | :--- | :--- |
+| R10 | 🚦 **Vote the Week 1 gate document** | The room | [`docs/decisions/2026-09-11-week-1.md`](../docs/decisions/2026-09-11-week-1.md) exists and **its votes are deliberately blank.** A decision one person wrote down is not a decision three made — the standard S7 was held to |
+| — | 📅 **Settle whether the gate slides, and fix the calendar** | The room | R10 recommends it does **not**, making Week 2 the Week 1 gate and Week 12 end **4 Dec**. Unvoted. `gates.md`'s dates are a week early and stay wrong until this is decided |
+| — | ⚖️ **`first_touch` — move `p_target` or not** | Varad | **Recommendation is no** (14 Sep §5), and the change is one line if he disagrees. Sitting unanswered since 14 Sep; it is a call, not more analysis |
+| C1 | 💵 **Send the Databento live pricing request** | Shreyas | The ask goes out Friday so the **number** is in hand for the 25 Sep gate. C1 reopened 5 Sep and has had no price since |
+
+### Monday 21 Sep — Week 3 opens
+
+| | Item | Owner | Why this date |
+| :--- | :--- | :--- | :--- |
+| — | 🧪 **Add `vitest`** | Prathamesh | Standing gap: there is no JS test runner in the workspace. **A lockfile change earns its own reviewed commit** rather than being slipped into a feature commit, so it starts a week rather than ending one |
+
+### Friday 25 Sep gate
+
+| | Item | Owner | Why this date |
+| :--- | :--- | :--- | :--- |
+| C1 | 💵 **Databento live priced, and the live-feed decision made** | Shreyas | One week after the ask |
+| #9 | 🔌 **Ironbeam account and credentials** | Prathamesh | ⚠️ **Deliberately downstream of C1, not parallel to it.** C1 reopened on 5 Sep proposing Databento live *instead* of Ironbeam; funding an Ironbeam account before that decision is spending against a vendor the room may not pick |
+
+### Unscheduled, and correctly so
+
+| | Item | Why it has no date |
+| :--- | :--- | :--- |
+| M4 | The contested strategy | Blocked on route-2 spot, which is blocked on R7's depth check above. **It schedules itself the day that lands** — giving it a date now would be inventing one |
+| R2 | `mbp-1` quote pricing | Reopens only if route 2 dies. Pricing it now spends attention on a branch that may never be taken |
+| — | The second instrument / cross-instrument check | Same dependency as M4 |
+
+### The rule, so a missed date is not silently absorbed
+
+**`gates.md`'s rule applies to these rows, not just to gates:** if an item misses its date, **it is
+recorded as missed in that day's `daily_updates/` file and it keeps the next slot** — it does not
+quietly reappear a week later with no note. A date moves only the way a gate slides: **unanimously,
+and written down.** The Week 1 gate is in this repo as the case for why.
+
+---
+
 ## Done
 
 ### Day 1 — 2026-08-21 · full detail in [`daily_updates/2026-08-21.md`](../daily_updates/2026-08-21.md)
