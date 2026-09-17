@@ -17,6 +17,7 @@ import { motion } from "framer-motion";
 import { getEngine, getMockControls } from "../lib/engine";
 import { unsignedVolume } from "../lib/engine/mock";
 import { useFeed } from "../lib/feed";
+import FeedCredsCard from "./FeedCredsCard";
 import type { DeltaBar, FeedStatus, Outlier } from "../lib/engine/types";
 
 const STATE_COPY: Record<FeedStatus["state"], { label: string; tone: string }> = {
@@ -116,6 +117,8 @@ export default function FlowView() {
       </div>
 
       {error && <div className="feed-error">{error}</div>}
+
+      <FeedCredsCard />
 
       <motion.div className="cvd-card" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
         <div className="cvd-label">SESSION CVD</div>

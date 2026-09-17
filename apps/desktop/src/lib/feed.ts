@@ -33,17 +33,23 @@
  *
  * ## Credentials
  *
- * `connect({ vendor: "mock" })` is the same call `FlowView` made. Real
- * credential entry — the second half of W3D1, keychain and all — is blocked on
- * `FeedCreds` having a shape, which `engine/types.ts` deliberately leaves open
- * until the Ironbeam account (`plans/current.md` #9) exists and its fields are
- * known. Building a form against a guessed shape freezes the guess.
+ * On start, the shell asks `lib/creds.ts` for the last vendor's saved
+ * credentials and connects with those; with none saved it connects as
+ * `{ vendor: "mock" }`, the call `FlowView` used to make. `reconnect()` is the
+ * form's path — save, then connect with what was saved. S2 has no
+ * `disconnect`, so a reconnect is just another `connect()`, which is exactly
+ * the overlapping-connect case the mock's generation guard exists for.
+ *
+ * The fields inside `FeedCreds` are still the open hole `engine/types.ts`
+ * describes; nothing here reads them. They go from the form to the keychain
+ * to `connect()` as an opaque map.
  */
 
 import { useEffect, useState, useSyncExternalStore } from "react";
 
+import { lastVendor, loadFeedCreds } from "./creds";
 import { getEngine } from "./engine";
-import type { FeedStatus } from "./engine/types";
+import type { FeedCreds, FeedStatus } from "./engine/types";
 
 export interface FeedSnapshot {
   status: FeedStatus;
@@ -88,12 +94,36 @@ function start() {
 
   const engine = getEngine();
   engine.onStatus((status) => publish({ status }));
-  engine
-    .connect({ vendor: "mock" })
-    .then((status) => publish({ status, error: null }))
-    .catch((e: unknown) => {
-      publish({ error: e instanceof Error ? e.message : String(e) });
-    });
+
+  void (async () => {
+    const vendor = lastVendor();
+    let creds: FeedCreds = { vendor: "mock" };
+    if (vendor) {
+      try {
+        creds = (await loadFeedCreds(vendor)) ?? creds;
+      } catch (e) {
+        // A keychain that will not open is a reason to say so, not to
+        // pretend there were no credentials.
+        publish({ error: e instanceof Error ? e.message : String(e) });
+      }
+    }
+    await connectWith(creds);
+  })();
+}
+
+async function connectWith(creds: FeedCreds): Promise<void> {
+  try {
+    const status = await getEngine().connect(creds);
+    publish({ status, error: null });
+  } catch (e) {
+    publish({ error: e instanceof Error ? e.message : String(e) });
+  }
+}
+
+/** Connect (again) with these credentials. The form calls this after saving. */
+export function reconnect(creds: FeedCreds): Promise<void> {
+  start();
+  return connectWith(creds);
 }
 
 function subscribe(cb: () => void) {
