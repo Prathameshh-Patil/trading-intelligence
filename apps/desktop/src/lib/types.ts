@@ -1,24 +1,8 @@
-export type Sentiment = "Bullish" | "Bearish" | "Neutral";
-
 export type RuleSeverity = "hard" | "soft";
 
 export type TradeSide = "long" | "short";
 
 export type TradeOutcome = "win" | "loss" | "open";
-
-export interface AnalyzeRequest {
-  text?: string;
-  screenshot?: string;
-  url?: string;
-  title?: string;
-}
-
-export interface AnalyzeResult {
-  sentiment: Sentiment | string;
-  confidence: number;
-  summary: string;
-  signals: string[];
-}
 
 export interface Capture {
   text?: string;

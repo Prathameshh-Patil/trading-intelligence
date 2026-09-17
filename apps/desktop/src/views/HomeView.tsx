@@ -93,7 +93,7 @@ export default function HomeView({
           primary
           icon={<ScanIcon size={17} />}
           title="Analyze screen"
-          subtitle="Capture the chart in view and get a directional read with confidence and signals."
+          subtitle="Capture the chart in view; the overlay reads which instrument it is, then reads the feed for it."
           onClick={() => onNavigate("analyze")}
         />
 
