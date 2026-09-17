@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import numpy as np
 import pandas as pd
+import pytest
 from conftest import NEXT, SESSION, bars_at
 
 from features import expansion as ex
@@ -276,3 +277,123 @@ def test_sigma_is_never_negative() -> None:
     out = ex.yang_zhang(ohlc(rows), n=12).dropna()
     assert (out >= 0).all()
     assert out.notna().all()
+
+
+# --------------------------------------------------------------------------
+# Hurst -- mathematical.md §6. Task 9 of the 18-20 Sep block.
+#
+# §6 says "Do not trade from one noisy Hurst estimate" and asks for at least
+# two methods. That sentence becomes `hurst_agree` or it becomes nothing, so
+# what gets tested hardest is that the two estimators agree on series whose
+# answer is known -- and that they take the SAME INPUT. DFA integrates its
+# input and variance-time differences its input, so feeding one prices and
+# the other returns yields 0.5 and 1.5 for the same series and neither
+# function can tell.
+
+
+def walk(n: int, phi: float = 0.0, seed: int = 0) -> np.ndarray:
+    """Log prices whose increments are AR(1) with coefficient `phi`.
+
+    phi = 0 is a random walk and H = 0.5. phi > 0 makes increments persistent
+    and lifts H; phi < 0 makes them mean-reverting and lowers it. This is
+    SHORT-range dependence, not true long memory -- enough to check an
+    estimator responds in the right direction, not enough to pin a value.
+    """
+    rng = np.random.default_rng(seed)
+    e = rng.standard_normal(n)
+    r = np.empty(n)
+    r[0] = e[0]
+    for i in range(1, n):
+        r[i] = phi * r[i - 1] + e[i]
+    return np.log(3000.0) + np.cumsum(r) * 1e-4
+
+
+def test_both_estimators_return_half_for_a_random_walk() -> None:
+    x = walk(20_000)
+    assert ex.hurst_dfa(x) == pytest.approx(0.5, abs=0.05)
+    assert ex.hurst_vt(x) == pytest.approx(0.5, abs=0.05)
+
+
+def test_both_exceed_half_when_increments_are_persistent() -> None:
+    x = walk(20_000, phi=0.6)
+    assert ex.hurst_dfa(x) > 0.55
+    assert ex.hurst_vt(x) > 0.55
+
+
+def test_both_fall_below_half_when_increments_mean_revert() -> None:
+    # MEASURED AT SHORT SCALES, and the restriction is the finding rather
+    # than a way to make the test pass. AR(1) anti-persistence is SHORT-range:
+    # by s = 128 the correlation has decayed and the series is a random walk
+    # again, so a regression pooling scales 4..256 is dominated by the long
+    # end and returns 0.48 -- correct, and blind to what the fixture contains.
+    #
+    # 2026-09-18, phi = -0.6, same series:
+    #     scales 4..32     dfa 0.288   vt 0.444
+    #     scales 4..256    dfa 0.373   vt 0.476
+    #
+    # This is why §6 asks for several scales and separate readings at 5m and
+    # 15m rather than one pooled number: H is scale-dependent, and pooling
+    # hides exactly the regime the strategy is trying to detect.
+    x = walk(20_000, phi=-0.6)
+    short = (4, 8, 16, 32)
+    assert ex.hurst_dfa(x, short) < 0.45
+    assert ex.hurst_vt(x, short) < 0.45
+
+
+def test_dfa_refuses_scales_below_four() -> None:
+    # A least-squares line through 2 or 3 points fits almost exactly, so F(s)
+    # collapses toward zero and the log-log slope explodes. Measured before
+    # the guard: including s = 2 returned H = 14.0 on an anti-persistent
+    # series. The guard drops them, so the answer stays sane rather than
+    # becoming spectacular.
+    x = walk(20_000, phi=-0.6)
+    assert ex.hurst_dfa(x, (2, 4, 8, 16)) == pytest.approx(
+        ex.hurst_dfa(x, (4, 8, 16)), abs=1e-12)
+
+
+def test_too_few_usable_scales_is_nan_not_a_two_point_regression() -> None:
+    # A slope through two points is exact and meaningless. Both estimators
+    # need three scales before they will answer.
+    x = walk(300)
+    assert np.isnan(ex.hurst_dfa(x, (4, 128)))
+    assert np.isnan(ex.hurst_vt(x, (4, 128)))
+
+
+def test_the_two_estimators_agree_on_a_random_walk() -> None:
+    # The claim §6 rests on. If they disagree on the easiest possible series,
+    # `h_agree` will be False everywhere and the gate never opens.
+    x = walk(20_000)
+    assert ex.hurst_agree(ex.hurst_dfa(x), ex.hurst_vt(x))
+
+
+def test_they_are_required_to_agree_before_either_is_used() -> None:
+    # §6: "Do not trade from one noisy Hurst estimate."
+    assert not ex.hurst_agree(0.52, 0.61)
+    assert ex.hurst_agree(0.57, 0.59)
+
+
+def test_agreement_is_symmetric() -> None:
+    assert ex.hurst_agree(0.52, 0.61) == ex.hurst_agree(0.61, 0.52)
+
+
+def test_both_take_log_prices_and_passing_returns_is_a_detectable_error() -> None:
+    # The input convention, pinned. Handing a level-taking estimator its own
+    # differences shifts H by about 1, which is the whole usable range -- so
+    # the mistake is silent unless something asserts it is not.
+    x = walk(20_000)
+    r = np.diff(x)
+    assert abs(ex.hurst_dfa(x) - ex.hurst_dfa(r)) > 0.3
+    assert abs(ex.hurst_vt(x) - ex.hurst_vt(r)) > 0.3
+
+
+def test_too_few_points_returns_nan_rather_than_a_confident_wrong_number() -> None:
+    assert np.isnan(ex.hurst_dfa(np.arange(10.0)))
+    assert np.isnan(ex.hurst_vt(np.arange(10.0)))
+
+
+def test_a_constant_series_is_nan_not_zero() -> None:
+    # No variance at any scale. A regression on log(0) must not return a
+    # number, and 0.0 would read as "maximally anti-persistent".
+    flat = np.full(5_000, np.log(3000.0))
+    assert np.isnan(ex.hurst_dfa(flat))
+    assert np.isnan(ex.hurst_vt(flat))
