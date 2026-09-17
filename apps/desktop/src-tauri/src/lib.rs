@@ -77,46 +77,97 @@ fn log_webview(level: &str, message: &str) {
 /// is even sent.
 const DISARM_SHORTCUT: &str = "CommandOrControl+Shift+K";
 
+/// Cmd/Ctrl+Shift+O: summon and dismiss the overlay.
+///
+/// W2D2's item, and its own words are the whole specification: *"a hotkey that
+/// only works when our window is already focused is not a hotkey."* A trader
+/// spends the session in MT5, not in this window, so the toggle has to fire
+/// while MT5 holds focus -- which is exactly the property `DISARM_SHORTCUT`
+/// already needed, and the same OS-level registration gives it.
+///
+/// **Why `O`.** MT5's documented default hotkeys are function keys, `Ctrl`+a
+/// letter, and `Alt+1/2/3/W`; there is no `Ctrl+Shift+letter` binding among
+/// them, so this cannot shadow a chart command. It also sits next to `K` so
+/// the two overlay hotkeys read as a pair. cTrader's defaults were **not**
+/// checked -- MT5 is the launch platform and this is a default, not a
+/// contract; a preference to rebind it is W4's problem, not W2's.
+///
+/// **Toggle, on the Rust side, from the window's own visibility.** Not from a
+/// flag mirrored in React: if the frontend is wedged the trader still needs to
+/// get the window out of the way, and `hide()` does not need the webview's
+/// cooperation any more than `set_ignore_cursor_events(false)` does. Summon
+/// also takes focus, so a hidden window comes back ready for keyboard input
+/// rather than merely painted -- the failure `clickThrough.ts` documents is a
+/// window that is *active* but not *focused*, and `show()` alone reproduces it.
+///
+/// Click-through is deliberately left as it was. Hiding an armed window and
+/// summoning it armed is consistent; silently disarming on summon would make
+/// the crosshair lie until the next paint, and the trader has `⌘⇧K` for that.
+const SUMMON_SHORTCUT: &str = "CommandOrControl+Shift+O";
+
+/// The disarm itself, independent of anything the frontend is doing right now.
+fn disarm_click_through(app: &tauri::AppHandle) {
+    if let Some(window) = app.get_webview_window("main") {
+        if let Err(e) = window.set_ignore_cursor_events(false) {
+            eprintln!("[click-through] emergency disarm failed: {e}");
+        }
+    }
+
+    // Best-effort UI sync. A failure here means the icon shows stale state
+    // next paint, not that the window is stuck -- the disarm above already
+    // happened.
+    let _ = app.emit("click-through-disarmed", ());
+}
+
+/// Hide the overlay if it is showing; show and focus it if it is not.
+///
+/// `is_visible` failing reads as visible, so the fallback is to hide -- a
+/// window that vanishes on a hotkey is a nuisance, a window that will not go
+/// away when the trader wants their chart back is the one that gets
+/// uninstalled.
+fn toggle_overlay(app: &tauri::AppHandle) {
+    let Some(window) = app.get_webview_window("main") else { return };
+    let visible = window.is_visible().unwrap_or(true);
+    let result = if visible {
+        window.hide()
+    } else {
+        window.show().and_then(|()| window.set_focus())
+    };
+    // One line either way, same prefix discipline as `log_webview`: this is
+    // the only evidence a hotkey pressed while MT5 had focus actually landed,
+    // since nothing outside the process can see a borderless window toggle.
+    match result {
+        Ok(()) => eprintln!("[overlay] {}", if visible { "hidden" } else { "shown" }),
+        Err(e) => eprintln!("[overlay] toggle failed (was visible: {visible}): {e}"),
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
-        .plugin(
-            tauri_plugin_global_shortcut::Builder::new()
-                .with_handler(|app, _shortcut, event| {
-                    if event.state != ShortcutState::Pressed {
-                        return;
-                    }
-
-                    // No shortcut-identity check: exactly one shortcut is ever
-                    // registered (`DISARM_SHORTCUT`), so any invocation of this
-                    // handler is unambiguously that one. An earlier version
-                    // matched the pressed combo against `Modifiers::SHIFT`
-                    // alone -- omitting Cmd/Ctrl -- which meant `matches()`
-                    // never returned true for the actual `CommandOrControl+
-                    // Shift+K` press and the disarm silently never fired.
-                    // Found on-device: the hotkey was registered without error
-                    // and simply never did anything. Reconstructing the exact
-                    // modifier bitmask correctly is more failure-prone than
-                    // just not needing the check at all.
-                    if let Some(window) = app.get_webview_window("main") {
-                        // The disarm itself, independent of anything the
-                        // frontend is doing right now.
-                        if let Err(e) = window.set_ignore_cursor_events(false) {
-                            eprintln!("[click-through] emergency disarm failed: {e}");
-                        }
-                    }
-
-                    // Best-effort UI sync. A failure here means the icon shows
-                    // stale state next paint, not that the window is stuck --
-                    // the disarm above already happened.
-                    let _ = app.emit("click-through-disarmed", ());
-                })
-                .build(),
-        )
+        .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .setup(|app| {
             use tauri_plugin_global_shortcut::GlobalShortcutExt;
-            app.global_shortcut().register(DISARM_SHORTCUT)?;
+
+            // One handler per shortcut, bound at registration, so neither ever
+            // has to work out which combo was pressed. The first version had
+            // a single handler matching the pressed combo against
+            // `Modifiers::SHIFT` alone -- omitting Cmd/Ctrl -- so `matches()`
+            // never returned true and the disarm silently never fired. Found
+            // on-device: registered without error, did nothing. Identity by
+            // registration cannot make that mistake, and it is what lets a
+            // second shortcut exist at all.
+            app.global_shortcut().on_shortcut(DISARM_SHORTCUT, |app, _, event| {
+                if event.state == ShortcutState::Pressed {
+                    disarm_click_through(app);
+                }
+            })?;
+            app.global_shortcut().on_shortcut(SUMMON_SHORTCUT, |app, _, event| {
+                if event.state == ShortcutState::Pressed {
+                    toggle_overlay(app);
+                }
+            })?;
 
             let Some(window) = app.get_webview_window("main") else {
                 return Ok(());

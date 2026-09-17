@@ -331,7 +331,7 @@ export default function SidePanel() {
           title={
             clickThrough.enabled
               ? "Click-through armed — every click reaches MT5 behind this window. Press ⌘⇧K anywhere to disarm."
-              : "Arm click-through — pass every click on this window through to MT5"
+              : "Arm click-through — pass every click on this window through to MT5. ⌘⇧O anywhere hides or summons the overlay."
           }
           aria-pressed={clickThrough.enabled}
         >
