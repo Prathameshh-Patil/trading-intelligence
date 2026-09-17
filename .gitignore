@@ -52,5 +52,10 @@ services/signal-data/data/fixtures/*
 # stamped with the parameters they were produced under -- see reach.build.
 services/signal-data/analysis/.reach_cache/
 
+# replay.py's per-month checkpoints, same class as .reach_cache -- derived,
+# rebuildable, and stamped with the parameters they were produced under.
+services/signal-data/analysis/.replay_cache/
+services/signal-data/analysis/.replay_path_cache/
+
 # Route 2 spot ticks: derived, re-pullable, and large.
 services/signal-data/data/spot/
