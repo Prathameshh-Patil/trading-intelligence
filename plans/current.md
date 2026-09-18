@@ -131,6 +131,22 @@ is not.** The next gate is **Friday 18 September, 16:00**, whatever it ends up b
 > bars, §9's condition 7 is effectively permanently closed and two S13 columns are dead on
 > arrival.** This belongs before the pull, not after it.
 
+> ### Orientation documents, 2026-09-18 — two, and they are maps not sources of truth
+>
+> [`docs/PROJECT_MAP.md`](../docs/PROJECT_MAP.md) — the whole repo: every directory and module, what
+> is real and what is a typed fake, and the architecture as built against the architecture at the
+> end of the project.
+>
+> [`docs/STRATEGY_WORKFLOW.md`](../docs/STRATEGY_WORKFLOW.md) — narrower: the **three strategy
+> tracks drawn separately**, data to verdict, each checked against function signatures and module
+> imports rather than against prose. It records two things the prose did not say. **(1)** `fsm.py`
+> imports only `e3_cost` and `frame.TradeCandidate` — not `pipeline`, not `classifier` — and the
+> `row` dict it consumes uses names the S13 frame does not carry, so **the frame-row → FSM-row
+> adapter does not exist yet** and is the next piece of wiring. **(2)** E2's stage 13, *near a
+> prior-day LVN/HVN*, needs a volume profile that spot XAUUSD has no real volume for, and it is not
+> on the SKIPPED list beside 8, 9, 10 and 14 — **either it joins them or the tick-count proxy is
+> written down as its definition before E2 runs.** That is a room decision, not a solo one.
+
 ### Friday 18 Sep — before the 16:00 gate
 
 | | Item | Owner | Why this date |
