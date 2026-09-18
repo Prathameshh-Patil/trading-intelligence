@@ -11,6 +11,7 @@ dependencies = [
     "pyarrow>=18.0.0",
     "python-dotenv>=1.0.0",
     "scikit-learn>=1.6.0",
+    "scipy>=1.14",
 ]
 
 [dependency-groups]
