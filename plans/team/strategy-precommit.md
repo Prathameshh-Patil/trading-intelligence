@@ -1155,7 +1155,7 @@ decide on    max p across cells, against the spec's own 0.60
 
 ---
 
-## 15 · E2 — does §9's funnel produce a testable number of events? Prathamesh, committed 2026-09-18
+## 15 · E2 — does §9's funnel produce a testable number of events? Varad (delegated by Prathamesh 2026-09-18), committed 2026-09-18
 
 **Why this exists.** §9 stacks **sixteen** conditions. If fewer than 100 candidates survive the
 archive, no parameter setting makes the spec testable — and every hour spent on §2's ensemble before
@@ -1176,9 +1176,16 @@ dead stages  8, 9, 10, 14 (CVD_z, CVD-rising, OFI_z, Hawkes) print as SKIPPED (n
 decide on    survivors at stage 12
 ```
 
-### The pre-committed prediction — Prathamesh, before the run
+### The pre-committed prediction — Varad, before the run
 
 > 🚫 **UNWRITTEN — and E2 does not run until it is filled in and committed.**
+>
+> **Delegated to Varad by Prathamesh, 2026-09-18 ~11:00 IST**, before any E2 code exists. The
+> funnel's stages 3–7 are Varad's magnitude columns and the draft's own argument is that stage 3
+> does the killing, so the person with the model of that axis writes the number. Prathamesh keeps
+> the stages he owns (1, 2, 11, 12) as consumer and will read the result, not predict it.
+> `strategy-precommit-drafts.md` §15 is the 00:15 draft; sign it, or replace its numbers with yours,
+> from pre-09:46 material only — the drafts file says why.
 >
 > **Write the number of stage-12 survivors you expect, and which single condition you expect to do
 > most of the killing.** The second half matters more than the first: if the funnel dies at the

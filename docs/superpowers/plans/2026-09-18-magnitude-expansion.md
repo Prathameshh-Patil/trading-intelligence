@@ -448,7 +448,7 @@ git commit -m "feat(strategy): E1 -- the spec's own 150-tick filter, measured in
 
 ---
 
-### Task 3: E2 — does the funnel produce a testable number of events? *(Prathamesh)*
+### Task 3: E2 — does the funnel produce a testable number of events? *(Varad — delegated by Prathamesh 2026-09-18)*
 
 **Files:**
 - Create: `services/signal-data/e2_funnel.py`

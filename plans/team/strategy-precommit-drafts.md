@@ -80,7 +80,7 @@ instrument does not make in an hour.
 
 ---
 
-### The pre-committed prediction — Prathamesh, before the run
+### The pre-committed prediction — Varad, before the run *(delegated by Prathamesh 2026-09-18; drafted under his name)*
 
 **Stage-12 survivors land in the low hundreds. I predict 200–500 over five years, and I will accept
 100–800 as consistent. That is outcome 2: testable but underpowered.**
