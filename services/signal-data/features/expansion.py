@@ -360,3 +360,83 @@ def garch_forecast(*, sigma2_t: float, params: GarchFit, m: int) -> float:
                          "forecast diverges and would put an infinite r_hat_60 into the filter")
     bar = params.omega / (1.0 - persist)
     return float(bar + persist**m * (sigma2_t - bar))
+
+
+# --------------------------------------------------------------------------
+# §2's ensemble: the two legs combined into one forecast, in USD per ounce.
+#
+# ⚠️ §2's GARCH HORIZON FORMULA IS THE TERMINAL VARIANCE, NOT THE CUMULATIVE
+# ONE, and this module deliberately departs from it. The spec writes
+#
+#     sigma^2_{60,GARCH} = sigma_bar^2 + (alpha+beta)^m (sigma_t^2 - sigma_bar^2)
+#
+# which is the variance of the return AT bar t+m -- one 5-minute bar, twelve
+# bars from now. §Objective's estimand is |P_{t+60} - P_t|, whose variance is
+# the SUM over those twelve bars. Measured 2026-09-18 the two differ by 13x,
+# and the terminal version would also sit on a different scale from the
+# Yang-Zhang leg, so a 0.5/0.5 average of the two would be combining
+# quantities that are not the same thing. `garch_forecast` above keeps the
+# spec's per-step formula because the recursion needs it; `garch_sigma_h`
+# aggregates it, and that is what the ensemble reads.
+
+QUALITY_RATIO_MIN = 1.20   # §2's second filter
+
+
+def yz_sigma_h(sigma_bar: float, *, m: int) -> float:
+    """A per-bar Yang-Zhang sigma scaled to an `m`-bar horizon.
+
+    Square-root-of-time. It assumes independent increments, which M1 measured
+    directly -- the geometry surface is a random walk -- so the assumption is
+    this archive's finding rather than a convenience.
+    """
+    return sigma_bar * np.sqrt(m)
+
+
+def garch_sigma_h(*, sigma2_t: float, params: GarchFit, m: int) -> float:
+    """Sigma of the cumulative `m`-bar return under a fitted GARCH.
+
+    `sum_{k=1..m} E[sigma^2_{t+k}]` in closed form: `m * bar + (sigma2_t -
+    bar) * rho * (1 - rho^m) / (1 - rho)`. A test checks it against summing
+    the per-step forecasts, because a mis-derived geometric series produces a
+    number that is wrong and entirely plausible.
+    """
+    rho = params.alpha + params.beta
+    if rho >= 1.0:
+        raise ValueError(f"non-stationary fit: alpha+beta={rho:.6f}")
+    bar = params.omega / (1.0 - rho)
+    total = m * bar + (sigma2_t - bar) * rho * (1.0 - rho**m) / (1.0 - rho)
+    return float(np.sqrt(max(total, 0.0)))
+
+
+def combine_sigma(*, sigma_yz: float, sigma_garch: float,
+                  w_yz: float = 0.5, w_g: float = 0.5) -> float:
+    """§2's ensemble. Weights are walk-forward-fitted; 0.5/0.5 is the start."""
+    if abs(w_yz + w_g - 1.0) > 1e-9:
+        raise ValueError(f"weights must sum to 1, got {w_yz} + {w_g} = {w_yz + w_g}")
+    return w_yz * sigma_yz + w_g * sigma_garch
+
+
+def r_hat_60(*, price: float, sigma_60: float) -> float:
+    """The forecast 60-minute move, in USD per ounce.
+
+    **This is the only place a dimensionless sigma becomes a distance.**
+    `yang_zhang` and the GARCH legs are standard deviations of log returns;
+    multiplying by price is what makes them comparable to §10's stops and
+    §Objective's $15.00 threshold. A sigma read as a distance is a
+    factor-of-3400 error at gold's price, and it would pass a `>` filter by
+    never passing it.
+    """
+    return price * sigma_60
+
+
+def r_ratio(r_hat: pd.Series, *, window: int) -> pd.Series:
+    """§2's quality filter: `R_hat / trailing median(R_hat)`.
+
+    **TRAILING, and that is the whole point.** A full-sample median knows the
+    future, and it is the single easiest way to fake this filter: a calm early
+    period reads as "elevated" against a median dragged down by calm that has
+    not happened yet. NaN until the window is full, for the same reason
+    `yang_zhang` is -- a partial median is a different number wearing the
+    same name.
+    """
+    return r_hat / r_hat.rolling(window).median()

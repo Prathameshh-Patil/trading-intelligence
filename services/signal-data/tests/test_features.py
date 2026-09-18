@@ -536,3 +536,80 @@ def test_the_recursion_matches_a_plain_python_loop() -> None:
     for i in range(1, len(r)):
         want[i] = omega + alpha * r[i - 1] ** 2 + beta * want[i - 1]
     assert np.allclose(got, want)
+
+
+# --------------------------------------------------------------------------
+# The §2 ensemble. Task 8.
+#
+# ⚠️ §2's GARCH horizon formula is the TERMINAL variance, not the cumulative
+# one. `sigma_bar^2 + (alpha+beta)^m (sigma_t^2 - sigma_bar^2)` is the variance
+# of the return at bar t+m -- one 5-minute bar, twelve bars from now. What
+# §Objective needs is the variance of |P_{t+60} - P_t|, which is the SUM over
+# the twelve bars. Measured 2026-09-18 the two differ by 13x, and the terminal
+# version would also be on a different scale from the Yang-Zhang leg, so the
+# 0.5/0.5 ensemble would be averaging two different quantities.
+
+
+def test_weights_must_sum_to_one() -> None:
+    with pytest.raises(ValueError, match="sum to 1"):
+        ex.combine_sigma(sigma_yz=0.001, sigma_garch=0.001, w_yz=0.5, w_g=0.7)
+
+
+def test_the_garch_horizon_is_cumulative_not_terminal() -> None:
+    # The sum over m bars, not the variance at bar m. For m = 1 they agree.
+    p = ex.GarchFit(omega=2e-6, alpha=0.08, beta=0.90, nu=6.0)
+    s2 = 4 * p.omega / (1 - p.alpha - p.beta)
+    one = ex.garch_sigma_h(sigma2_t=s2, params=p, m=1)
+    assert one**2 == pytest.approx(ex.garch_forecast(sigma2_t=s2, params=p, m=1))
+    twelve = ex.garch_sigma_h(sigma2_t=s2, params=p, m=12)
+    terminal = ex.garch_forecast(sigma2_t=s2, params=p, m=12) ** 0.5
+    assert twelve > 3 * terminal
+
+
+def test_the_garch_horizon_matches_a_plain_sum_of_steps() -> None:
+    # The closed form must equal summing the per-step forecasts, or the
+    # geometric series was mis-derived and the number is still plausible.
+    p = ex.GarchFit(omega=2e-6, alpha=0.08, beta=0.90, nu=6.0)
+    s2 = 4 * p.omega / (1 - p.alpha - p.beta)
+    want = sum(ex.garch_forecast(sigma2_t=s2, params=p, m=k) for k in range(1, 13))
+    assert ex.garch_sigma_h(sigma2_t=s2, params=p, m=12) ** 2 == pytest.approx(want)
+
+
+def test_the_yang_zhang_leg_scales_by_the_square_root_of_the_horizon() -> None:
+    # A per-bar sigma over 12 bars is sigma * sqrt(12), not sigma.
+    assert ex.yz_sigma_h(0.0005, m=12) == pytest.approx(0.0005 * 12**0.5)
+
+
+def test_r_hat_is_in_usd_per_ounce_not_log_units() -> None:
+    # sigma is a log return; R_hat must be sigma * price. Forgetting the
+    # multiply gives a number ~3400x too small that still passes a `>`
+    # filter -- by never passing it.
+    r = ex.r_hat_60(price=3400.0, sigma_60=0.0017)
+    assert 5.0 < r < 7.0
+
+
+def test_r_ratio_uses_a_trailing_median_not_a_full_sample_one() -> None:
+    # A full-sample median knows the future. This is the single easiest way
+    # to fake §2's 1.20 quality filter: a calm early period looks "elevated"
+    # against a median dragged down by calm that has not happened yet.
+    calm = pd.Series([5.0] * 300)
+    spike = pd.concat([calm, pd.Series([50.0] * 300)], ignore_index=True)
+    early_alone = ex.r_ratio(calm, window=100)
+    early_with_future = ex.r_ratio(spike, window=100).iloc[:300]
+    assert np.allclose(early_alone.dropna(), early_with_future.dropna())
+
+
+def test_r_ratio_is_one_on_a_flat_series() -> None:
+    assert ex.r_ratio(pd.Series([7.0] * 300), window=100).dropna().eq(1.0).all()
+
+
+def test_r_ratio_is_nan_until_the_window_is_full() -> None:
+    out = ex.r_ratio(pd.Series(range(1, 301), dtype=float), window=100)
+    assert out.iloc[:99].isna().all()
+    assert out.iloc[99:].notna().all()
+
+
+def test_the_quality_filter_is_a_ratio_not_a_level() -> None:
+    # §2: "This prevents trading merely because current volatility is high
+    # relative to an already elevated baseline."
+    assert ex.QUALITY_RATIO_MIN == 1.20
