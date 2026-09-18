@@ -310,3 +310,33 @@ def test_the_three_inputs_the_frame_does_not_carry_are_required() -> None:
     # A defaulted p_e is a trade admitted on a probability nobody computed.
     with pytest.raises(TypeError):
         fsm.fsm_row(frow())  # type: ignore[call-arg]
+
+
+# ------------------------------------------------------- §10 the stop bounds
+
+def test_both_of_section_10s_bounds_are_enforced_not_just_the_wide_one() -> None:
+    # §10 reads "20 <= D <= 50 ticks". Only the upper bound was checked, so a
+    # stop tighter than the spec allows passed silently for as long as the
+    # module existed. Found writing docs/strategy/TRACK_C_ENGINE.md.
+    assert "stop_too_tight" in fsm.exclusions(row(d_usd=0.50), day())
+    assert "stop_too_wide" in fsm.exclusions(row(d_usd=6.00), day())
+
+
+def test_the_bounds_are_section_10s_ticks_in_usd() -> None:
+    # 20 and 50 ticks at GC's $0.10, the same translation §10's 100 and 150
+    # already get in e3_cost. XAUUSD's 0.001 is Dukascopy's price quantum and
+    # is explicitly not a tradeable tick, so it is not this number.
+    assert fsm.D_MIN_USD == pytest.approx(20 * 0.10)
+    assert fsm.D_MAX_USD == pytest.approx(50 * 0.10)
+
+
+def test_the_floor_itself_is_allowed() -> None:
+    # "20 <= D", so 20 ticks is inside the spec and not the first value out.
+    assert "stop_too_tight" not in fsm.exclusions(row(d_usd=fsm.D_MIN_USD), day())
+
+
+def test_a_tight_stop_no_longer_buys_a_twenty_to_one_target() -> None:
+    # The reason the floor exists rather than the rule it states: the target is
+    # clip(2.5D, $10, $15), so a $0.50 stop took a $10 target -- a 20:1 nominal
+    # R that came from the target FLOOR, not from anything anyone chose.
+    assert admit(row(d_usd=0.50), day()) is None

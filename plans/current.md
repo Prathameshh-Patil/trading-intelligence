@@ -143,9 +143,10 @@ is not.** The next gate is **Friday 18 September, 16:00**, whatever it ends up b
 > pessimistic fill model, and **eight gates committed before the first run** — six adapted from
 > `Quant_trading`'s `backtest.md`, one added (deflated Sharpe), two dropped because a
 > one-trade-a-week strategy makes them meaningless. ~400 lines are unblocked today. It found a
-> defect on the way: **§10 requires `20 ≤ D ≤ 50` ticks and `fsm.exclusions` enforces only the upper
-> bound**, so a $0.50 stop passes and takes a $10 target — a 20:1 R that §10 exists to forbid. One
-> exclusion and one test, Prathamesh's module, not made there.
+> defect on the way: **§10 requires `20 ≤ D ≤ 50` ticks and `fsm.exclusions` enforced only the upper
+> bound**, so a $0.50 stop passed and took a $10 target — a 20:1 R that came from the target floor
+> rather than from any choice. ✅ **Fixed the same day**: `D_MIN_USD = 2.00`, a `stop_too_tight`
+> exclusion, four tests, 534 passing.
 >
 > [`docs/STRATEGY_WORKFLOW.md`](../docs/STRATEGY_WORKFLOW.md) — narrower: the **three strategy
 > tracks drawn separately**, data to verdict, each checked against function signatures and module

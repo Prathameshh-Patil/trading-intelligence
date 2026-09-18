@@ -49,7 +49,13 @@ SCORE_MIN = 0.72              # §13
 P_E_MIN = 0.62                # §8
 HURST_MIN = 0.58              # §9 condition 7, high-conviction
 R_HAT_MIN_USD = 15.00         # §Objective, restated per design §2
-D_MAX_USD = 5.00              # §10
+# §10: "Require 20 <= D <= 50 ticks. If D > 50, reject the trade. Do not widen
+# the stop." Both bounds in USD per ounce at GC's $0.10 tick, the same
+# translation TARGET_FLOOR_USD and TARGET_CAP_USD already use for §10's 100 and
+# 150. XAUUSD's `tick` is Dukascopy's 0.001 price quantum and is explicitly not
+# a tradeable tick, so it is not the number these come from.
+D_MIN_USD = 2.00              # §10, 20 ticks
+D_MAX_USD = 5.00              # §10, 50 ticks
 MAX_SLIPPAGE_SHARE = 0.25     # §13
 MAX_TRADES_PER_DAY = 2        # §11
 MAX_LOSSES_PER_DAY = 2        # §11
@@ -183,6 +189,14 @@ def exclusions(row: dict[str, float], day: Day) -> tuple[str, ...]:
         out.append("hurst")
     if not row["has_sweep"]:
         out.append("no_sweep")
+    if row["d_usd"] < D_MIN_USD:
+        # §10's floor, and it is not symmetry with the cap. A stop under $2
+        # still takes `clip(2.5D, $10, $15)`, so a $0.50 stop buys a $10 target
+        # -- a 20:1 nominal R that is an artefact of the target floor rather
+        # than a trade anyone chose. §10's own note says the backtest must
+        # distinguish target distance from risk-reward multiple; refusing the
+        # stop is how that distinction gets enforced rather than reported.
+        out.append("stop_too_tight")
     if row["d_usd"] > D_MAX_USD:
         out.append("stop_too_wide")
     if row["slippage_usd"] / row["d_usd"] > MAX_SLIPPAGE_SHARE:

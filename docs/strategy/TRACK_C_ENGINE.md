@@ -66,13 +66,18 @@ no nightly re-weighting. Quant_trading has all three and earns them across 13 st
 strategy with ~40–100 trades a year cannot support a model that re-weights itself** — it is a
 machine for fitting the last six months. Stated here so it is a decision rather than an omission.
 
-### 2.1 A defect this plan is not allowed to inherit
+### 2.1 A defect this plan is not allowed to inherit — ✅ fixed 2026-09-18
 
-**§10 requires `20 ≤ D ≤ 50` ticks — $2.00 to $5.00 per ounce. `fsm.exclusions` enforces only the
-upper bound** (`d_usd > D_MAX_USD → stop_too_wide`). A $0.50 stop passes today, and its target is
-then `clip(2.5 × 0.50, 10, 15) = $10` — a 20:1 nominal R that §10 exists to forbid. **Fix before the
-engine reads it:** a `stop_too_tight` exclusion at `D_MIN_USD = 2.00`. One line and one test, in
-Prathamesh's module.
+**§10 requires `20 ≤ D ≤ 50` ticks — $2.00 to $5.00 per ounce, and `fsm.exclusions` enforced only the
+upper bound.** A $0.50 stop passed, and its target was then `clip(2.5 × 0.50, 10, 15) = $10` — a 20:1
+nominal R that came from the target *floor* rather than from anything anyone chose, which is exactly
+the confusion §10's own note about *"target distance in ticks"* against *"risk-reward multiple"*
+exists to prevent.
+
+**`D_MIN_USD = 2.00` and a `stop_too_tight` exclusion**, four tests, 534 passing. Both bounds are
+§10's ticks in USD at GC's $0.10 — the same translation `TARGET_FLOOR_USD` and `TARGET_CAP_USD`
+already carry for §10's 100 and 150. XAUUSD's `tick` is Dukascopy's 0.001 price quantum and is
+explicitly not a tradeable tick, so it is not where these come from.
 
 ---
 
@@ -286,7 +291,7 @@ Ordered so that **everything not blocked is built first**, and each step is a co
 | | Step | Depends on | Owner | Note |
 | :--- | :--- | :--- | :--- | :--- |
 | 1 | `config.py` — every §-threshold in one typed place | nothing | Varad | Mostly a move: numbers currently live in `fsm`, `e3_cost`, `structure` |
-| 2 | **`D_MIN_USD` — fix §2.1's missing lower bound** | nothing | Prathamesh | One exclusion, one test |
+| 2 | ~~`D_MIN_USD` — fix §2.1's missing lower bound~~ | — | — | ✅ **done 18 Sep**, four tests |
 | 3 | `levels.py` — Asian range and prior-day extremes | nothing | Prathamesh | Pure clock + OHLC; testable on fixtures today |
 | 4 | `funnel.py` — 16 conditions as a counter | 3 | Varad | **This IS E2.** Blocked on §15's prediction, not on code |
 | 5 | `fills.py` + `metrics.py` | nothing | Varad | Testable on synthetic paths with no market data at all |
