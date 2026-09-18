@@ -1,0 +1,92 @@
+# What a PR has to pass. Three jobs because the repo has three toolchains
+# that share nothing: uv/Python, uv/Python-with-a-database, and pnpm/Node.
+#
+# The Tauri shell is deliberately absent. `src-tauri/src/{creds,licence}.rs`
+# round-trip through the real OS keychain, which a headless runner does not
+# have, so `cargo test` there would fail for a reason that says nothing about
+# the code. Its TypeScript half is covered by `pnpm -r build` (`tsc && vite
+# build`), which is the part that actually breaks.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# A second push to the same branch cancels the first run.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  api:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/api
+
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: app
+          POSTGRES_PASSWORD: local_dev_only
+          POSTGRES_DB: trading_intelligence
+        ports: ["5432:5432"]
+        # Steps start as soon as the container does, which is before Postgres
+        # accepts connections. Without this the first test run loses the race.
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      # conftest.py derives `<db>_test` from this and migrates it to head.
+      DATABASE_URL: postgresql+psycopg://app:local_dev_only@localhost:5432/trading_intelligence
+      # Settings requires it to start. Present, not valid -- the tests mock
+      # the call, as .env.example says.
+      ANTHROPIC_API_KEY: ci-not-a-real-key
+
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+          enable-cache: true
+      - run: uv sync --locked
+      - run: uv run ruff check .
+      - run: uv run mypy app
+      - run: uv run pytest -q
+
+  signal-data:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/signal-data
+
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+          enable-cache: true
+      - run: uv sync --locked
+      - run: uv run ruff check .
+      - run: uv run mypy .
+      - run: uv run pytest -q
+
+  web:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # No test suites on this side yet. `build` is `tsc && vite build` or
+      # `next build`, so this is the typecheck.
+      - run: pnpm -r build

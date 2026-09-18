@@ -16,7 +16,11 @@ def database_health(db: Session = Depends(get_db)):
         # A health check reports "down" as a status, not a 500 traceback.
         raise HTTPException(
             status_code=503,
-            detail={"status": "error", "database": "unreachable", "error": str(exc.__cause__ or exc)},
+            detail={
+                "status": "error",
+                "database": "unreachable",
+                "error": str(exc.__cause__ or exc),
+            },
         ) from exc
 
     return {

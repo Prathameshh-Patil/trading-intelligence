@@ -1,6 +1,6 @@
 # Trading Intelligence — Current Plan
 
-Live tracker: who owns what, what is done, what is next. **Last updated: 2026-09-18.**
+Live tracker: who owns what, what is done, what is next. **Last updated: 2026-09-19.**
 
 > **The twelve-week schedule lives in [`plans/team/`](team/README.md).** This file stays the live
 > status tracker — what is done, what is open, who owns it. `plans/team/` is the day-by-day
@@ -2223,6 +2223,43 @@ Full detail: [`analysis/REPLAY.md`](../services/signal-data/analysis/REPLAY.md) 
 
 Full detail: [`analysis/M4_PATH.md`](../services/signal-data/analysis/M4_PATH.md) and
 [`daily_updates/2026-09-12.md`](../daily_updates/2026-09-12.md).
+
+---
+
+### 2026-09-19 — CI exists: three jobs, and the lint debt that would have made it red on arrival · [`.github/workflows/ci.yml`](../.github/workflows/ci.yml)
+
+**`gh pr checks 7` reported "no checks reported on the `feat/vision-hub` branch."** A 176-file PR
+carrying every auth primitive the product has was merging on a hand-run suite. The standing gap
+logged since W1D2 as *"there is no JS test runner in this workspace"* was in fact wider than that:
+there was no CI at all.
+
+- [x] **Three jobs, because there are three toolchains that share nothing.** `api` (`uv`, plus a
+      `postgres:17` service with a `pg_isready` health check — without one the steps start before
+      the socket accepts), `signal-data` (`uv`, no services), `web` (`pnpm`). Each runs
+      `sync --locked` → lint → types → tests.
+- [x] **Every job verified locally before it was written down.** `api`: **38 passed, 5 skipped**;
+      `signal-data`: **660 passed in 8.9s**, `mypy` clean across 103 files; `web`:
+      `pnpm -r build` exit 0 across all five workspace projects.
+- [x] ⚠️ **`ruff check` did not pass on `main`, so CI would have been born red.** Seven errors in
+      `a643d2aa1586_create_users_table.py`, one in `migrations/env.py`, and `health.py`
+      unformatted — all pre-existing, none of them PR #7's. Fixed in this change.
+- [x] **`app/config.py` and `tests/fixtures/keys_fake.py` left unformatted on purpose.** Both are
+      modified by PR #7; reformatting them buys a cosmetic win and pays for it in conflicts.
+- [ ] ⚠️ **`ruff format --check` is deliberately NOT enforced.** `services/signal-data` fails it on
+      **91 of 120 files.** Formatting has never been enforced here and switching it on is a
+      whole-repo reformat that earns its own commit. The lint rules **are** enforced.
+- [ ] ⚠️ **No Tauri job, deliberately.** `src-tauri/src/{creds,licence}.rs` round-trip through the
+      real OS keychain, which a headless runner does not have — the job would fail for a reason
+      that says nothing about the code. Its TypeScript half is covered by `pnpm -r build`.
+- [ ] **`vitest` is still unwritten** — Prathamesh's Mon 21 Sep item, unchanged by this.
+- [ ] **Nothing is committed, and there is no branch protection.** A workflow that reports is not
+      a workflow that blocks; requiring these three checks is a repo setting and a separate call.
+
+**PR #7 was reviewed the same session** — backend claims re-run in a worktree and all three hold
+(87 passed/5 skipped, `mypy` clean, his own files lint-clean). Fourteen findings posted as one
+comment; the S3/S5 amendment and the rename left for the room.
+
+Full detail: [`daily_updates/2026-09-19.md`](../daily_updates/2026-09-19.md).
 
 ---
 

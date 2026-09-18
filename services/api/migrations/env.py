@@ -9,7 +9,6 @@ from app.db.base import Base
 # Import models so SQLAlchemy registers them with Base.metadata.
 from app.models.user import User  # noqa: F401
 
-
 config = context.config
 
 # Use the same database URL as the application.
