@@ -302,34 +302,54 @@ same spine. `reach` imports `m1_sweep`, `features.portable`, `instruments`, `m2_
 | :--- | :--- | :--- | :--- |
 | `spot_s3` → `spot` | — | ✅ | ✅ |
 | `pipeline.build` | `volatility`, `hurst`, `structure`, `frame` | ✅ | ✅ upstream |
-| `classifier` | sklearn only | ✅ | ❌ |
-| `fsm` | `e3_cost`, `features.frame.TradeCandidate` | ✅ | ❌ |
+| `classifier` | sklearn only | ✅ | ◐ its `p_e` is an argument to `fsm.fsm_row` |
+| `fsm` | `e3_cost`, `features.frame.TradeCandidate`, `features.structure.MAX_RECLAIM_S` | ✅ | ✅ via `fsm.fsm_row` |
 | `e3_cost` | stdlib only | ✅ | ✅ (into `fsm`) |
 | `tuning` | numpy/scipy only | ✅ | ❌ |
 
-### 5.4 The missing wire, stated plainly
+### 5.4 The wire, and what it refuses — `fsm.fsm_row`
 
-**`fsm.py` imports exactly two things from this repo: `e3_cost` and `frame.TradeCandidate`.** It does
-not import `pipeline` and it does not import `classifier`.
+**Written 2026-09-18, after this document first recorded it missing.** `fsm.py` still imports no
+`pipeline` and no `classifier` — it does not need to. `fsm_row` takes one frame row as a mapping and
+returns the dict `score`, `exclusions` and `admit` consume:
 
-It consumes a plain `row: dict[str, float]`, and the keys it reads are **not** S13 column names:
-
-| `fsm` reads | S13 frame supplies | Gap |
+| `fsm` reads | comes from | how |
 | :--- | :--- | :--- |
-| `r_hat_60_usd` | `r_hat_60_usd` | ✅ same name |
-| `news_lockout` | `news_lockout` | ✅ same name |
-| `h_agree_value` | `h_agree` | ✏️ renamed |
-| `has_sweep` | `swept_level`, `reclaim_dt_s`, `wick_w` | 🔧 derived |
-| `p_e` | — | 🔧 from `classifier` |
-| `d_usd`, `slippage_usd` | — | 🔧 from `e3_cost` / §10 |
-| `s_vol`, `s_sweep`, `s_hurst`, `s_hmm`, `s_spread`, `s_news` | — | 🔧 §13 components, underived |
+| `r_hat_60_usd`, `news_lockout` | frame | same name |
+| `h_agree_value` | frame | `min(h_dfa_15m, h_vt_15m)` — the conservative estimate |
+| `has_sweep` | frame | `swept_level` and `reclaim_dt_s` both finite |
+| `s_vol` | frame | `(r̂₆₀ − $15) / $15`, clipped to [0,1] |
+| `s_sweep` | frame | `1 − reclaim_dt_s / 30s`, clipped; `0.0` when there is no sweep |
+| `s_hurst` | frame | `(H − 0.5) / 0.5`, clipped — random walk to full persistence |
+| `s_hmm` | frame | `p_expand`, already a probability |
+| `s_spread` | frame | `spread_bp → USD`, as a share of the stop, clipped |
+| `s_news` | frame | the lockout flag |
+| `p_e`, `d_usd`, `slippage_usd` | **arguments** | classifier output, §10's stop, an execution estimate |
 
-So the three blocks are each real and each tested, and **the adapter from an S13 frame row to an FSM
-row is the missing piece.** It is small, and it is the next thing to write. It is recorded here
-rather than discovered later, because the failure mode of not recording it is somebody assuming the
-chain runs end to end because each of its parts does.
+**§13 gives no normaliser.** It says *"normalize each component to [0,1]"* and supplies no formula
+for any of the nine. The six above are anchored on constants the spec does give — $15/oz, 30
+seconds, and H = 0.5 against H = 1 — so none of them introduces a tuning knob, but they remain **a
+choice this module made and the room should ratify**, not a derivation. They live in one place for
+the reason every caller inventing its own privately is how two backtests come to disagree about what
+`Score ≥ 0.72` means.
 
----
+**It raises on any non-finite value, and that is the point of the function.** `p_expand` is NaN on
+every real row today, so `fsm_row` raises on every real row until E4 settles the HMM. That is
+correct, and the alternative is worse than it looks:
+
+> `score` sums to NaN on a NaN component. **`NaN < SCORE_MIN` is False**, so a NaN score does not
+> fail `admit`'s gate — it passes it, and `admit` returns a live `TradeCandidate` on a score that
+> does not exist. `test_a_nan_score_would_otherwise_be_admitted` demonstrates it on the FSM
+> directly, so the test fails the day `admit` stops needing the adapter to protect it.
+
+**One defined zero, and it is deliberate.** No sweep is an *observation* — §9 looked and found
+nothing — so `has_sweep` is `0.0` and `exclusions` refuses with `no_sweep`. A missing HMM is an
+*absent measurement*. One is a zero and the other is an exception, and the distinction is the same
+one as `pipeline.build` writing NaN rather than 0.0.
+
+**Still open:** `admit` itself has no NaN guard. Every path from the frame now goes through
+`fsm_row`, so nothing reaches it with a NaN today — but a caller that hand-builds a row bypasses the
+protection. Hardening `admit` is a one-line change in Prathamesh's module and is **not** made here.
 
 ## 6. The discipline that explains why the lanes look like this
 

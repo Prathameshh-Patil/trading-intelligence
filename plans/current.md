@@ -142,7 +142,11 @@ is not.** The next gate is **Friday 18 September, 16:00**, whatever it ends up b
 > imports rather than against prose. It records two things the prose did not say. **(1)** `fsm.py`
 > imports only `e3_cost` and `frame.TradeCandidate` — not `pipeline`, not `classifier` — and the
 > `row` dict it consumes uses names the S13 frame does not carry, so **the frame-row → FSM-row
-> adapter does not exist yet** and is the next piece of wiring. **(2)** E2's stage 13, *near a
+> adapter did not exist.** **Written 18 Sep as `fsm.fsm_row`** (530 tests, +12; `ruff`/`mypy`
+> clean) — and it closed a bug it was not written for: `NaN < SCORE_MIN` is False, so a NaN score
+> passed `admit`'s gate rather than failing it. It raises on every real row until E4 settles §7,
+> which is the honest state of the block. **§13's six normalisers are a choice this module made and
+> the room should ratify** — the spec says *normalize to [0,1]* and gives no formula. **(2)** E2's stage 13, *near a
 > prior-day LVN/HVN*, needs a volume profile that spot XAUUSD has no real volume for, and it is not
 > on the SKIPPED list beside 8, 9, 10 and 14 — **either it joins them or the tick-count proxy is
 > written down as its definition before E2 runs.** That is a room decision, not a solo one.
