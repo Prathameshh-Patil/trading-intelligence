@@ -79,7 +79,9 @@ export function getForecaster(): Forecaster {
     );
   }
 
-  forecaster = createMockForecaster();
+  // The same engine the shell's feed store connects, so warm-up counts the
+  // bars the trader is actually watching.
+  forecaster = createMockForecaster(getEngine());
   return forecaster;
 }
 

@@ -48,7 +48,7 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
 
 import { lastVendor, loadFeedCreds } from "./creds";
-import { getEngine } from "./engine";
+import { getEngine, getForecaster } from "./engine";
 import type { FeedCreds, FeedStatus } from "./engine/types";
 
 export interface FeedSnapshot {
@@ -94,6 +94,10 @@ function start() {
 
   const engine = getEngine();
   engine.onStatus((status) => publish({ status }));
+  // Constructed here, before the first bar, so its warm-up counts from the
+  // moment the feed connects rather than from the first time the Forecast
+  // view happens to open.
+  getForecaster();
 
   void (async () => {
     const vendor = lastVendor();

@@ -42,7 +42,7 @@ import {
   type ReachRow,
   type VolState,
 } from "./forecast";
-
+import type { Engine } from "./types";
 
 const BUCKETS: AtrBucket[] = ["(0.0, 7.0]", "(7.0, 10.0]", "(10.0, 14.0]", "(14.0, inf]"];
 const STATES: VolState[] = ["CONTRACTING", "STABLE", "EXPANDING"];
@@ -210,7 +210,7 @@ function rowOf(r: FixtureRow): ReachRow {
 }
 
 /** Every state a fake has to be able to be, on demand. */
-type Mode = "normal" | "warming" | "thin" | "no-table" | "clearing";
+type Mode = "normal" | "thin" | "no-table" | "clearing";
 
 /**
  * A cell known to clear the floor, for `forceClearing`.
@@ -308,14 +308,46 @@ const fetchFixture: TableLoader = async () => {
   return checkColumnOrder((await r.json()) as Fixture, TABLE_URL);
 };
 
+/** The one thing the forecaster needs from the engine: bars, as they land. */
+export type BarSource = Pick<Engine, "onBar">;
+
+const WARM_UP_MS = WARM_UP_MINUTES * 60_000;
+
 export function createMockForecaster(
-  now: () => number = Date.now,
+  feed: BarSource | null,
   load: TableLoader = fetchFixture,
 ): MockForecaster {
   let mode: Mode = "normal";
-  let connectedAt = now();
   let table: Fixture | null = null;
   let fetchFailed = false;
+
+  /**
+   * Warm-up is counted in bars, not seconds. `firstBarT` is the bar the feed
+   * connected on (or reconnected: `restartWarmUp`), `lastBarT` the newest, and
+   * the difference is how much feed `rv_slope` has to work with. Both null
+   * until the first bar -- no bars is warming, not "two hours in".
+   * `warmUpDone` is `finishWarmUp`'s "as if the feed had been up all session".
+   */
+  let firstBarT: number | null = null;
+  let lastBarT: number | null = null;
+  let warmUpDone = false;
+
+  feed?.onBar((bar) => {
+    // Feed time going backwards is a reconnect -- the replay restarting, or a
+    // real feed re-serving from its own start -- and `rv_slope` starts over
+    // with it. Left alone this read as "127m more of feed" over a full bar.
+    if (firstBarT === null || (lastBarT !== null && bar.t < lastBarT)) {
+      firstBarT = bar.t;
+      warmUpDone = false;
+    }
+    lastBarT = bar.t;
+  });
+
+  const elapsedMs = () => {
+    if (warmUpDone) return WARM_UP_MS;
+    if (firstBarT === null || lastBarT === null) return 0;
+    return Math.min(WARM_UP_MS, lastBarT - firstBarT);
+  };
 
   /**
    * Fetch the table once, at construction.
@@ -334,13 +366,13 @@ export function createMockForecaster(
     });
 
   function warming(): boolean {
-    return mode === "warming" || now() - connectedAt < WARM_UP_MINUTES * 60_000;
+    return elapsedMs() < WARM_UP_MS;
   }
 
   function cellAt(t: number): ForecastCell | null {
-    if (mode === "no-table" || mode === "warming") return null;
+    if (mode === "no-table") return null;
     if (mode === "clearing") return CLEARING_CELL;
-    if (now() - connectedAt < WARM_UP_MINUTES * 60_000) return null;
+    if (warming()) return null;
 
     // The one thing still invented: with no feed there is no `atr_bp` and no
     // `rv_slope`, so both are derived from the 5-minute bar the timestamp falls
@@ -400,13 +432,17 @@ export function createMockForecaster(
   return {
     cellAt,
     forecastAt,
+    warmUp() {
+      return { elapsedMs: elapsedMs(), requiredMs: WARM_UP_MS };
+    },
     restartWarmUp() {
       mode = "normal";
-      connectedAt = now();
+      warmUpDone = false;
+      firstBarT = lastBarT;
     },
     finishWarmUp() {
       mode = "normal";
-      connectedAt = now() - WARM_UP_MINUTES * 60_000 - 1;
+      warmUpDone = true;
     },
     forceThin() {
       mode = "thin";

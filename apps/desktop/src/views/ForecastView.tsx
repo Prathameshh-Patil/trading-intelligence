@@ -36,14 +36,6 @@ const HORIZONS: HorizonMinutes[] = [15, 30, 60];
 const pct = (n: number) => `${(n * 100).toFixed(0)}%`;
 const fmt = (n: number) => n.toLocaleString("en-US");
 
-const clock = (t: number) =>
-  new Date(t).toLocaleTimeString("en-US", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-    timeZone: "America/New_York",
-  });
-
 /**
  * What the trader is told when there is no forecast.
  *
@@ -88,11 +80,11 @@ export default function ForecastView() {
 
   const [horizon, setHorizon] = useState<HorizonMinutes>(30);
   const [now, setNow] = useState(() => Date.now());
-  const [connectedAt] = useState(() => Date.now());
   const [tick, setTick] = useState(0);
 
-  // The warm-up is a countdown, so this view needs its own clock rather than
-  // rendering once and looking frozen for two hours.
+  // The warm-up is a countdown, so this view needs a clock rather than
+  // rendering once and looking frozen. The progress itself comes from the
+  // forecaster's bars; the clock only re-reads it.
   useEffect(() => {
     const id = window.setInterval(() => setNow(Date.now()), 1_000);
     return () => window.clearInterval(id);
@@ -108,8 +100,11 @@ export default function ForecastView() {
   const cell = useMemo(() => forecaster.cellAt(now), [forecaster, now, tick]);
   const coverage = controls?.coverage();
 
-  const readyAt = connectedAt + WARM_UP_MINUTES * 60_000;
-  const minutesLeft = Math.max(0, Math.ceil((readyAt - now) / 60_000));
+  // Feed minutes, not wall-clock minutes. Under the 10x replay the two differ
+  // by exactly that factor, and the copy says which one it is showing.
+  const warmUp = forecaster.warmUp();
+  const minutesLeft = Math.max(0, Math.ceil((warmUp.requiredMs - warmUp.elapsedMs) / 60_000));
+  const warmUpFraction = Math.min(1, warmUp.elapsedMs / warmUp.requiredMs);
 
   return (
     <div className="view">
@@ -166,24 +161,21 @@ export default function ForecastView() {
           </div>
 
           {/*
-            A real clock time, not a spinner. `reach.cell_of` says the two-hour
+            A real countdown, not a spinner. `reach.cell_of` says the two-hour
             warm-up is "correct rather than broken" and worth saying out loud,
             because otherwise it is discovered as "the product does not work at
             the open" — which is a support ticket, at 09:30, from a paying
-            subscriber.
+            subscriber. It counts feed minutes: what `rv_slope` has, not what
+            the wall clock says.
           */}
           {result.unavailable === "warming-up" && (
             <div className="warmup-line">
               <div className="warmup-bar">
-                <div
-                  className="warmup-fill"
-                  style={{
-                    width: `${Math.min(100, 100 * (1 - minutesLeft / WARM_UP_MINUTES))}%`,
-                  }}
-                />
+                <div className="warmup-fill" style={{ width: `${100 * warmUpFraction}%` }} />
               </div>
               <span className="warmup-eta">
-                first forecast ~{clock(readyAt)} ET · {minutesLeft}m
+                first forecast after {minutesLeft}m more of feed
+                {controls && ` · ~${Math.ceil(minutesLeft / 10)}m at 10× replay`}
               </span>
             </div>
           )}
