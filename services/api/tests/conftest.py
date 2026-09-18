@@ -85,7 +85,13 @@ PASSWORD = "correct horse battery"
 def db() -> Iterator[Session]:
     connection = engine.connect()
     outer = connection.begin()
-    session = Session(bind=connection, join_transaction_mode="create_savepoint")
+    # `autoflush=False`, exactly as `SessionLocal` is built: a test session
+    # that flushes for free hides a query that reads stale rows in the real
+    # one. `keys.rotate` did just that -- revoke, then look for an active key,
+    # and find the one it had just revoked -- and the suite was green.
+    session = Session(
+        bind=connection, join_transaction_mode="create_savepoint", autoflush=False
+    )
     try:
         yield session
     finally:
@@ -100,7 +106,7 @@ def client(db: Session) -> Iterator[TestClient]:
     # Non-yield sessions (the SSE auth) join the same test transaction.
     original = dependencies.open_session
     dependencies.open_session = lambda: Session(
-        bind=db.get_bind(), join_transaction_mode="create_savepoint"
+        bind=db.get_bind(), join_transaction_mode="create_savepoint", autoflush=False
     )
     auth_bucket.reset()
     broadcaster.recent.clear()

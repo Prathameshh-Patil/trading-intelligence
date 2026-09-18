@@ -61,6 +61,10 @@ def rotate(db: Session, user: User) -> ApiKey:
     if current:
         tier = current.tier
         revoke(db, current)
+        # The session does not autoflush. Without this, `issue_for`'s query
+        # still sees the row as active and hands the just-revoked key back
+        # as the "new" one -- found live, with the suite green.
+        db.flush()
     row, _ = issue_for(db, user, tier)
     return row
 
