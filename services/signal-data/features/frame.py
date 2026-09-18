@@ -33,7 +33,7 @@ FEATURES: tuple[str, ...] = (
     # frame identity -- Prathamesh
     "ts", "mid", "spread_bp",
     # §2 volatility ensemble -- Varad
-    "r_hat_60_bp", "r_ratio",
+    "r_hat_60_usd", "r_ratio",
     "sigma_yz_12", "sigma_yz_48", "sigma_yz_288", "sigma_garch",
     # §6 Hurst, two estimators and their agreement -- Varad
     "h_dfa_15m", "h_vt_15m", "h_agree",
@@ -51,7 +51,7 @@ def require(df: pd.DataFrame) -> None:
     """Exact column set. Missing and extra are both errors, and both name names.
 
     Naming the column is the point. "S13 frame invalid" sends someone diffing
-    two 20-column frames by eye; "missing ['r_hat_60_bp']" does not.
+    two 20-column frames by eye; "missing ['r_hat_60_usd']" does not.
     """
     # `set(df.columns)` collapses duplicate labels, so a frame with 21 labels
     # and 20 unique ones passed -- and `df["mid"]` downstream then returns a

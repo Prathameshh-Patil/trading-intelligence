@@ -4,7 +4,7 @@ The failure this file exists to prevent is not a crash. It is a lane adding or
 renaming a column, the other lane never learning, and a scorer reading a
 NaN it was never told about. So `require` is tested on what it *names*, not
 merely on what it rejects -- an error that says "bad frame" costs an hour
-that an error saying "r_hat_60_bp" does not.
+that an error saying "r_hat_60_usd" does not.
 """
 
 from __future__ import annotations
@@ -24,8 +24,8 @@ def test_a_complete_frame_passes():
 
 
 def test_a_missing_column_is_named_not_just_rejected():
-    df = full().drop(columns=["r_hat_60_bp"])
-    with pytest.raises(ValueError, match="r_hat_60_bp"):
+    df = full().drop(columns=["r_hat_60_usd"])
+    with pytest.raises(ValueError, match="r_hat_60_usd"):
         frame.require(df)
 
 

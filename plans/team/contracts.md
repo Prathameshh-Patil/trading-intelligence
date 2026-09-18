@@ -583,7 +583,7 @@ changed the seam without the other lane knowing.
 
 ```
 identity      ts, mid, spread_bp                                    Prathamesh
-§2 vol        r_hat_60_bp, r_ratio,                                 Varad
+§2 vol        r_hat_60_usd, r_ratio,                                 Varad
               sigma_yz_12, sigma_yz_48, sigma_yz_288, sigma_garch
 §6 Hurst      h_dfa_15m, h_vt_15m, h_agree                          Varad
 §7 HMM        p_build, p_expand                                     Varad
@@ -608,3 +608,19 @@ None are here. Spot XAUUSD has no tape, no aggregate size and no aggressor — `
 so that a lane cannot quietly begin writing an indicative-volume proxy into them. `spot.py` and
 `Quant_Trading/scripts/fetch_dukascopy_ticks.py` independently record the same ruling: Dukascopy's
 `bid_vol`/`ask_vol` are indicative liquidity, not traded size.
+
+### ⚠️ S13 amended 2026-09-18 — `r_hat_60_bp` → `r_hat_60_usd`
+
+**Caught by the first end-to-end assembly, before any data flowed through the seam.** Three files
+disagreed about one quantity: `frame.FEATURES` declared `r_hat_60_bp`, `fsm.exclusions` read
+`r_hat_60_usd`, and `volatility.r_hat_60` returned USD per ounce. **That is the precise failure a
+frozen seam exists to prevent, and the seam itself had it** — frozen column names do not stop two
+files disagreeing when nothing has yet tried to satisfy both.
+
+**USD per ounce wins because every threshold it is compared against is in USD per ounce:**
+§Objective's `$15.00`, §10's `$2.60 ≤ D ≤ $5.00`, §10's `$10.00` target floor and `$15.00` cap.
+Carrying it in basis points would mean converting at every comparison, and a conversion repeated at
+four call sites is four chances to divide by the wrong price.
+
+**The rule this adds:** a seam is not verified by freezing it. It is verified the first time
+something produces a frame that satisfies it and something else consumes one.
