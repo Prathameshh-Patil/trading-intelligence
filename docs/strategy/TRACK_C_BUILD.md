@@ -187,14 +187,23 @@ disappears and the `SHUT`/`BOUNDARY` table was deleted with it.
 transport at full tick resolution. **53 days / 119 MB of real XAUUSD ticks are on disk** and the
 rest of the three-month window is filling by paced passes.
 
-🔴 **And the first 24 real bars produced a finding that changes §3.** §3 records the cost exclusion
-narrowing §10's stop band to ~$0.45 at **$3,400/oz**. **The archive trades at $4,069.** §10's band
-is in dollars and §13's exclusion is a fraction of price, so the required `D` rises with gold while
-the cap does not — **at 1.91 bp the band closes entirely above ~$3,740/oz**, and Track C as
-configured would refuse **every trade on cost** before any strategy logic ran. Pinned as
-`test_the_cost_band_closes_entirely_above_3740_dollars_an_ounce`. **This is a spec decision for the
-room — §10's cap, §13's share, or a band that scales with price — and §7 below should not be run
-until it is taken**, because every attrition table before then reads 100% `slippage`.
+🔴 **And the real bars sharpen §3 — §3 was closer than it knew.** §3 records §13's exclusion
+narrowing §10's `[$2,$5]` band to ~$0.45, reasoning from `SPOT_FEED_CHECK.md`'s single quoted
+1.91 bp at $3,400. **Measured over June 2026 — 6,024 bars, median close $4,224 — the spread median
+is 1.452 bp**, and the exclusion eats the band from the bottom rather than shifting it:
+
+| spread | `D` needed (`7 x spread`) | left of `[$2, $5]` |
+| :--- | :--- | :--- |
+| p10 1.201 bp | $3.55 | $1.45 |
+| **p50 1.452 bp** | **$4.29** | **$0.71 — 24% of the band** |
+| p75 1.696 bp | $5.01 | **empty** |
+
+So a median bar admits a structural stop only inside a **71-cent window**, and **the widest quarter
+of bars admit none at all**. The attrition table shows the mechanism: `slippage` refuses almost
+nothing because **`stop_too_wide` refuses first** (s2 7 → 0). §10 is in dollars and §13 is a
+fraction of price, so the surviving window moves when gold does with no config edit to show for it.
+**A spec decision for the room — §10's cap, §13's share, or a band that scales with price — and
+worth taking before §7's run order.**
 
 **E1–E4's predictions still gate any claim.** Bars do not license one.
 

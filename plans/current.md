@@ -142,12 +142,22 @@ is not.** The next gate is **Friday 18 September, 16:00**, whatever it ends up b
 > repo has held. **The HTTP path is an archive transport**, at full tick resolution; S3 stays the
 > faster option where credentials exist, but their absence no longer blocks Track C.
 >
-> 🔴 **A finding from the first 24 real bars, before any backtest.** §10's stop band is in
-> **dollars** (`[$2,$5]`) and §13's cost exclusion is a fraction of **price** (`D >= 7 x spread`).
-> They no longer intersect: at 1.91 bp the required `D` reaches §10's cap at about **$3,740/oz**,
-> and **the first real bars trade at $4,069** — required `D` $5.44 against a $5.00 cap. **Track C
-> as configured refuses every trade on cost before any strategy logic runs.** Pinned as a test.
+> 🔴 **A finding from the first real bars — corrected once, and the correction is the finding.**
+> §10's stop band is in **dollars** (`[$2,$5]`); §13's cost exclusion is a fraction of **price**
+> (`D >= 7 x spread`). First stated here as "refuses every trade on cost" — **wrong, and from a
+> stale input**: it used `SPOT_FEED_CHECK.md`'s 1.91 bp (one validated hour, 2025) as the archive's
+> spread. **Measured over June 2026, 6,024 bars, median close $4,224: spread median 1.452 bp.**
+> The spread eats §10's band from the bottom rather than closing it — **p50 leaves `[4.29, 5.00]`,
+> a 71-cent window, 24% of the nominal band; p75 and above leave nothing at all.** The attrition
+> table agrees: `slippage` refuses almost nothing because **`stop_too_wide` gets there first**
+> (s2 7 → 0). Nobody chose that window and it moves when gold moves. Pinned as a test.
 > ⛔ **The fix is the room's** — §10's cap, §13's share, or a band that scales with price.
+>
+> **First attrition table on real market data** (`backtest --months 2026-06`): the funnel does real
+> work — s1 6,024 → 1 suggestion, s2 dies at `reclaim` and `stop_too_wide`, s3 at `z_extreme`, s4 at
+> `breakout`. **One suggestion, zero trades, both expected**: half the month is warm-up and a
+> 20-second limit `0.25 x ATR` back is rarely touched. No metric reported and none meaningful at
+> n=1. ⚠️ `hurst_agree` refuses ~2 bars in 3, consistent with the 25.3% agreement measured on GC.
 >
 > **Unchanged and still binding on any result:** E1–E4's four predictions are unwritten. Bars do
 > not license a claim.

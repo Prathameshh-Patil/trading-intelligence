@@ -177,42 +177,71 @@ def test_section_13s_cost_exclusion_narrows_section_10s_stop_band() -> None:
     assert isinstance(ok, Suggestion)
 
 
-def test_the_cost_band_closes_entirely_above_3740_dollars_an_ounce() -> None:
-    """**The finding above, carried to its end — and gold is already past it.**
+def test_section_13_leaves_a_quarter_of_section_10s_band_and_none_of_it_on_wide_bars() -> None:
+    """**§3's "half a dollar wide" finding, now measured on real bars instead of
+    on one quoted spread — and it is worse than §3 said, in a specific way.**
 
-    §10's band is stated in DOLLARS ($2–$5); §13's exclusion is a fraction of
-    PRICE (`1.75 x spread` must not exceed a quarter of D, so `D >= 7 x
-    spread`). The two cannot both hold as gold moves: the required D rises with
-    price and the cap does not. At `SPOT_FEED_CHECK.md`'s measured 1.91 bp the
-    required D reaches §10's $5.00 cap at about **$3,740/oz**, and above that
-    **every trade is refused on cost before any strategy logic runs** -- not
-    narrowed to half a dollar, closed.
+    §13 refuses when `1.75 x spread > 0.25 x D`, i.e. `D >= 7 x spread`. §10
+    caps `D` at $5.00. So the spread does not filter trades directly; it eats
+    §10's band from the bottom, and what is left is `[7 x spread, $5.00]`.
 
-    **The first real bars pulled from Dukascopy trade at $4,069** (2026-08-02,
-    `data/spot/XAUUSD`). So this is not a hypothetical about some future price;
-    it is the state of the archive Track C is about to run on, and without this
-    test it would arrive as an attrition table that is 100% `slippage` with no
-    explanation attached.
+    **Measured over June 2026** (`data/spot/XAUUSD`, 6,024 5-minute bars, median
+    close $4,224):
 
-    Neither rule is wrong alone. Holding one in dollars and the other in basis
-    points is the defect, and the fix is the room's: §10's cap, §13's share, or
-    a band that scales with price.
+        spread p50 = 1.452 bp -> D >= $4.29   usable band $0.71 of $3.00  (24%)
+        spread p75 = 1.696 bp -> D >= $5.01   EMPTY
+        spread p90 = 1.853 bp -> D >= $5.48   EMPTY
+
+    So on a **median** bar a strategy must land its structural stop inside a
+    71-cent window or be refused on cost, and on the **widest quarter of bars no
+    stop of any size is admissible**. That is why `stop_too_wide` dominates the
+    risk gates in the attrition table rather than `slippage` does: the trades
+    that reach §13 are the ones that already squeezed under the cap.
+
+    **Neither rule is wrong alone.** §10 is in dollars, §13 is a fraction of
+    price, and nobody chose the window their product leaves -- which also means
+    it moves when gold does, with no config edit to show for it.
+
+    ⚠️ **An earlier version of this test claimed the band was closed outright.**
+    It used `SPOT_FEED_CHECK.md`'s 1.91 bp -- one validated hour from 2025, and
+    wider than this archive's median. The arithmetic was right and the input was
+    stale, which is the more dangerous of the two.
     """
-    price, d = 4069.0, 4.00  # a stop squarely inside §10's band
-    spread = 1.91 / 1e4 * price
+    price = 4224.0  # median close, June 2026 archive
+    d_max = config.f(CFG, "risk.d_max_usd")
+    d_min = config.f(CFG, "risk.d_min_usd")
+    per_spread = fills.round_trip_usd(1.0, CFG, news=False) / config.f(
+        CFG, "cost.max_slippage_share")
+    assert abs(per_spread - 7.0) < 1e-9, "§13 is D >= 7 x spread"
+
+    def d_needed(bp: float, px: float = price) -> float:
+        return bp / 1e4 * px * per_spread
+
+    # A median bar leaves a fraction of §10's band; a p75 bar leaves none of it.
+    assert abs((d_max - d_needed(1.452)) / (d_max - d_min) - 0.24) < 0.02
+    assert d_needed(1.696) > d_max, "the p75 bar should admit no stop at all"
+
+    # And the window tightens as gold rises, with nothing edited to cause it.
+    assert d_needed(1.452, 3400.0) < d_needed(1.452, price)
+
+    # It bites where the table says it does: p90 spread, stop inside §10's band.
     out = bracket.build(
         strategy="s1", conditions=strategies.CONDITIONS["s1"],
-        ts=pd.Timestamp("2026-08-03T13:00Z"), side=1,
-        close=price, atr=4.0, stop=price - d - 0.25 * 4.0, spread_usd=spread,
+        ts=pd.Timestamp("2026-06-15T13:00Z"), side=1,
+        close=price, atr=4.0, stop=price - 4.00 - 0.25 * 4.0,
+        spread_usd=1.853 / 1e4 * price,
         news=False, confidence=0.5, cfg=CFG, day=fsm.Day())
     assert isinstance(out, Refusal) and out.reason == "slippage"
 
-    # The closing price itself, read out of the config rather than out of this prose.
-    per_spread = fills.round_trip_usd(1.0, CFG, news=False)
-    closes_at = (config.f(CFG, "risk.d_max_usd") * config.f(CFG, "cost.max_slippage_share")
-                 / per_spread / (1.91 / 1e4))
-    assert 3700.0 < closes_at < 3780.0, f"band closes at ${closes_at:,.0f}, not ~$3,740"
-    assert closes_at < price, "gold is below the closing price -- re-read this test's premise"
+    # ...and a stop near the cap on a tight bar still passes, so the gate reads
+    # as selective in the attrition table rather than as broken.
+    ok = bracket.build(
+        strategy="s1", conditions=strategies.CONDITIONS["s1"],
+        ts=pd.Timestamp("2026-06-15T13:00Z"), side=1,
+        close=price, atr=4.0, stop=price - 4.80 - 0.25 * 4.0,
+        spread_usd=1.201 / 1e4 * price,
+        news=False, confidence=0.5, cfg=CFG, day=fsm.Day())
+    assert isinstance(ok, Suggestion)
 
 
 def test_a_spread_that_eats_a_quarter_of_the_risk_is_refused() -> None:
