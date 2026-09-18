@@ -202,8 +202,16 @@ So a median bar admits a structural stop only inside a **71-cent window**, and *
 of bars admit none at all**. The attrition table shows the mechanism: `slippage` refuses almost
 nothing because **`stop_too_wide` refuses first** (s2 7 → 0). §10 is in dollars and §13 is a
 fraction of price, so the surviving window moves when gold does with no config edit to show for it.
-**A spec decision for the room — §10's cap, §13's share, or a band that scales with price — and
-worth taking before §7's run order.**
+**A spec decision for the room — §10's cap, §13's share, or a band that scales with price.**
+
+🔴 **And on the full three-month archive, §13 turns out not to be the binding constraint at all.**
+92 days, 20.8M ticks, 18,120 bars → **four suggestions; s3 and s4 produced none.** `stop_too_wide`
+refused **16 of 17** (s1), **36 of 41** (s2), **8 of 8** (s4), while **`stop_too_tight` refused
+nothing in any strategy**. §10's `[$2,$5]` is 20–50 ticks at GC's $0.10 tick — a futures spec
+carried onto spot — and the **60-minute ATR median is $4.53, 91% of the whole cap**, with **40.2%
+of bars above $5.00** on ATR alone. A structural stop sits behind the noise; on this instrument at
+this volatility it does not fit in §10. **That is the decision that governs whether Track C trades
+gold at all, and §7 below should not run before it is taken.**
 
 **E1–E4's predictions still gate any claim.** Bars do not license one.
 

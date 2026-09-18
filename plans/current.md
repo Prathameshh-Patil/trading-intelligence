@@ -153,11 +153,22 @@ is not.** The next gate is **Friday 18 September, 16:00**, whatever it ends up b
 > (s2 7 → 0). Nobody chose that window and it moves when gold moves. Pinned as a test.
 > ⛔ **The fix is the room's** — §10's cap, §13's share, or a band that scales with price.
 >
-> **First attrition table on real market data** (`backtest --months 2026-06`): the funnel does real
-> work — s1 6,024 → 1 suggestion, s2 dies at `reclaim` and `stop_too_wide`, s3 at `z_extreme`, s4 at
-> `breakout`. **One suggestion, zero trades, both expected**: half the month is warm-up and a
-> 20-second limit `0.25 x ATR` back is rarely touched. No metric reported and none meaningful at
-> n=1. ⚠️ `hurst_agree` refuses ~2 bars in 3, consistent with the 25.3% agreement measured on GC.
+> **First attrition table on real market data.** Archive complete: **92 days, 20.8M ticks, 173 MB**,
+> every empty day a Saturday. `backtest --months 2026-06 2026-07 2026-08`, 18,120 bars →
+> **four suggestions in three months; s3 and s4 produced none.** One fill; **its metrics are not
+> read** — E1–E4 unwritten, and n=1 would not support a claim anyway.
+>
+> 🔴 **The binding constraint is §10's stop cap, and it is a unit mismatch — this is the decision
+> that matters.** `stop_too_wide` refused **16 of 17** (s1), **36 of 41** (s2), **8 of 8** (s4);
+> `stop_too_tight` refused **nothing, in any strategy**. §10's `[$2,$5]` is 20–50 ticks at GC's
+> $0.10 tick — a futures spec carried onto spot. Measured over the same bars at gold ~$4,175, the
+> **60-minute ATR median is $4.53 — 91% of the entire cap — and 40.2% of bars have an hourly ATR
+> above $5.00.** A structural stop must sit behind the noise, so it lands outside §10 far more often
+> than inside. **This subsumes the §13 cost finding**: the cost rule barely gets a say because
+> almost nothing reaches it. ⛔ **Room's call** — §10 in ATR multiples, a different cap for spot, or
+> an explicit finding that this strategy family does not fit this instrument at this volatility.
+> ⚠️ `hurst_agree` also refuses ~3 bars in 4 across all four strategies, consistent with the 25.3%
+> agreement measured on GC — an estimator disagreement, not a market fact.
 >
 > **Unchanged and still binding on any result:** E1–E4's four predictions are unwritten. Bars do
 > not license a claim.

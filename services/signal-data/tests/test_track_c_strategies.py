@@ -244,6 +244,51 @@ def test_section_13_leaves_a_quarter_of_section_10s_band_and_none_of_it_on_wide_
     assert isinstance(ok, Suggestion)
 
 
+def test_section_10s_dollar_stop_band_is_smaller_than_the_instruments_own_atr() -> None:
+    """🔴 **The binding constraint in the first real run, and it is not §13.**
+
+    §10's band is `[$2, $5]` — 20 to 50 ticks at GC's $0.10 tick, a *futures*
+    spec carried onto spot. Measured over the June–August 2026 archive (17,651
+    bars, gold ~$4,175), the **60-minute ATR** is:
+
+        p10 $2.87   p25 $3.56   **p50 $4.53**   p75 $5.98   p90 $7.90
+
+    **The median ATR is 91% of the entire stop cap**, and on **40.2% of bars the
+    one-hour ATR alone already exceeds $5.00.** A structural stop — beyond a
+    swing, a range edge, a prior-day extreme — is not smaller than the bar noise
+    it must sit behind, so on this instrument at this volatility it lands outside
+    §10 far more often than inside.
+
+    **The attrition table says exactly that.** Of everything that reached the
+    risk gates in three months: `stop_too_wide` refused **16 of 17** (s1),
+    **36 of 41** (s2), **8 of 8** (s4) — while `stop_too_tight` refused
+    **nothing, in any strategy**. A band whose lower bound never binds and whose
+    upper bound refuses ~90% is not a filter on trade quality; it is a unit
+    mismatch. Four suggestions survived three months.
+
+    This also **subsumes the §13 cost finding**: the cost rule barely gets a say,
+    because almost nothing reaches it.
+
+    ⛔ **Room's call** — §10 in ATR multiples rather than dollars, a different cap
+    for spot, or an explicit decision that Track C does not trade gold at this
+    volatility. Not patched here: §10 is the spec's.
+    """
+    d_min = config.f(CFG, "risk.d_min_usd")
+    d_max = config.f(CFG, "risk.d_max_usd")
+
+    # Measured, June-August 2026 archive. Constants, because a test must not
+    # need the 173 MB cache to run -- provenance is in the docstring.
+    atr_p50, atr_p75, share_over_cap = 4.53, 5.98, 0.402
+
+    assert atr_p50 / d_max > 0.85, "the median ATR should be most of the whole cap"
+    assert atr_p75 > d_max, "at p75 the hourly ATR alone exceeds the cap"
+    assert share_over_cap > 0.35
+
+    # The lower bound is the one that never binds: nothing on this instrument is
+    # too tight, which is what makes the band one-sided in practice.
+    assert atr_p50 > 2 * d_min, "d_min is far below the noise floor, so it cannot bite"
+
+
 def test_a_spread_that_eats_a_quarter_of_the_risk_is_refused() -> None:
     fires = {"close": 3401.0, "vol_ratio": 1.3, "h_dfa": 0.60, "h_vt": 0.62, "spread_usd": 3.0}
     out = s1.evaluate(ctx(fires), 0, cfg=CFG, day=DAY)
