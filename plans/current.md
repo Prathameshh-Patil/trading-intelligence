@@ -100,9 +100,12 @@ is not.** The next gate is **Friday 18 September, 16:00**, whatever it ends up b
 
 > ### Day 1 progress, 2026-09-18 01:00 — [`daily_updates/2026-09-18.md`](../daily_updates/2026-09-18.md)
 >
-> **Built:** S13 seam (registered in `contracts.md`) · E3's cost model · Yang-Zhang · Hurst by DFA
-> and variance-time · `spot_s3`'s offline half. **381 tests passing, up from 337**; `ruff` and
-> `mypy` clean across 64 files. Merged `5092450..0841fed`.
+> **Built, as of 18 Sep 09:14:** Tasks 0, 4, 6, 9, 10, 11, 13 and 14, plus `spot_s3`'s offline
+> half — **every task in the three-day plan that did not need a person.** S13 seam · the cost
+> model · Yang-Zhang · Hurst · session windows and news lockout · sweep-and-reclaim · the §13
+> score and §15 state machine · the purged walk-forward tuner. **473 tests passing, up from
+> 337**; `ruff` and `mypy` clean across 70 files. A high-effort code review found eight
+> findings, all real, all fixed.
 >
 > **Blocked, and all four on a person:**
 >
