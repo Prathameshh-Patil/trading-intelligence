@@ -8,7 +8,7 @@
  * what the founding-price paragraph beneath it is trying to establish.
  */
 
-import { ButtonLink, Eyebrow } from '../ui'
+import { ButtonLink, Eyebrow } from '@vision-hub/ui'
 import { FOUNDING, PRICING, formatPrice } from '@/content/site'
 import { useReveal } from '@/lib/motion'
 
@@ -29,7 +29,7 @@ export function PricingPreview() {
           </div>
           <p className="mt-4 max-w-[36ch] text-dim">{core.blurb}</p>
           <div className="mt-8">
-            <ButtonLink href="/pricing">See what is included →</ButtonLink>
+            <ButtonLink href="/pricing" size="lg">See what is included →</ButtonLink>
           </div>
         </div>
 

@@ -1,39 +1,16 @@
 @import 'tailwindcss';
+@import '../../../packages/ui/tokens.css';
+@source '../../../packages/ui';
 
 /*
- * The palette is not chosen here — it is copied.
+ * The palette, the type and the primitives' surfaces come from
+ * `packages/ui/tokens.css` -- one file for this site, the admin portal and (by
+ * hand) the desktop app. Nothing here gets to have an opinion on colour.
  *
- * `apps/desktop/src/ui/theme.css` is the product's own stylesheet, and the site
- * is the front door to that window. Every token below is that file's value,
- * name for name. If the app's theme changes, this changes with it; nothing here
- * gets to have an opinion of its own.
- *
- * Green, red and amber are reserved for real buy/sell/warn data, exactly as
- * they are in the app. Violet and indigo carry everything else.
+ * What stays in this file is the landing page's own physics: the reveal, the
+ * scrubbed scenes' ambient light, the grain, the tape. Data pages never use
+ * these; the marketing pages are the only place the site is allowed to glow.
  */
-@theme {
-  --color-bg: #07080c;
-  --color-raise: #0c0e15;
-  --color-ink: #f2f4f9;
-  --color-dim: #a2a9ba;
-  --color-faint: #6b7285;
-
-  --color-violet: #8b5cf6;
-  --color-indigo: #6366f1;
-  --color-violet-lift: #a78bfa;
-
-  --color-bid: #34d399;
-  --color-ask: #f87171;
-  --color-warn: #fbbf24;
-
-  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
-
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 16px;
-  --radius-xl: 20px;
-}
 
 @layer base {
   html {
@@ -41,23 +18,9 @@
   }
 
   body {
-    margin: 0;
-    background: var(--color-bg);
-    color: var(--color-ink);
-    font-family: var(--font-sans);
     font-size: 16px;
     line-height: 1.6;
-    letter-spacing: -0.005em;
-    -webkit-font-smoothing: antialiased;
-    text-rendering: optimizeLegibility;
     overflow-x: hidden;
-  }
-
-  code,
-  kbd,
-  .num {
-    font-family: var(--font-mono);
-    font-variant-numeric: tabular-nums;
   }
 
   h1,
@@ -65,75 +28,7 @@
   h3 {
     letter-spacing: -0.035em;
     line-height: 1.05;
-    text-wrap: balance;
-    font-weight: 600;
   }
-
-  p {
-    text-wrap: pretty;
-  }
-
-  ::selection {
-    background: rgba(139, 92, 246, 0.35);
-  }
-
-  :focus-visible {
-    outline: 2px solid var(--color-violet);
-    outline-offset: 2px;
-  }
-
-  ::-webkit-scrollbar {
-    width: 10px;
-  }
-  ::-webkit-scrollbar-track {
-    background: transparent;
-  }
-  ::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.12);
-    border-radius: 99px;
-  }
-  ::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 255, 255, 0.2);
-  }
-
-  input,
-  select,
-  textarea {
-    width: 100%;
-    padding: 12px 14px;
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: var(--radius-sm);
-    background: rgba(0, 0, 0, 0.28);
-    color: var(--color-ink);
-  }
-
-  input:focus,
-  select:focus,
-  textarea:focus {
-    outline: none;
-    border-color: rgba(139, 92, 246, 0.55);
-    box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.14);
-  }
-
-  input::placeholder,
-  textarea::placeholder {
-    color: var(--color-faint);
-  }
-}
-
-/* ── surfaces ─────────────────────────────────────────────────────────────
-   The app's cards are translucent white over the dark ground rather than a
-   lighter flat colour. That is what keeps a dark UI from looking like flat
-   grey boxes, so the site uses the same trick. */
-
-.surface {
-  background: rgba(255, 255, 255, 0.035);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.surface-hi {
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.14);
 }
 
 /* A card that lifts and catches violet light on hover. */
@@ -156,24 +51,6 @@
   .lift:hover {
     transform: none;
   }
-}
-
-/* ── the accent ───────────────────────────────────────────────────────── */
-
-.grad {
-  background: linear-gradient(135deg, #8b5cf6, #6366f1);
-}
-
-/* Headline emphasis. A flat violet reads as a link; the gradient reads as brand. */
-.grad-text {
-  background: linear-gradient(120deg, #c4b5fd 0%, #8b5cf6 45%, #6366f1 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-}
-
-.glow {
-  box-shadow: 0 6px 20px rgba(99, 102, 241, 0.32);
 }
 
 /* ── ambient light ─────────────────────────────────────────────────────────
@@ -219,18 +96,6 @@
   pointer-events: none;
   opacity: 0.16;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
-}
-
-/* Hairline divider that fades at both ends instead of running wall to wall. */
-.rule-soft {
-  height: 1px;
-  background: linear-gradient(
-    to right,
-    transparent,
-    rgba(255, 255, 255, 0.1) 20%,
-    rgba(255, 255, 255, 0.1) 80%,
-    transparent
-  );
 }
 
 /* ── reveal ───────────────────────────────────────────────────────────────

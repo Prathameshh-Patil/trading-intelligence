@@ -12,7 +12,7 @@
 
 import { useCallback, useEffect, useRef } from 'react'
 
-import { Eyebrow } from '../ui'
+import { Eyebrow } from '@vision-hub/ui'
 import { TWO_CANDLES } from '@/content/site'
 import { fitCanvas, useScrubber } from '@/lib/motion'
 import { clamp01, mulberry32 } from '@/lib/rng'

@@ -6,9 +6,8 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 
-import { Banner, Button, Field } from '../ui'
-import { USING_MOCK } from '@/lib/api'
-import { DEV_ADMIN, DEV_USER } from '@/lib/mockApi'
+import { Banner, Button, Field } from '@vision-hub/ui'
+
 import { useSession } from '@/lib/session'
 
 export function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
@@ -26,10 +25,11 @@ export function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
     setError('')
     setBusy(true)
     try {
-      const me = isSignup ? await signUp(email, password) : await signIn(email, password)
-      // An admin is here to review the site or the queue; a buyer is here to get
-      // back to their key. Send each where they were actually going.
-      router.push(me.role === 'admin' ? '/admin' : '/key')
+      if (isSignup) await signUp(email, password)
+      else await signIn(email, password)
+      // Everyone lands on the account page: it is where the key arrives, and
+      // an admin gets the portal link from the rail once they are there.
+      router.push('/account')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong.')
     } finally {
@@ -44,7 +44,7 @@ export function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
       </h1>
       <p className="mb-8 text-dim">
         {isSignup
-          ? 'You need an account before you pay, so the key we issue has somewhere to land.'
+          ? 'One of us approves every account by hand. Your licence key lands here the moment that happens.'
           : 'Your licence key, your payments and your tickets live behind this.'}
       </p>
 
@@ -75,8 +75,8 @@ export function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
 
         {error ? <Banner kind="error">{error}</Banner> : null}
 
-        <Button type="submit" disabled={busy}>
-          {busy ? 'Working…' : isSignup ? 'Create account' : 'Sign in'}
+        <Button type="submit" size="lg" loading={busy}>
+          {isSignup ? 'Create account' : 'Sign in'}
         </Button>
       </form>
 
@@ -93,15 +93,6 @@ export function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
         )}
       </p>
 
-      {USING_MOCK ? (
-        <Banner kind="warn">
-          <strong>Mock data layer.</strong> No server is running, so this signs you in against your
-          own browser storage. Two preview accounts exist only in this mode and are not credentials
-          for anything real: <code>{DEV_ADMIN.email}</code> / <code>{DEV_ADMIN.password}</code>{' '}
-          (admin — also opens the payment queue) and <code>{DEV_USER.email}</code> /{' '}
-          <code>{DEV_USER.password}</code> (a plain account — past the release gate, nothing more).
-        </Banner>
-      ) : null}
     </main>
   )
 }

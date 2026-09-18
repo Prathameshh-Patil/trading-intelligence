@@ -121,6 +121,12 @@ importers:
 
   apps/site:
     dependencies:
+      '@vision-hub/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
+      '@vision-hub/ui':
+        specifier: workspace:*
+        version: link:../../packages/ui
       gsap:
         specifier: 3.15.0
         version: 3.15.0
@@ -155,37 +161,6 @@ importers:
       typescript:
         specifier: ~6.0.2
         version: 6.0.3
-
-  apps/web:
-    dependencies:
-      react:
-        specifier: ^19.2.8
-        version: 19.2.8
-      react-dom:
-        specifier: ^19.2.8
-        version: 19.2.8(react@19.2.8)
-    devDependencies:
-      '@types/node':
-        specifier: ^24.13.3
-        version: 24.13.3
-      '@types/react':
-        specifier: ^19.2.17
-        version: 19.2.18
-      '@types/react-dom':
-        specifier: ^19.2.3
-        version: 19.2.4(@types/react@19.2.18)
-      '@vitejs/plugin-react':
-        specifier: ^6.0.4
-        version: 6.0.5(vite@8.2.1(@types/node@24.13.3)(jiti@2.7.0))
-      oxlint:
-        specifier: ^1.75.0
-        version: 1.79.0
-      typescript:
-        specifier: ~6.0.2
-        version: 6.0.3
-      vite:
-        specifier: ^8.2.0
-        version: 8.2.1(@types/node@24.13.3)(jiti@2.7.0)
 
   packages/contracts:
     dependencies:

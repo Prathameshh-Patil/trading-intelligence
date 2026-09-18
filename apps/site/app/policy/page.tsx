@@ -15,7 +15,7 @@
 
 import Link from 'next/link'
 
-import { Banner, PageHeader } from '@/components/ui'
+import { Banner, PageHeader } from '@vision-hub/ui'
 import { CONTACT, PRICING } from '@/content/site'
 
 export default function PolicyPage() {
@@ -35,7 +35,7 @@ export default function PolicyPage() {
       <div className="mt-8 flex flex-col gap-3 text-[16px] text-dim [&_h2]:mt-8 [&_h2]:mb-1 [&_h2]:text-[20px] [&_h2]:font-semibold [&_h2]:text-ink [&_li]:mb-2 [&_ul]:list-disc [&_ul]:pl-5">
         <h2 id="what-this-is">1. What this is, and what it is not</h2>
         <p>
-          Trading Intelligence is a <strong className="text-ink">data tool</strong>. It reads the
+          Vision Hub is a <strong className="text-ink">data tool</strong>. It reads the
           raw trade tape and shows you what it contains — signed delta, session-reset CVD,
           absorption, size clusters, and outliers against a measured baseline.
         </p>
@@ -89,10 +89,11 @@ export default function PolicyPage() {
 
         <h2 id="payments">4. Payments and keys</h2>
         <p>
-          There is no card processor. You pay by UPI or in USDT, upload proof, and a human checks
-          it and issues your licence key — usually within a few hours, and always{' '}
-          {CONTACT.responseTarget}. Until a key is issued, no payment has been accepted and
-          nothing has started.
+          There is no card processor. A human approves your account and issues your licence
+          key — usually within a few hours, and always {CONTACT.responseTarget}. You pay by UPI
+          or in USDT and attach the receipt on your account page, where the person approving you
+          can see it. Until we have matched a payment to your account, no payment has been
+          accepted and no subscription has started.
         </p>
         <p>
           One key is one person. Sharing a key is what gets it revoked; installing it on your own

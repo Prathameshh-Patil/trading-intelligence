@@ -1,10 +1,13 @@
 import type { Metadata } from 'next'
 import { Inter, JetBrains_Mono } from 'next/font/google'
 
+import { ToastProvider } from '@vision-hub/ui'
+
 import { Gate } from '@/components/Gate'
 import { SmoothScroll } from '@/components/SmoothScroll'
-import { SessionProvider } from '@/lib/session'
 import { BRAND } from '@/content/site'
+import { LiveProvider } from '@/lib/live'
+import { SessionProvider } from '@/lib/session'
 
 import './globals.css'
 
@@ -12,9 +15,19 @@ const sans = Inter({ subsets: ['latin'], variable: '--font-inter', display: 'swa
 const mono = JetBrains_Mono({ subsets: ['latin'], variable: '--font-jetbrains', display: 'swap' })
 
 export const metadata: Metadata = {
-  title: `${BRAND.name} — order flow for gold futures`,
+  title: {
+    default: `${BRAND.name} — ${BRAND.tagline.toLowerCase()}`,
+    template: `%s — ${BRAND.name}`,
+  },
   description:
     'A candle keeps the open, high, low and close. It does not keep the aggressor side of a single trade. A desktop overlay that reads the raw tape on your own machine.',
+  icons: { icon: '/favicon.svg' },
+  openGraph: {
+    title: `${BRAND.name} — ${BRAND.tagline}`,
+    description: 'Same candle. Opposite order flow. A desktop overlay that reads the raw tape on your own machine.',
+    siteName: BRAND.name,
+    images: ['/og.png'],
+  },
 }
 
 /**
@@ -38,8 +51,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body>
         <SessionProvider>
-          <SmoothScroll />
-          <Gate>{children}</Gate>
+          <ToastProvider>
+            <LiveProvider>
+              <SmoothScroll />
+              <Gate>{children}</Gate>
+            </LiveProvider>
+          </ToastProvider>
         </SessionProvider>
       </body>
     </html>

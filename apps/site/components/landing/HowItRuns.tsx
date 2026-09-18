@@ -11,7 +11,7 @@
 
 import { useState } from 'react'
 
-import { Eyebrow } from '../ui'
+import { Eyebrow } from '@vision-hub/ui'
 import { HOW_IT_RUNS } from '@/content/site'
 import { useScrubber } from '@/lib/motion'
 

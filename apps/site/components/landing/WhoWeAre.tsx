@@ -6,7 +6,7 @@
  * is just telling the truth early.
  */
 
-import { ButtonLink } from '../ui'
+import { ButtonLink } from '@vision-hub/ui'
 import { CONTACT, TEAM } from '@/content/site'
 
 export function WhoWeAre() {
@@ -29,7 +29,7 @@ export function WhoWeAre() {
       </div>
 
       <div className="mt-10 flex flex-wrap items-center gap-4">
-        <ButtonLink href="/contact" kind="secondary">Book a call before you buy</ButtonLink>
+        <ButtonLink href="/contact" kind="secondary" size="lg">Book a call before you buy</ButtonLink>
         <span className="text-sm text-faint">
           Or write to{' '}
           <a className="text-violet-lift" href={`mailto:${CONTACT.email}`}>

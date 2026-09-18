@@ -9,7 +9,7 @@
  * is not on this page anywhere.
  */
 
-import { Eyebrow } from '../ui'
+import { Eyebrow } from '@vision-hub/ui'
 import { USE_CASES } from '@/content/site'
 import { useReveal } from '@/lib/motion'
 

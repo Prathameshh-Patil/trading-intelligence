@@ -4,11 +4,9 @@
   "packageManager": "pnpm@11.22.0",
   "scripts": {
     "dev": "pnpm --filter extension dev",
-    "dev:web": "pnpm --filter web dev",
     "dev:site": "pnpm --filter site dev",
     "dev:admin": "pnpm --filter admin dev",
     "build": "pnpm --filter extension build",
-    "build:web": "pnpm --filter web build",
     "build:site": "pnpm --filter site build",
     "build:admin": "pnpm --filter admin build",
     "build:all": "pnpm -r build",
