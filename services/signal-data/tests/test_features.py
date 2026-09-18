@@ -19,7 +19,9 @@ import pytest
 from conftest import NEXT, SESSION, bars_at
 
 from features import expansion as ex
+from features import hurst as hu
 from features import orderflow as of
+from features import volatility as vol
 from instruments import GC
 
 TICK = GC.tick
@@ -201,20 +203,20 @@ def ohlc(rows: list[tuple[float, float, float, float]]) -> pd.DataFrame:
 
 def test_k_matches_the_published_constant() -> None:
     # k = 0.34 / (1.34 + (n+1)/(n-1)). Yang & Zhang (2000).
-    assert ex._yz_k(12) == np.float64(0.34 / (1.34 + 13 / 11))
-    assert abs(ex._yz_k(12) - 0.134823) < 1e-6
+    assert vol._yz_k(12) == np.float64(0.34 / (1.34 + 13 / 11))
+    assert abs(vol._yz_k(12) - 0.134823) < 1e-6
 
 
 def test_k_approaches_the_large_n_limit() -> None:
     # (n+1)/(n-1) -> 1, so k -> 0.34/2.34. A k that drifts outside
     # [0.078, 0.146] for any n >= 2 means the formula was mistyped.
-    assert abs(ex._yz_k(10_000) - 0.34 / 2.34) < 1e-4
-    assert all(0.078 <= ex._yz_k(n) <= 0.146 for n in (2, 12, 48, 288))
+    assert abs(vol._yz_k(10_000) - 0.34 / 2.34) < 1e-4
+    assert all(0.078 <= vol._yz_k(n) <= 0.146 for n in (2, 12, 48, 288))
 
 
 def test_a_series_of_identical_flat_bars_has_zero_volatility() -> None:
     bars = ohlc([(3000.0, 3000.0, 3000.0, 3000.0)] * 30)
-    assert ex.yang_zhang(bars, n=12).dropna().eq(0.0).all()
+    assert vol.yang_zhang(bars, n=12).dropna().eq(0.0).all()
 
 
 def test_it_is_drift_independent() -> None:
@@ -225,8 +227,8 @@ def test_it_is_drift_independent() -> None:
     flat = ohlc([(3000 + o, 3000 + h, 3000 + lo, 3000 + c) for o, h, lo, c in shape])
     ramp = ohlc([(3000 + o + 5 * i, 3000 + h + 5 * i, 3000 + lo + 5 * i, 3000 + c + 5 * i)
                  for i, (o, h, lo, c) in enumerate(shape)])
-    a = ex.yang_zhang(flat, n=12).dropna()
-    b = ex.yang_zhang(ramp, n=12).dropna()
+    a = vol.yang_zhang(flat, n=12).dropna()
+    b = vol.yang_zhang(ramp, n=12).dropna()
     # Not exactly equal: the log transform makes the same dollar range a
     # slightly smaller LOG range at a higher price. Same order, though --
     # a close-to-close estimator would be several times larger on the ramp.
@@ -255,7 +257,7 @@ def test_a_window_shorter_than_n_is_nan_not_a_partial_estimate() -> None:
     # The overnight term is ln(O_t / C_{t-1}), so n overnight returns need
     # n+1 bars. An implementation that produced a number at index 11 would be
     # computing the window from 11 overnight returns and one NaN.
-    out = ex.yang_zhang(ohlc([(3000.0, 3001.0, 2999.0, 3000.5)] * 30), n=12)
+    out = vol.yang_zhang(ohlc([(3000.0, 3001.0, 2999.0, 3000.5)] * 30), n=12)
     assert out.iloc[:12].isna().all()
     assert out.iloc[12:].notna().all()
 
@@ -263,8 +265,8 @@ def test_a_window_shorter_than_n_is_nan_not_a_partial_estimate() -> None:
 def test_wider_bars_give_a_larger_sigma() -> None:
     narrow = ohlc([(3000.0, 3000.5, 2999.5, 3000.2)] * 30)
     wide = ohlc([(3000.0, 3005.0, 2995.0, 3002.0)] * 30)
-    assert ex.yang_zhang(wide, n=12).dropna().mean() > \
-        ex.yang_zhang(narrow, n=12).dropna().mean()
+    assert vol.yang_zhang(wide, n=12).dropna().mean() > \
+        vol.yang_zhang(narrow, n=12).dropna().mean()
 
 
 def test_sigma_is_never_negative() -> None:
@@ -276,7 +278,7 @@ def test_sigma_is_never_negative() -> None:
     for _ in range(200):
         o, c = 3000 + rng.normal(0, 2), 3000 + rng.normal(0, 2)
         rows.append((o, max(o, c) + abs(rng.normal(0, 1)), min(o, c) - abs(rng.normal(0, 1)), c))
-    out = ex.yang_zhang(ohlc(rows), n=12).dropna()
+    out = vol.yang_zhang(ohlc(rows), n=12).dropna()
     assert (out >= 0).all()
     assert out.notna().all()
 
@@ -316,14 +318,14 @@ def walk(n: int, phi: float = 0.0, seed: int = 0) -> np.ndarray:
 
 def test_both_estimators_return_half_for_a_random_walk() -> None:
     x = walk(20_000)
-    assert ex.hurst_dfa(x) == pytest.approx(0.5, abs=0.05)
-    assert ex.hurst_vt(x) == pytest.approx(0.5, abs=0.05)
+    assert hu.hurst_dfa(x) == pytest.approx(0.5, abs=0.05)
+    assert hu.hurst_vt(x) == pytest.approx(0.5, abs=0.05)
 
 
 def test_both_exceed_half_when_increments_are_persistent() -> None:
     x = walk(20_000, phi=0.6)
-    assert ex.hurst_dfa(x) > 0.55
-    assert ex.hurst_vt(x) > 0.55
+    assert hu.hurst_dfa(x) > 0.55
+    assert hu.hurst_vt(x) > 0.55
 
 
 def test_both_fall_below_half_when_increments_mean_revert() -> None:
@@ -342,8 +344,8 @@ def test_both_fall_below_half_when_increments_mean_revert() -> None:
     # hides exactly the regime the strategy is trying to detect.
     x = walk(20_000, phi=-0.6)
     short = (4, 8, 16, 32)
-    assert ex.hurst_dfa(x, short) < 0.45
-    assert ex.hurst_vt(x, short) < 0.45
+    assert hu.hurst_dfa(x, short) < 0.45
+    assert hu.hurst_vt(x, short) < 0.45
 
 
 def test_dfa_refuses_scales_below_four() -> None:
@@ -353,33 +355,33 @@ def test_dfa_refuses_scales_below_four() -> None:
     # series. The guard drops them, so the answer stays sane rather than
     # becoming spectacular.
     x = walk(20_000, phi=-0.6)
-    assert ex.hurst_dfa(x, (2, 4, 8, 16)) == pytest.approx(
-        ex.hurst_dfa(x, (4, 8, 16)), abs=1e-12)
+    assert hu.hurst_dfa(x, (2, 4, 8, 16)) == pytest.approx(
+        hu.hurst_dfa(x, (4, 8, 16)), abs=1e-12)
 
 
 def test_too_few_usable_scales_is_nan_not_a_two_point_regression() -> None:
     # A slope through two points is exact and meaningless. Both estimators
     # need three scales before they will answer.
     x = walk(300)
-    assert np.isnan(ex.hurst_dfa(x, (4, 128)))
-    assert np.isnan(ex.hurst_vt(x, (4, 128)))
+    assert np.isnan(hu.hurst_dfa(x, (4, 128)))
+    assert np.isnan(hu.hurst_vt(x, (4, 128)))
 
 
 def test_the_two_estimators_agree_on_a_random_walk() -> None:
     # The claim §6 rests on. If they disagree on the easiest possible series,
     # `h_agree` will be False everywhere and the gate never opens.
     x = walk(20_000)
-    assert ex.hurst_agree(ex.hurst_dfa(x), ex.hurst_vt(x))
+    assert hu.hurst_agree(hu.hurst_dfa(x), hu.hurst_vt(x))
 
 
 def test_they_are_required_to_agree_before_either_is_used() -> None:
     # §6: "Do not trade from one noisy Hurst estimate."
-    assert not ex.hurst_agree(0.52, 0.61)
-    assert ex.hurst_agree(0.57, 0.59)
+    assert not hu.hurst_agree(0.52, 0.61)
+    assert hu.hurst_agree(0.57, 0.59)
 
 
 def test_agreement_is_symmetric() -> None:
-    assert ex.hurst_agree(0.52, 0.61) == ex.hurst_agree(0.61, 0.52)
+    assert hu.hurst_agree(0.52, 0.61) == hu.hurst_agree(0.61, 0.52)
 
 
 def test_both_take_log_prices_and_passing_returns_is_a_detectable_error() -> None:
@@ -388,21 +390,21 @@ def test_both_take_log_prices_and_passing_returns_is_a_detectable_error() -> Non
     # the mistake is silent unless something asserts it is not.
     x = walk(20_000)
     r = np.diff(x)
-    assert abs(ex.hurst_dfa(x) - ex.hurst_dfa(r)) > 0.3
-    assert abs(ex.hurst_vt(x) - ex.hurst_vt(r)) > 0.3
+    assert abs(hu.hurst_dfa(x) - hu.hurst_dfa(r)) > 0.3
+    assert abs(hu.hurst_vt(x) - hu.hurst_vt(r)) > 0.3
 
 
 def test_too_few_points_returns_nan_rather_than_a_confident_wrong_number() -> None:
-    assert np.isnan(ex.hurst_dfa(np.arange(10.0)))
-    assert np.isnan(ex.hurst_vt(np.arange(10.0)))
+    assert np.isnan(hu.hurst_dfa(np.arange(10.0)))
+    assert np.isnan(hu.hurst_vt(np.arange(10.0)))
 
 
 def test_a_constant_series_is_nan_not_zero() -> None:
     # No variance at any scale. A regression on log(0) must not return a
     # number, and 0.0 would read as "maximally anti-persistent".
     flat = np.full(5_000, np.log(3000.0))
-    assert np.isnan(ex.hurst_dfa(flat))
-    assert np.isnan(ex.hurst_vt(flat))
+    assert np.isnan(hu.hurst_dfa(flat))
+    assert np.isnan(hu.hurst_vt(flat))
 
 
 def test_both_hurst_estimators_use_the_same_scale_set() -> None:
@@ -414,8 +416,8 @@ def test_both_hurst_estimators_use_the_same_scale_set() -> None:
     # Found by review 2026-09-18.
     x = walk(20_000)
     mixed, floored = (2, 4, 8, 16, 32), (4, 8, 16, 32)
-    assert ex.hurst_dfa(x, mixed) == ex.hurst_dfa(x, floored)
-    assert ex.hurst_vt(x, mixed) == ex.hurst_vt(x, floored)
+    assert hu.hurst_dfa(x, mixed) == hu.hurst_dfa(x, floored)
+    assert hu.hurst_vt(x, mixed) == hu.hurst_vt(x, floored)
 
 
 def test_dfa_is_biased_high_on_a_short_scale_ladder_and_agreement_fails_there() -> None:
@@ -432,17 +434,17 @@ def test_dfa_is_biased_high_on_a_short_scale_ladder_and_agreement_fails_there() 
     # would hide the bias instead of measuring it.
     x = walk(20_000)
     short = (4, 8, 16, 32)
-    d, v = ex.hurst_dfa(x, short), ex.hurst_vt(x, short)
+    d, v = hu.hurst_dfa(x, short), hu.hurst_vt(x, short)
     assert d - v > 0.04, "DFA's short-ladder bias, measured 2026-09-18"
-    assert not ex.hurst_agree(d, v)
+    assert not hu.hurst_agree(d, v)
     # Over the default ladder, which reaches 256, they do agree.
-    assert ex.hurst_agree(ex.hurst_dfa(x), ex.hurst_vt(x))
+    assert hu.hurst_agree(hu.hurst_dfa(x), hu.hurst_vt(x))
 
 
 def test_yang_zhang_refuses_a_one_bar_window_rather_than_dividing_by_zero() -> None:
     # (n+1)/(n-1) divides by zero at n=1. Found by review 2026-09-18.
     with pytest.raises(ValueError, match="at least 2"):
-        ex._yz_k(1)
+        vol._yz_k(1)
 
 
 # --------------------------------------------------------------------------
@@ -472,7 +474,7 @@ def garch_series(n: int = 8_000, omega: float = 2e-6, alpha: float = 0.08,
 
 
 def test_it_recovers_known_parameters_from_a_simulated_series() -> None:
-    fit = ex.garch_fit(garch_series())
+    fit = vol.garch_fit(garch_series())
     # Persistence is what the forecast actually depends on, and it is far
     # better identified than alpha and beta separately -- they trade off.
     assert fit.alpha + fit.beta == pytest.approx(0.98, abs=0.03)
@@ -482,9 +484,9 @@ def test_it_recovers_known_parameters_from_a_simulated_series() -> None:
 
 def test_fat_tails_give_a_small_nu_and_gaussian_data_a_large_one() -> None:
     # §2's reason for specifying Student-t, turned into a check on the fit.
-    fat = ex.garch_fit(garch_series(nu=4.0, seed=1))
+    fat = vol.garch_fit(garch_series(nu=4.0, seed=1))
     rng = np.random.default_rng(2)
-    thin = ex.garch_fit(rng.standard_normal(8_000) * 0.01)
+    thin = vol.garch_fit(rng.standard_normal(8_000) * 0.01)
     assert fat.nu < thin.nu
 
 
@@ -492,28 +494,28 @@ def test_a_non_stationary_fit_is_refused_not_returned() -> None:
     # alpha + beta >= 1 means the variance forecast diverges. Returning it
     # quietly puts an infinite r_hat_60 into the trade filter.
     with pytest.raises(ValueError, match="stationar"):
-        ex.garch_forecast(sigma2_t=1e-4, params=ex.GarchFit(1e-6, 0.2, 0.85, 6.0), m=12)
+        vol.garch_forecast(sigma2_t=1e-4, params=vol.GarchFit(1e-6, 0.2, 0.85, 6.0), m=12)
 
 
 def test_the_m_step_forecast_reverts_toward_the_unconditional_variance() -> None:
     # sigma2_bar + (alpha+beta)^m (sigma2_t - sigma2_bar). As m grows the
     # forecast must approach the unconditional level, not stay at the current.
-    p = ex.GarchFit(omega=2e-6, alpha=0.08, beta=0.90, nu=6.0)
+    p = vol.GarchFit(omega=2e-6, alpha=0.08, beta=0.90, nu=6.0)
     bar = p.omega / (1 - p.alpha - p.beta)
     hot = 10 * bar
-    near = ex.garch_forecast(sigma2_t=hot, params=p, m=1)
-    far = ex.garch_forecast(sigma2_t=hot, params=p, m=500)
+    near = vol.garch_forecast(sigma2_t=hot, params=p, m=1)
+    far = vol.garch_forecast(sigma2_t=hot, params=p, m=500)
     assert hot > near > far > bar
     assert far == pytest.approx(bar, rel=0.05)
 
 
 def test_a_zero_step_forecast_is_the_current_variance() -> None:
-    p = ex.GarchFit(omega=2e-6, alpha=0.08, beta=0.90, nu=6.0)
-    assert ex.garch_forecast(sigma2_t=5e-5, params=p, m=0) == pytest.approx(5e-5)
+    p = vol.GarchFit(omega=2e-6, alpha=0.08, beta=0.90, nu=6.0)
+    assert vol.garch_forecast(sigma2_t=5e-5, params=p, m=0) == pytest.approx(5e-5)
 
 
 def test_the_fit_is_stationary_by_construction() -> None:
-    fit = ex.garch_fit(garch_series())
+    fit = vol.garch_fit(garch_series())
     assert fit.alpha + fit.beta < 1.0
     assert fit.omega > 0
     assert fit.nu > 2.0
@@ -521,7 +523,7 @@ def test_the_fit_is_stationary_by_construction() -> None:
 
 def test_a_series_too_short_to_identify_four_parameters_is_refused() -> None:
     with pytest.raises(ValueError, match="at least"):
-        ex.garch_fit(np.array([0.001, -0.002, 0.0005]))
+        vol.garch_fit(np.array([0.001, -0.002, 0.0005]))
 
 
 def test_the_recursion_matches_a_plain_python_loop() -> None:
@@ -530,7 +532,7 @@ def test_the_recursion_matches_a_plain_python_loop() -> None:
     # feeds would be wrong in a way that still converges to something.
     r = garch_series(n=500)
     omega, alpha, beta = 2e-6, 0.08, 0.90
-    got = ex._garch_variance(r, omega, alpha, beta)
+    got = vol._garch_variance(r, omega, alpha, beta)
     want = np.empty(len(r))
     want[0] = float(np.var(r))
     for i in range(1, len(r)):
@@ -552,39 +554,39 @@ def test_the_recursion_matches_a_plain_python_loop() -> None:
 
 def test_weights_must_sum_to_one() -> None:
     with pytest.raises(ValueError, match="sum to 1"):
-        ex.combine_sigma(sigma_yz=0.001, sigma_garch=0.001, w_yz=0.5, w_g=0.7)
+        vol.combine_sigma(sigma_yz=0.001, sigma_garch=0.001, w_yz=0.5, w_g=0.7)
 
 
 def test_the_garch_horizon_is_cumulative_not_terminal() -> None:
     # The sum over m bars, not the variance at bar m. For m = 1 they agree.
-    p = ex.GarchFit(omega=2e-6, alpha=0.08, beta=0.90, nu=6.0)
+    p = vol.GarchFit(omega=2e-6, alpha=0.08, beta=0.90, nu=6.0)
     s2 = 4 * p.omega / (1 - p.alpha - p.beta)
-    one = ex.garch_sigma_h(sigma2_t=s2, params=p, m=1)
-    assert one**2 == pytest.approx(ex.garch_forecast(sigma2_t=s2, params=p, m=1))
-    twelve = ex.garch_sigma_h(sigma2_t=s2, params=p, m=12)
-    terminal = ex.garch_forecast(sigma2_t=s2, params=p, m=12) ** 0.5
+    one = vol.garch_sigma_h(sigma2_t=s2, params=p, m=1)
+    assert one**2 == pytest.approx(vol.garch_forecast(sigma2_t=s2, params=p, m=1))
+    twelve = vol.garch_sigma_h(sigma2_t=s2, params=p, m=12)
+    terminal = vol.garch_forecast(sigma2_t=s2, params=p, m=12) ** 0.5
     assert twelve > 3 * terminal
 
 
 def test_the_garch_horizon_matches_a_plain_sum_of_steps() -> None:
     # The closed form must equal summing the per-step forecasts, or the
     # geometric series was mis-derived and the number is still plausible.
-    p = ex.GarchFit(omega=2e-6, alpha=0.08, beta=0.90, nu=6.0)
+    p = vol.GarchFit(omega=2e-6, alpha=0.08, beta=0.90, nu=6.0)
     s2 = 4 * p.omega / (1 - p.alpha - p.beta)
-    want = sum(ex.garch_forecast(sigma2_t=s2, params=p, m=k) for k in range(1, 13))
-    assert ex.garch_sigma_h(sigma2_t=s2, params=p, m=12) ** 2 == pytest.approx(want)
+    want = sum(vol.garch_forecast(sigma2_t=s2, params=p, m=k) for k in range(1, 13))
+    assert vol.garch_sigma_h(sigma2_t=s2, params=p, m=12) ** 2 == pytest.approx(want)
 
 
 def test_the_yang_zhang_leg_scales_by_the_square_root_of_the_horizon() -> None:
     # A per-bar sigma over 12 bars is sigma * sqrt(12), not sigma.
-    assert ex.yz_sigma_h(0.0005, m=12) == pytest.approx(0.0005 * 12**0.5)
+    assert vol.yz_sigma_h(0.0005, m=12) == pytest.approx(0.0005 * 12**0.5)
 
 
 def test_r_hat_is_in_usd_per_ounce_not_log_units() -> None:
     # sigma is a log return; R_hat must be sigma * price. Forgetting the
     # multiply gives a number ~3400x too small that still passes a `>`
     # filter -- by never passing it.
-    r = ex.r_hat_60(price=3400.0, sigma_60=0.0017)
+    r = vol.r_hat_60(price=3400.0, sigma_60=0.0017)
     assert 5.0 < r < 7.0
 
 
@@ -594,17 +596,17 @@ def test_r_ratio_uses_a_trailing_median_not_a_full_sample_one() -> None:
     # against a median dragged down by calm that has not happened yet.
     calm = pd.Series([5.0] * 300)
     spike = pd.concat([calm, pd.Series([50.0] * 300)], ignore_index=True)
-    early_alone = ex.r_ratio(calm, window=100)
-    early_with_future = ex.r_ratio(spike, window=100).iloc[:300]
+    early_alone = vol.r_ratio(calm, window=100)
+    early_with_future = vol.r_ratio(spike, window=100).iloc[:300]
     assert np.allclose(early_alone.dropna(), early_with_future.dropna())
 
 
 def test_r_ratio_is_one_on_a_flat_series() -> None:
-    assert ex.r_ratio(pd.Series([7.0] * 300), window=100).dropna().eq(1.0).all()
+    assert vol.r_ratio(pd.Series([7.0] * 300), window=100).dropna().eq(1.0).all()
 
 
 def test_r_ratio_is_nan_until_the_window_is_full() -> None:
-    out = ex.r_ratio(pd.Series(range(1, 301), dtype=float), window=100)
+    out = vol.r_ratio(pd.Series(range(1, 301), dtype=float), window=100)
     assert out.iloc[:99].isna().all()
     assert out.iloc[99:].notna().all()
 
@@ -612,4 +614,4 @@ def test_r_ratio_is_nan_until_the_window_is_full() -> None:
 def test_the_quality_filter_is_a_ratio_not_a_level() -> None:
     # §2: "This prevents trading merely because current volatility is high
     # relative to an already elevated baseline."
-    assert ex.QUALITY_RATIO_MIN == 1.20
+    assert vol.QUALITY_RATIO_MIN == 1.20
