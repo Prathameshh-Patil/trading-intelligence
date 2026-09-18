@@ -100,12 +100,16 @@ is not.** The next gate is **Friday 18 September, 16:00**, whatever it ends up b
 
 > ### Day 1 progress, 2026-09-18 01:00 — [`daily_updates/2026-09-18.md`](../daily_updates/2026-09-18.md)
 >
-> **Built, as of 18 Sep 09:14:** Tasks 0, 4, 6, 9, 10, 11, 13 and 14, plus `spot_s3`'s offline
-> half — **every task in the three-day plan that did not need a person.** S13 seam · the cost
-> model · Yang-Zhang · Hurst · session windows and news lockout · sweep-and-reclaim · the §13
-> score and §15 state machine · the purged walk-forward tuner. **473 tests passing, up from
-> 337**; `ruff` and `mypy` clean across 70 files. A high-effort code review found eight
-> findings, all real, all fixed.
+> **Built, as of 18 Sep 09:55:** Tasks 0, 4, 6, 7, 8, 9, 10, 11, 13 and 14, plus the S13 assembly
+> and `spot_s3`'s offline half. **§2 and §6 are complete and verified against real GC data**, not
+> only synthetic fixtures. **499 tests passing, up from 337**; `ruff` and `mypy` clean across 74
+> files. A high-effort code review returned eight findings, all real, all fixed.
+>
+> **Three findings that change what the spec says:** §2's GARCH horizon formula is the terminal
+> variance rather than the cumulative one and the two differ by **13×**; the S13 seam declared
+> `r_hat_60_bp` while its consumer read `r_hat_60_usd` and its producer returned USD — **amended**;
+> and the two Hurst estimators disagree by 0.085 on a rolling window against a 0.05 tolerance, so
+> `h_agree` reads True on only **25.3%** of real bars.
 >
 > **Blocked, and all four on a person:**
 >
@@ -120,10 +124,12 @@ is not.** The next gate is **Friday 18 September, 16:00**, whatever it ends up b
 > [`strategy-precommit-drafts.md`](team/strategy-precommit-drafts.md), deliberately outside
 > `strategy-precommit.md` so that file only ever holds signed text.
 >
-> ⚠️ **One decision the Hurst work forces, before E0 pulls anything.** §6 wants a 15-minute Hurst,
-> and it cannot be computed from 5-minute bars — three bars is not three scales. If E0 pulls 5min
-> only, `h_dfa_15m` and `h_vt_15m` are NaN by construction and two S13 columns are dead. **That is a
-> choice about granularity, and it belongs before the pull rather than after it.**
+> 🔴 **The granularity decision has hardened from a nicety into a blocker.** Three independent
+> measurements now say §6's 15-minute Hurst cannot come from 5-minute bars: too few scales; DFA
+> biased high on a short ladder (0.563 against a true 0.5); and the two estimators disagreeing past
+> tolerance on real GC data, so `h_agree` reads False on three bars in four. **If E0 pulls 5-minute
+> bars, §9's condition 7 is effectively permanently closed and two S13 columns are dead on
+> arrival.** This belongs before the pull, not after it.
 
 ### Friday 18 Sep — before the 16:00 gate
 
