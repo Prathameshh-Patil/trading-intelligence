@@ -84,6 +84,13 @@ def pull(symbol: str, months: list[str], out: Path, *,
     ~50 lines of resume machinery answer a question nobody is asking. Deleted
     rather than left in place -- git remembers the HTTP path.
 
+    **The HTTP path came back on 2026-09-19 and this paragraph still stands.**
+    `dukascopy.fetch_day` composes the 24 hour-files itself and owns its own
+    `pause` and `retries`, so pacing lives in the transport that needs it
+    rather than in every caller of `pull`. What does not come back is the hour
+    cache: `fetch_day` returns a whole day or raises, so the invariant below is
+    unchanged whichever transport is passed.
+
     **The day-completeness invariant survives the simplification and is now
     structural rather than enforced.** One object is one whole day, so there is
     no longer a code path that can write a day with holes. A day with holes

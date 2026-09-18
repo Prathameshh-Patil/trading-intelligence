@@ -51,6 +51,7 @@ from __future__ import annotations
 import lzma
 import struct
 import time
+from datetime import date
 from urllib.request import Request, urlopen
 
 import pandas as pd
@@ -82,6 +83,18 @@ def url_for(symbol: str, hour: pd.Timestamp) -> str:
         f"{FEED}/{symbol}/{hour.year}/{hour.month - 1:02d}/{hour.day:02d}"
         f"/{hour.hour:02d}h_ticks.bi5"
     )
+
+
+def day_url(symbol: str, day: pd.Timestamp) -> str:
+    """The feed's URL for a whole instrument-day. **Zero-indexed month, again.**
+
+    A SIBLING of the day's hour directory rather than a file inside it --
+    `XAUUSD/2026/07/03_ticks.bi5` next to `XAUUSD/2026/07/03/13h_ticks.bi5`.
+    `spot_s3.py` measured that layout in the S3 bucket on 18 Sep; **measured
+    2026-09-19, the HTTP datafeed serves the same object**, which is the whole
+    reason `fetch_day` costs one request instead of twenty-four.
+    """
+    return f"{FEED}/{symbol}/{day.year}/{day.month - 1:02d}/{day.day:02d}_ticks.bi5"
 
 
 def decode_bi5(raw: bytes, symbol: str, hour: pd.Timestamp) -> pd.DataFrame:
@@ -124,32 +137,84 @@ def decode_bi5(raw: bytes, symbol: str, hour: pd.Timestamp) -> pd.DataFrame:
     )
 
 
-def fetch_hour(
-    symbol: str, hour: pd.Timestamp, *, retries: int = 3, timeout: int = 60
-) -> pd.DataFrame:
-    """Download and decode one hour. Retries, because resets are routine.
+def _fetch(url: str, symbol: str, anchor: pd.Timestamp, retries: int, timeout: int
+           ) -> pd.DataFrame:
+    """Download `url`, decode it against `anchor`. Retries, because resets are routine.
 
     **The failure mode is a connection reset, not an HTTP status**, so this
     retries on any exception rather than on a status code. One request in four
     was reset during the reachability check on a warm connection.
-    """
-    if hour.tzinfo is None:
-        raise ValueError("hour must be tz-aware; the feed is UTC and a naive hour is a guess")
-    hour = hour.tz_convert("UTC").floor("h")
 
+    One loop rather than one per fetcher: the hour path and the day path must
+    not come to disagree about what counts as a retryable failure, which is the
+    same reason `decode_bi5` is not reimplemented per transport.
+    """
     last: Exception | None = None
     for attempt in range(retries):
         try:
-            req = Request(url_for(symbol, hour), headers=HEADERS)
-            with urlopen(req, timeout=timeout) as r:
-                return decode_bi5(r.read(), symbol, hour)
+            with urlopen(Request(url, headers=HEADERS), timeout=timeout) as r:
+                return decode_bi5(r.read(), symbol, anchor)
         # Named rather than blanket, and each one is a failure seen in the
         # reachability check: OSError covers the connection reset and the
         # timeout (URLError subclasses it), LZMAError a corrupt payload, and
         # ValueError decode_bi5's own truncation guard. A bad point scale is
-        # also a ValueError and must NOT be retried -- but it raises before the
-        # first request, so it never reaches here.
+        # also a ValueError and must NOT be retried -- callers guard before
+        # they reach here.
         except (OSError, lzma.LZMAError, ValueError) as exc:
             last = exc
             time.sleep(2**attempt)
-    raise ConnectionError(f"{url_for(symbol, hour)} failed after {retries} attempts: {last}")
+    raise ConnectionError(f"{url} failed after {retries} attempts: {last}")
+
+
+def fetch_hour(
+    symbol: str, hour: pd.Timestamp, *, retries: int = 3, timeout: int = 60
+) -> pd.DataFrame:
+    """Download and decode one hour. The reachability check's unit of work.
+
+    `fetch_day` is the bulk path and does not call this -- one request buys a
+    whole day. This stays because the reachability result is stated per hour
+    and `SPOT_FEED_CHECK.md` is written against it.
+    """
+    if hour.tzinfo is None:
+        raise ValueError("hour must be tz-aware; the feed is UTC and a naive hour is a guess")
+    # The guard this function's docstring used to claim. `decode_bi5` raises it
+    # too, but from inside `_fetch`'s try, where `except ValueError` retries it
+    # and re-raises it as a ConnectionError -- an unknown symbol read as a dead
+    # feed. Hoisted so it raises before the first request. Found 2026-09-19.
+    if symbol not in POINTS:
+        raise ValueError(f"no point scale for {symbol}; add it to POINTS deliberately -- §4.6")
+    hour = hour.tz_convert("UTC").floor("h")
+    return _fetch(url_for(symbol, hour), symbol, hour, retries, timeout)
+
+
+def fetch_day(symbol: str, day: date, *, retries: int = 5, timeout: int = 120) -> pd.DataFrame:
+    """One UTC day in ONE request -- `spot_s3.fetch_day`'s contract without its
+    credentials, so `spot.pull(fetch=...)` takes either.
+
+    **THE DAY OBJECT, NOT TWENTY-FOUR HOUR FILES, AND THAT IS THE WHOLE POINT.**
+    `spot_s3.py` recorded the day of ticks as a sibling object at month level;
+    measured 2026-09-19, the HTTP datafeed serves it too. Five years is **1,776
+    requests instead of ~43,800**, which is what turns this from a
+    bounded-window fallback into an archive transport.
+
+    **Verified identical to the hour path, not assumed.** Hour 13 of
+    2026-08-03 taken from the day object and from `13h_ticks.bi5` agree on
+    20,758 quotes, row for row, on timestamp, bid and ask.
+
+    **A shut day is HTTP 200 with a zero-byte body** -- measured on Saturday
+    2026-08-01 -- which `decode_bi5` already turns into an empty frame with the
+    columns intact. So absence needs no interpretation here: 200-and-empty is
+    the venue being shut, and a 503 is the throttle. **An earlier draft walked
+    the 24 hour files and could not tell those two apart**, and carried a table
+    of shut hours to work around it; one request removed the ambiguity and the
+    table with it.
+
+    **A failure raises rather than returning a short day.** `spot.pull`'s
+    invariant is that a day arrives whole or not at all -- a day with a hole
+    looks exactly like a quiet day once it is on disk, and `atr_bp` reads the
+    hole as calm rather than as absent.
+    """
+    if symbol not in POINTS:
+        raise ValueError(f"no point scale for {symbol}; add it to POINTS deliberately -- §4.6")
+    midnight = pd.Timestamp(day, tz="UTC")
+    return _fetch(day_url(symbol, midnight), symbol, midnight, retries, timeout)

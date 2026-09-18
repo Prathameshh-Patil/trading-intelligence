@@ -17,13 +17,17 @@ from __future__ import annotations
 
 import argparse
 import json
+from collections.abc import Callable
+from datetime import date
 from pathlib import Path
 from typing import Any
 
 import pandas as pd
 
 import calendars
+import dukascopy
 import spot
+import spot_s3
 import tuning
 from instruments import XAUUSD, Instrument
 from track_c import (
@@ -59,9 +63,18 @@ def _events() -> pd.DatetimeIndex:
     return calendars.load()
 
 
+# The same day frame from either transport, and the choice is the caller's.
+# `s3` is one object per day and wants an AWS account; `http` is that day's 24
+# hour-files, wants nothing, and costs ~3 minutes a day. See `dukascopy.fetch_day`.
+TRANSPORTS: dict[str, Callable[[str, date], pd.DataFrame]] = {
+    "s3": spot_s3.fetch_day,
+    "http": dukascopy.fetch_day,
+}
+
+
 def cmd_preload(a: argparse.Namespace) -> None:
-    """Dukascopy day objects into the cache. Resumable; a cached day is skipped."""
-    spot.pull(a.symbol, a.months, a.out)
+    """Dukascopy days into the cache. Resumable; a cached day is skipped."""
+    spot.pull(a.symbol, a.months, a.out, fetch=TRANSPORTS[a.transport])
 
 
 def cmd_suggest(a: argparse.Namespace) -> None:
@@ -185,6 +198,9 @@ def main(argv: list[str] | None = None) -> None:
     pre.add_argument("--symbol", default="XAUUSD")
     pre.add_argument("--months", nargs="+", required=True, help="YYYY-MM")
     pre.add_argument("--out", type=Path, default=CACHE)
+    pre.add_argument("--transport", choices=sorted(TRANSPORTS), default="s3",
+                     help="s3 needs AWS credentials and is the bulk path; "
+                          "http needs none and is ~3 min/day")
     pre.set_defaults(fn=cmd_preload)
 
     for name, fn, doc in (("suggest", cmd_suggest, "evaluate one bar"),

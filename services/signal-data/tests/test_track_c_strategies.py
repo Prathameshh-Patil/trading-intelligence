@@ -22,7 +22,7 @@ import pandas as pd
 import pytest
 
 import fsm
-from track_c import bracket, config, strategies
+from track_c import bracket, config, fills, strategies
 from track_c.strategies import s1, s2, s3, s4
 from track_c.suggestion import Refusal, Suggestion
 
@@ -175,6 +175,44 @@ def test_section_13s_cost_exclusion_narrows_section_10s_stop_band() -> None:
     # The same row at a $0.55 spread clears it: D = $4.00 needs spread <= $0.571.
     ok = s1.evaluate(ctx({**fires, "spread_usd": 0.55}), 0, cfg=CFG, day=DAY)
     assert isinstance(ok, Suggestion)
+
+
+def test_the_cost_band_closes_entirely_above_3740_dollars_an_ounce() -> None:
+    """**The finding above, carried to its end — and gold is already past it.**
+
+    §10's band is stated in DOLLARS ($2–$5); §13's exclusion is a fraction of
+    PRICE (`1.75 x spread` must not exceed a quarter of D, so `D >= 7 x
+    spread`). The two cannot both hold as gold moves: the required D rises with
+    price and the cap does not. At `SPOT_FEED_CHECK.md`'s measured 1.91 bp the
+    required D reaches §10's $5.00 cap at about **$3,740/oz**, and above that
+    **every trade is refused on cost before any strategy logic runs** -- not
+    narrowed to half a dollar, closed.
+
+    **The first real bars pulled from Dukascopy trade at $4,069** (2026-08-02,
+    `data/spot/XAUUSD`). So this is not a hypothetical about some future price;
+    it is the state of the archive Track C is about to run on, and without this
+    test it would arrive as an attrition table that is 100% `slippage` with no
+    explanation attached.
+
+    Neither rule is wrong alone. Holding one in dollars and the other in basis
+    points is the defect, and the fix is the room's: §10's cap, §13's share, or
+    a band that scales with price.
+    """
+    price, d = 4069.0, 4.00  # a stop squarely inside §10's band
+    spread = 1.91 / 1e4 * price
+    out = bracket.build(
+        strategy="s1", conditions=strategies.CONDITIONS["s1"],
+        ts=pd.Timestamp("2026-08-03T13:00Z"), side=1,
+        close=price, atr=4.0, stop=price - d - 0.25 * 4.0, spread_usd=spread,
+        news=False, confidence=0.5, cfg=CFG, day=fsm.Day())
+    assert isinstance(out, Refusal) and out.reason == "slippage"
+
+    # The closing price itself, read out of the config rather than out of this prose.
+    per_spread = fills.round_trip_usd(1.0, CFG, news=False)
+    closes_at = (config.f(CFG, "risk.d_max_usd") * config.f(CFG, "cost.max_slippage_share")
+                 / per_spread / (1.91 / 1e4))
+    assert 3700.0 < closes_at < 3780.0, f"band closes at ${closes_at:,.0f}, not ~$3,740"
+    assert closes_at < price, "gold is below the closing price -- re-read this test's premise"
 
 
 def test_a_spread_that_eats_a_quarter_of_the_risk_is_refused() -> None:

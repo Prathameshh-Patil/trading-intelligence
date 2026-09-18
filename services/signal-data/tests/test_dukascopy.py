@@ -11,6 +11,7 @@ the wrong month.
 from __future__ import annotations
 
 import lzma
+from datetime import date
 
 import pandas as pd
 import pytest
@@ -108,3 +109,84 @@ def test_the_request_carries_both_headers_the_feed_requires(monkeypatch) -> None
     # urllib title-cases header names on the way in.
     assert sent.get("User-agent", "").startswith("Mozilla/"), "no UA -> connection reset"
     assert sent.get("Accept") == "*/*", "no Accept -> 503"
+
+
+# `fetch_day` -- ONE request for a whole day. The 429 that sent E0 to S3 had
+# lifted by 2026-09-19, and the day object the S3 bucket holds turned out to be
+# served over HTTP too. No network here: what these pin is the day-completeness
+# invariant `spot.pull` depends on, and the two answers a request can give.
+
+
+def test_a_day_is_one_request_for_the_day_object(monkeypatch) -> None:
+    """Twenty-four hour files would be twenty-four requests and ~43,800 for
+    five years. The day object is 1,776. The count is the whole reason this
+    function exists, so it is asserted rather than described."""
+    asked = []
+
+    class FakeResponse:
+        def __enter__(self): return self
+        def __exit__(self, *_): return False
+        def read(self): return bi5([(0, 3_400_000, 3_399_000, 1.0, 1.0)])
+
+    def fake_urlopen(req, timeout=0):
+        asked.append(req.full_url)
+        return FakeResponse()
+
+    monkeypatch.setattr(dk, "urlopen", fake_urlopen)
+    day = dk.fetch_day("XAUUSD", date(2025, 6, 18))
+
+    assert len(asked) == 1, f"one day should be one request, not {len(asked)}"
+    assert asked[0].endswith("/2025/05/18_ticks.bi5"), asked[0]
+    assert len(day) == 1
+
+
+def test_the_day_object_is_a_sibling_of_the_hour_directory_not_a_file_in_it() -> None:
+    """`.../05/18_ticks.bi5` beside `.../05/18/13h_ticks.bi5`. A day URL built
+    inside the directory returns 404 and would read as a missing day."""
+    day = pd.Timestamp("2025-06-18", tz="UTC")
+    assert dk.day_url("XAUUSD", day).endswith("/2025/05/18_ticks.bi5")
+    assert dk.url_for("XAUUSD", day + pd.Timedelta(hours=13)).endswith("/2025/05/18/13h_ticks.bi5")
+
+
+def test_a_shut_day_is_two_hundred_and_empty_not_an_error(monkeypatch) -> None:
+    """Measured on Saturday 2026-08-01: HTTP 200, zero bytes. `spot.pull`
+    writes it as an empty parquet so a later pass does not re-request it
+    forever -- which it cannot do with a raise. **This is also what makes the
+    503 unambiguous**: absence has its own answer, so a 503 is the throttle."""
+    class FakeResponse:
+        def __enter__(self): return self
+        def __exit__(self, *_): return False
+        def read(self): return b""
+
+    monkeypatch.setattr(dk, "urlopen", lambda req, timeout=0: FakeResponse())
+    day = dk.fetch_day("XAUUSD", date(2026, 8, 1))
+
+    assert day.empty
+    assert list(day.columns) == ["timestamp", "bid", "ask", "bid_vol", "ask_vol"]
+
+
+def test_a_failed_day_raises_rather_than_returning_a_partial_one(monkeypatch) -> None:
+    """The invariant: a day with a hole looks exactly like a quiet day once it
+    is on disk, so the day is not written at all and the next resumable pass
+    picks it up."""
+    def dead(req, timeout=0):
+        raise OSError("503")
+
+    monkeypatch.setattr(dk, "urlopen", dead)
+    monkeypatch.setattr(dk.time, "sleep", lambda _: None)
+    with pytest.raises(ConnectionError):
+        dk.fetch_day("XAUUSD", date(2025, 6, 18), retries=2)
+
+
+def test_an_unknown_instrument_raises_before_any_request_is_made(monkeypatch) -> None:
+    """`decode_bi5` also guards, but from inside `_fetch`'s try, where
+    `except ValueError` retried it and re-raised it as a ConnectionError -- an
+    unknown symbol reading as a dead feed. Both fetchers guard up front."""
+    def forbidden(req, timeout=0):
+        raise AssertionError("a request was made for an instrument with no point scale")
+
+    monkeypatch.setattr(dk, "urlopen", forbidden)
+    for call in (lambda: dk.fetch_hour("EURUSD", HOUR),
+                 lambda: dk.fetch_day("EURUSD", date(2025, 6, 18))):
+        with pytest.raises(ValueError, match="no point scale"):
+            call()

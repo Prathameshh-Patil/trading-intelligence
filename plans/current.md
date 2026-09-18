@@ -98,6 +98,60 @@ is not.** The next gate is **Friday 18 September, 16:00**, whatever it ends up b
 > **R10's blank gate votes and the calendar decision are unaffected** — they need the room, and the
 > room is not what is suspended.
 
+> ### Track C transport, 2026-09-19 — [`daily_updates/2026-09-19.md`](../daily_updates/2026-09-19.md) §9–10
+>
+> **Track C's remaining work was steps 4–5 and `TRACK_C_BUILD.md` §6 named one blocker: AWS
+> credentials.** Re-verified first — 660 tests, `ruff`/`mypy` clean, `preload` still dies on
+> `NoCredentialsError`, cache still zero bytes. **The premise that sent E0 to S3 has expired:** the
+> HTTP datafeed's 429 has lifted, and a sequential day paced 1s apart returns 20 of 24 hours.
+>
+> **`spot.pull`'s `fetch` seam now has its second implementation** — `dukascopy.fetch_day`, the same
+> day frame over HTTP with no AWS account, plus `preload --transport {s3,http}` defaulting to `s3`.
+> Two constants are measured, not chosen: `pause=1.0` (unpaced at 4 and 8 workers, exactly 12 of 24
+> hours returned and the rest 503) and `retries=5` (the 503 clears after ~15s; `fetch_hour`'s 3
+> attempts wait 7s and give up just short — the first draft aborted every day at hour 16).
+> **665 tests, +5.** A defect fixed on the way, outside Track C: `fetch_hour`'s point-scale guard
+> fired from inside its own `try`, so an unknown instrument was retried three times and re-raised
+> as `ConnectionError` — **a bad symbol reading as a dead feed.**
+>
+> ⛔ **No bars were pulled and no Track C step ran, and this does not retire the credential task.**
+> HTTP is ~3–5 min/day — a month in an hour, **the walk-forward's five years in ~120 hours** —
+> against S3's ~$0.12. And the real pull of 2026-08 **aborted on its first day**: 503 is returned
+> both by the throttle and by hours the market was shut, the two are indistinguishable from the
+> status code, and after ~120 requests the feed stopped answering rather than refusing. `fetch_day`
+> deliberately does **not** guess — treating a 503 as an empty hour would write a throttled weekday
+> as a calm session forever after.
+>
+> **Resolved the same day, Varad's call: take the bounded window and state the week at the pull
+> level.** `dukascopy.SHUT` / `BOUNDARY` carry which UTC hours the feed has no object for, by
+> weekday, as the **intersection** of the EDT and EST regimes — so no hour that could hold data is
+> skipped, a weekend day costs **zero requests**, and a persistent 503 counts as "no object" only
+> at the two weekly boundaries and the daily break. Everywhere else it still aborts the day
+> unwritten. **668 tests, +8.** ⚠️ The table is written from published hours, not measured against
+> the archive; that check is owed once a full month is on disk.
+>
+> **⭐ Superseded the same night, and by one request.** `E0_TRANSPORT.md` §1 had recorded that the
+> bucket holds the day's ticks as a **sibling object at month level**; nobody had asked whether the
+> HTTP datafeed serves that path. **It does** — 204,368 quotes for 2026-08-03 in **one** request
+> instead of 24, so five years is **1,776 requests, not ~43,800**. Hour 13 from the day object and
+> from `13h_ticks.bi5` are **identical row for row** (20,758 quotes), and a shut day is **HTTP 200
+> with zero bytes**, which `decode_bi5` has always read as a shut market. **So 200-and-empty is
+> shut and 503 is the throttle** — the `SHUT`/`BOUNDARY` table existed only to tell those apart and
+> was **deleted**, along with the hour loop and five tests. `dukascopy.py` is 220 lines, down from
+> 261. **53 days / 119 MB of real XAUUSD ticks are now on disk** — the first spot market data this
+> repo has held. **The HTTP path is an archive transport**, at full tick resolution; S3 stays the
+> faster option where credentials exist, but their absence no longer blocks Track C.
+>
+> 🔴 **A finding from the first 24 real bars, before any backtest.** §10's stop band is in
+> **dollars** (`[$2,$5]`) and §13's cost exclusion is a fraction of **price** (`D >= 7 x spread`).
+> They no longer intersect: at 1.91 bp the required `D` reaches §10's cap at about **$3,740/oz**,
+> and **the first real bars trade at $4,069** — required `D` $5.44 against a $5.00 cap. **Track C
+> as configured refuses every trade on cost before any strategy logic runs.** Pinned as a test.
+> ⛔ **The fix is the room's** — §10's cap, §13's share, or a band that scales with price.
+>
+> **Unchanged and still binding on any result:** E1–E4's four predictions are unwritten. Bars do
+> not license a claim.
+
 > ### Day 1 progress, 2026-09-18 01:00 — [`daily_updates/2026-09-18.md`](../daily_updates/2026-09-18.md)
 >
 > **Built, as of 18 Sep 09:55:** Tasks 0, 4, 6, 7, 8, 9, 10, 11, 13 and 14, plus the S13 assembly

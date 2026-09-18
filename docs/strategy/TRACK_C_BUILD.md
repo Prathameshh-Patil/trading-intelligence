@@ -4,9 +4,14 @@
 [`TRACK_C_ENGINE.md`](TRACK_C_ENGINE.md)'s plan, and it **changes that plan in one structural way**
 which is stated first because everything else follows from it.
 
-> **Status: code complete through build step 3, blocked at step 4 on credentials.** 22 modules,
-> ~2,400 lines under `services/signal-data/track_c/`, 126 new tests (660 passing repo-wide),
-> `ruff` and `mypy` clean. **No result is claimed, because no market data has been read.**
+> **Status: code complete through build step 3; steps 4–5 unrun.** 22 modules, ~2,400 lines under
+> `services/signal-data/track_c/`, 126 new tests (660 passing repo-wide), `ruff` and `mypy` clean.
+> **No result is claimed, because no market data has been read.**
+>
+> **Amended 2026-09-19 — §6.1.** The blocker is no longer "credentials, full stop": the HTTP
+> datafeed's rate limit has lifted, `preload --transport http` pulls the same days with no AWS
+> account, and S3 stays the default and the bulk path. **The first real pull still did not
+> complete**, and E1–E4's predictions still gate any claim. Read §6.1 before §7.
 
 ---
 
@@ -24,7 +29,7 @@ That is not a smaller version of the plan. It removes two of its four blockers o
 | **E4's verdict on the HMM** (`p_expand` is NaN on every row, so `fsm_row` refuses every row) | **Dissolved.** None of S1–S4 reads `p_expand`, `p_e`, `s_hmm` or `classifier.py`. The HMM cannot gate what nothing consumes. |
 | **The granularity decision** (§6's 15-minute Hurst cannot come from 5-minute bars) | **Decided by the user:** 5-minute is the trading resolution, 1-minute exists to audit what 5-minute cannot resolve. Hurst is computed on the trading resolution over a 256-bar window and the decision is recorded in `config/track_c.toml`. |
 | **E1–E4 predictions unwritten** | Still open, and still binding on any *claim*. It does not block the code, and no claim is made below. |
-| **AWS credentials for the requester-pays bucket** | **This is the blocker the build stops at.** §6. |
+| **AWS credentials for the requester-pays bucket** | **The blocker the build stops at — narrowed 19 Sep, not removed.** There is now a second transport that needs no account, but it is a bounded-window path and its first real pull aborted. §6 and §6.1. |
 
 **What is reused rather than re-spelled** — `features/volatility.py` (Yang-Zhang),
 `features/hurst.py` (DFA + variance-time + agreement), `features/expansion.py` (ATR),
@@ -149,13 +154,62 @@ written and tested; what it lacks is bars.
 synthetic result is reported as if it were a measurement. Track C is a spot XAUUSD engine; a number
 from another instrument would be a different measurement wearing this one's name.
 
+### 6.1 Amended 2026-09-19 — the blocker is now a bounded choice, and still unrun
+
+**"Requester-pays, therefore credentials" is no longer the whole story.** `spot_s3.py` chose S3
+because the HTTP datafeed served ~2 requests and then returned 429, unlifted after 40 minutes.
+**Re-measured 19 Sep: that limit is gone** — a sequential day paced 1s apart returns 20 of 24
+hours. `spot.pull`'s `fetch` seam accordingly has a second implementation, `dukascopy.fetch_day`,
+and `preload --transport {s3,http}` selects it; `s3` stays the default.
+
+**It does not retire step 1 and the credential task is still worth doing.** HTTP runs ~3–5 minutes
+a day — a month in an hour, and **the five years this walk-forward wants in ~120 hours** — against
+one S3 object a day at ~$0.12 total.
+
+⛔ **And the first real pull did not complete.** 2026-08 aborted on 2026-08-01: **503 is returned
+both by the throttle and by hours the market was shut**, the two cannot be separated by status
+code, and after ~120 requests the feed stopped answering rather than refusing. `fetch_day` aborts
+the day rather than guessing — treating a 503 as an empty hour would write a throttled weekday as
+a calm session, which is §4's "a hole looks exactly like a quiet day" failure arriving through the
+transport. **Whether a session calendar belongs at the pull level is left open on purpose.**
+
+### 6.2 Superseded the same night — the day object, and bars on disk
+
+**§6.1's "bounded window" was a limit of the unit of work, not of the feed.** `E0_TRANSPORT.md` §1
+recorded that the bucket holds a day's ticks as a **sibling object at month level**; the HTTP
+datafeed turns out to serve the same path. **One request per day, not 24** — five years is 1,776
+requests rather than ~43,800 — and hour 13 of 2026-08-03 from the day object is **identical row for
+row** to `13h_ticks.bi5` (20,758 quotes, timestamp/bid/ask). A shut day is **HTTP 200 with zero
+bytes**, which `decode_bi5` already reads as a shut market, so the ambiguity §6.1 worked around
+disappears and the `SHUT`/`BOUNDARY` table was deleted with it.
+
+**So the credential blocker is gone, not narrowed.** `preload --transport http` is an archive
+transport at full tick resolution. **53 days / 119 MB of real XAUUSD ticks are on disk** and the
+rest of the three-month window is filling by paced passes.
+
+🔴 **And the first 24 real bars produced a finding that changes §3.** §3 records the cost exclusion
+narrowing §10's stop band to ~$0.45 at **$3,400/oz**. **The archive trades at $4,069.** §10's band
+is in dollars and §13's exclusion is a fraction of price, so the required `D` rises with gold while
+the cap does not — **at 1.91 bp the band closes entirely above ~$3,740/oz**, and Track C as
+configured would refuse **every trade on cost** before any strategy logic ran. Pinned as
+`test_the_cost_band_closes_entirely_above_3740_dollars_an_ounce`. **This is a spec decision for the
+room — §10's cap, §13's share, or a band that scales with price — and §7 below should not be run
+until it is taken**, because every attrition table before then reads 100% `slippage`.
+
+**E1–E4's predictions still gate any claim.** Bars do not license one.
+
 ---
 
 ## 7. What happens when the credentials exist
 
 In order, and each is a commit that runs:
 
-1. `preload --months 2021-09 … 2026-09` — 5-minute bars, then again for the 1-minute audit frame.
+1. `preload --months 2021-09 … 2026-09` — **once, not twice.** Corrected 2026-09-19: this line
+   read "5-minute bars, then again for the 1-minute audit frame", and there is no second pull.
+   `preload` caches **ticks**; `cli.load_bars` and `cmd_audit` both resample the same cached days,
+   at `[data].bar` and `[data].audit_bar` respectively. **That the two frames come from one pull is
+   the point** — `cmd_audit`'s docstring says so: the only difference between them is resolution,
+   which would not hold if one side came from a different fetch.
 2. `backtest` — attrition table first. **Read it before anything else.** Two outcomes are bad in
    opposite directions: a stage that refuses everything (untestable), and a late stage still holding
    thousands of bars (the conditions condition on nothing).
