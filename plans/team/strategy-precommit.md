@@ -1075,6 +1075,33 @@ fallback     Quant_Trading/scripts/fetch_dukascopy.py's BID_candles_min_1.bi5
 
 ---
 
+### Scored, 2026-09-18 — `analysis/E0_TRANSPORT.md`
+
+**Does not fire, on either clause. Cross-check exact.**
+
+```
+account       personal AWS account created 09:00-09:27 IST; scoped IAM user spot-pull (GetObject + ListBucket, this bucket only)
+S3            reachable. Anonymous access refused as expected (403 Requester Pays).
+layout        day PREFIX = 1-min BID/ASK candles; the day's ticks = sibling object  XAUUSD/yyyy/mm-1/dd_ticks.bi5
+coverage      XAUUSD/ 1997-07 .. 2026-09-17, updated daily. 2021-2026: 1,776 tick day-files, 1.343 GB, 0 zero-byte.
+cost          ~$0.12 for all five years at published rates, likely $0 under the free tier. Billed figure pending.
+cross-check   2025-06-18 14:00 UTC via spot_s3.fetch_day: 20,654 quotes EXACT · 1.91 bp EXACT · mid 3373.862 .. 3392.471
+fallback      daily-candle endpoint also works (1,440 candles for the day, hour envelope consistent). Not needed.
+```
+
+**Two things the result settles beyond its own question.** (i) §15's granularity worry — *"if E0
+pulls 5-minute bars only, `h_dfa_15m` is NaN by construction"* — does not arise: the objects are
+**every quote of the day**, so 1-minute bars and a 15-minute Hurst are both derivable from what is
+pulled. (ii) 2023's files are ~40% smaller than 2022's or 2024's; checked, and quotes-per-dollar-of-
+range is identical (9,275 vs 9,253) — gold moved half as much. **2023 is a low-magnitude year** in
+`mathematical.md`'s own sense, and §14's split must not put it all on one side.
+
+**Order of events, stated.** The probe ran before this block was scored and before Task 0 was on
+`main`, because its first step surfaced the account decision. This section carried no prediction
+to contaminate, by its own design; the daily update records the sequence.
+
+---
+
 ## 14 · E1 — is §Objective's own filter ever satisfied? Varad, committed 2026-09-18
 
 **Why this exists.** `mathematical.md`'s §Objective permits a trade only when
