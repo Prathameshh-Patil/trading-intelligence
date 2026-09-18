@@ -443,3 +443,96 @@ def test_yang_zhang_refuses_a_one_bar_window_rather_than_dividing_by_zero() -> N
     # (n+1)/(n-1) divides by zero at n=1. Found by review 2026-09-18.
     with pytest.raises(ValueError, match="at least 2"):
         ex._yz_k(1)
+
+
+# --------------------------------------------------------------------------
+# GARCH(1,1) with Student-t innovations -- §2's second leg. Task 7.
+#
+# The only honest test of an estimator is recovering parameters from a series
+# simulated with known ones. Everything else checks that it does not crash.
+#
+# §2 specifies Student-t rather than Gaussian innovations "because GC returns
+# have fat tails". That is a testable claim about the estimator too: fitting a
+# t to a fat-tailed series must return a small nu, and fitting it to Gaussian
+# data must return a large one.
+
+
+@cache
+def garch_series(n: int = 8_000, omega: float = 2e-6, alpha: float = 0.08,
+                 beta: float = 0.90, nu: float = 6.0, seed: int = 0) -> np.ndarray:
+    """Returns simulated from a known GARCH(1,1)-t. Cached; do not mutate."""
+    rng = np.random.default_rng(seed)
+    z = rng.standard_t(nu, size=n) / np.sqrt(nu / (nu - 2))   # unit variance
+    r = np.empty(n)
+    s2 = omega / (1 - alpha - beta)
+    for i in range(n):
+        r[i] = np.sqrt(s2) * z[i]
+        s2 = omega + alpha * r[i] ** 2 + beta * s2
+    return r
+
+
+def test_it_recovers_known_parameters_from_a_simulated_series() -> None:
+    fit = ex.garch_fit(garch_series())
+    # Persistence is what the forecast actually depends on, and it is far
+    # better identified than alpha and beta separately -- they trade off.
+    assert fit.alpha + fit.beta == pytest.approx(0.98, abs=0.03)
+    assert fit.alpha == pytest.approx(0.08, abs=0.05)
+    assert fit.nu == pytest.approx(6.0, abs=3.0)
+
+
+def test_fat_tails_give_a_small_nu_and_gaussian_data_a_large_one() -> None:
+    # §2's reason for specifying Student-t, turned into a check on the fit.
+    fat = ex.garch_fit(garch_series(nu=4.0, seed=1))
+    rng = np.random.default_rng(2)
+    thin = ex.garch_fit(rng.standard_normal(8_000) * 0.01)
+    assert fat.nu < thin.nu
+
+
+def test_a_non_stationary_fit_is_refused_not_returned() -> None:
+    # alpha + beta >= 1 means the variance forecast diverges. Returning it
+    # quietly puts an infinite r_hat_60 into the trade filter.
+    with pytest.raises(ValueError, match="stationar"):
+        ex.garch_forecast(sigma2_t=1e-4, params=ex.GarchFit(1e-6, 0.2, 0.85, 6.0), m=12)
+
+
+def test_the_m_step_forecast_reverts_toward_the_unconditional_variance() -> None:
+    # sigma2_bar + (alpha+beta)^m (sigma2_t - sigma2_bar). As m grows the
+    # forecast must approach the unconditional level, not stay at the current.
+    p = ex.GarchFit(omega=2e-6, alpha=0.08, beta=0.90, nu=6.0)
+    bar = p.omega / (1 - p.alpha - p.beta)
+    hot = 10 * bar
+    near = ex.garch_forecast(sigma2_t=hot, params=p, m=1)
+    far = ex.garch_forecast(sigma2_t=hot, params=p, m=500)
+    assert hot > near > far > bar
+    assert far == pytest.approx(bar, rel=0.05)
+
+
+def test_a_zero_step_forecast_is_the_current_variance() -> None:
+    p = ex.GarchFit(omega=2e-6, alpha=0.08, beta=0.90, nu=6.0)
+    assert ex.garch_forecast(sigma2_t=5e-5, params=p, m=0) == pytest.approx(5e-5)
+
+
+def test_the_fit_is_stationary_by_construction() -> None:
+    fit = ex.garch_fit(garch_series())
+    assert fit.alpha + fit.beta < 1.0
+    assert fit.omega > 0
+    assert fit.nu > 2.0
+
+
+def test_a_series_too_short_to_identify_four_parameters_is_refused() -> None:
+    with pytest.raises(ValueError, match="at least"):
+        ex.garch_fit(np.array([0.001, -0.002, 0.0005]))
+
+
+def test_the_recursion_matches_a_plain_python_loop() -> None:
+    # The variance path is computed with a filter rather than a per-bar loop.
+    # If the two ever disagree the filter is wrong, and the likelihood it
+    # feeds would be wrong in a way that still converges to something.
+    r = garch_series(n=500)
+    omega, alpha, beta = 2e-6, 0.08, 0.90
+    got = ex._garch_variance(r, omega, alpha, beta)
+    want = np.empty(len(r))
+    want[0] = float(np.var(r))
+    for i in range(1, len(r)):
+        want[i] = omega + alpha * r[i - 1] ** 2 + beta * want[i - 1]
+    assert np.allclose(got, want)

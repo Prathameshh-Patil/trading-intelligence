@@ -15,8 +15,12 @@ the flattest bar in the month is 0.0 rather than `inf` and then a dropped row.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 import numpy as np
 import pandas as pd
+from scipy import optimize, signal
+from scipy.special import gammaln
 
 from instruments import Instrument
 from windows import align, trailing
@@ -235,3 +239,124 @@ def hurst_agree(h1: float, h2: float, tol: float = AGREE_TOL) -> bool:
     if not (np.isfinite(h1) and np.isfinite(h2)):
         return False
     return bool(abs(h1 - h2) <= tol)
+
+
+# --------------------------------------------------------------------------
+# mathematical.md §2's second leg: GARCH(1,1) with Student-t innovations.
+#
+# WHY HAND-ROLLED RATHER THAN `arch`. The log-likelihood below is ~40 lines
+# given an optimiser, which is under the write-it-yourself threshold; `arch`
+# would pull statsmodels in for one estimator. scipy earns its place twice --
+# `minimize` for the fit, `lfilter` for the variance recursion.
+#
+# WHY STUDENT-t AND NOT GAUSSIAN. §2 says "because GC returns have fat tails",
+# and that is a claim about the estimator as well as the data: fitting a t to a
+# fat-tailed series returns a small nu, and a Gaussian one returns a large nu.
+# A test pins that direction.
+#
+# ⚠️ DIMENSIONLESS, LIKE `yang_zhang`. `omega` and the returned variances are in
+# squared LOG RETURNS. Converting to a distance means multiplying the square
+# root by price, which `r_hat_60` does and nothing else may.
+
+
+@dataclass(frozen=True, slots=True)
+class GarchFit:
+    """(omega, alpha, beta, nu). `alpha + beta` is the persistence."""
+    omega: float
+    alpha: float
+    beta: float
+    nu: float
+
+
+# Leaves a little room below 1 so a fit that wants to sit on the boundary
+# fails the stationarity check rather than returning a divergent forecast.
+MAX_PERSISTENCE = 0.999
+MIN_NU = 2.1          # variance is undefined at nu <= 2
+# Above roughly this, the t is Gaussian for any practical purpose and nu stops
+# being identified -- the likelihood is flat, so the bound is where it lands.
+NU_MAX = 200.0
+MIN_OBS = 250         # four parameters need a sample; 250 is already thin
+
+
+def _garch_variance(r: np.ndarray, omega: float, alpha: float, beta: float) -> np.ndarray:
+    """The conditional variance path, as a first-order filter.
+
+    `s2[i] = (omega + alpha * r[i-1]^2) + beta * s2[i-1]` is exactly what
+    `lfilter([1], [1, -beta], x)` computes, so the per-bar Python loop the
+    likelihood would otherwise run 10^5 times becomes one call. A test checks
+    the filter against the plain loop, because a recursion that is subtly
+    wrong still converges to something.
+    """
+    x = np.empty_like(r)
+    x[0] = float(np.var(r))               # seed with the sample variance
+    x[1:] = omega + alpha * r[:-1] ** 2
+    return signal.lfilter([1.0], [1.0, -beta], x)
+
+
+def _neg_loglik(theta: np.ndarray, r: np.ndarray, scale: float) -> float:
+    """Negative log-likelihood of a standardised Student-t GARCH(1,1).
+
+    `theta[0]` is omega DIVIDED BY the sample variance, not omega. Raw omega
+    is ~1e-6 while alpha is ~0.08 and nu is ~6, and a six-order-of-magnitude
+    spread across the parameter vector is what SLSQP handles worst: measured
+    2026-09-18, the unscaled version returned omega = 24.3 on a series whose
+    variance is 1e-4. Rescaling makes every parameter O(1).
+    """
+    w, alpha, beta, nu = theta
+    omega = w * scale
+    if omega <= 0 or alpha < 0 or beta < 0 or alpha + beta >= 1 or nu <= 2:
+        return np.inf
+    s2 = _garch_variance(r, omega, alpha, beta)
+    if np.any(s2 <= 0) or not np.all(np.isfinite(s2)):
+        return np.inf
+    # Standardised so the innovation has unit variance; the (nu-2) scaling is
+    # what makes `omega/(1-alpha-beta)` the unconditional variance rather than
+    # a multiple of it.
+    c = (gammaln((nu + 1) / 2) - gammaln(nu / 2) - 0.5 * np.log(np.pi * (nu - 2)))
+    ll = c - 0.5 * np.log(s2) - ((nu + 1) / 2) * np.log1p(r**2 / (s2 * (nu - 2)))
+    return float(-ll.sum())
+
+
+def garch_fit(r: np.ndarray, *, max_persistence: float = MAX_PERSISTENCE) -> GarchFit:
+    """Maximum-likelihood GARCH(1,1)-t. Input is RETURNS, not prices.
+
+    Stationary by construction: `alpha + beta` is bounded below 1 by the
+    optimiser's constraint rather than checked afterwards, so there is no
+    path that returns a divergent model.
+    """
+    r = np.asarray(r, dtype=float)
+    if len(r) < MIN_OBS:
+        raise ValueError(f"GARCH needs at least {MIN_OBS} returns to identify four "
+                         f"parameters, got {len(r)}")
+    scale = float(np.var(r))
+    if scale <= 0:
+        raise ValueError("returns have zero variance; there is no GARCH to fit")
+    start = np.array([0.05, 0.08, 0.90, 8.0])
+    # scipy-stubs types `minimize`'s objective as taking a 1-D
+    # `ndarray[tuple[int], dtype[float64]]` positionally; `_neg_loglik`'s
+    # plain `np.ndarray` does not match any overload. The call is correct at
+    # runtime -- the parameter-recovery test is the proof -- so the ignore is
+    # narrowed to the one diagnostic rather than silencing the module.
+    out = optimize.minimize(  # type: ignore[call-overload]
+        _neg_loglik, start, args=(r, scale), method="SLSQP",
+        bounds=[(1e-8, 10.0), (0.0, 1.0), (0.0, 1.0), (MIN_NU, NU_MAX)],
+        constraints=[{"type": "ineq",
+                      "fun": lambda t: max_persistence - t[1] - t[2]}],
+        options={"maxiter": 500, "ftol": 1e-12},
+    )
+    w, alpha, beta, nu = out.x
+    return GarchFit(float(w * scale), float(alpha), float(beta), float(nu))
+
+
+def garch_forecast(*, sigma2_t: float, params: GarchFit, m: int) -> float:
+    """§2's m-step variance forecast. `m` is the count of bars in the horizon.
+
+    `sigma2_bar + (alpha + beta)^m * (sigma2_t - sigma2_bar)` -- the current
+    variance decaying toward the unconditional one at the persistence rate.
+    """
+    persist = params.alpha + params.beta
+    if persist >= 1.0:
+        raise ValueError(f"non-stationary fit: alpha+beta={persist:.6f}; the variance "
+                         "forecast diverges and would put an infinite r_hat_60 into the filter")
+    bar = params.omega / (1.0 - persist)
+    return float(bar + persist**m * (sigma2_t - bar))
