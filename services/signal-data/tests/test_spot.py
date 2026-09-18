@@ -11,13 +11,14 @@ plus the one that costs data: a day written with holes in it.
 from __future__ import annotations
 
 import dataclasses
+from datetime import date
 from pathlib import Path
 
 import pandas as pd
 import pytest
 
-import dukascopy as dk
 import spot
+import spot_s3
 from instruments import XAUUSD
 
 
@@ -76,85 +77,69 @@ def test_the_session_boundary_comes_from_the_instrument_not_a_constant() -> None
     assert str(rolled["session"].iloc[0]) == "2026-05-05"
 
 
-def test_a_day_that_lost_an_hour_is_not_written(tmp_path: Path, monkeypatch) -> None:
-    """A hole and a quiet hour are indistinguishable once they are on disk.
-
-    `atr_bp` and `rv_slope` would read a missing hour as calm rather than as
-    absent, so the day is left for the next run instead. This is the property
-    that makes resuming by day worth anything.
-    """
-    def flaky(symbol, hour, **kw):
-        if hour.hour == 7:
-            raise ConnectionError("reset")
-        return ticks(n=5, start=f"{hour:%Y-%m-%dT%H:%M:%S}Z")
-
-    monkeypatch.setattr(dk, "fetch_hour", flaky)
-    spot.pull("XAUUSD", ["2026-05"], tmp_path, pause=0.0)
-    assert list(tmp_path.glob("*.parquet")) == [], "wrote a day with a hole in it"
+# --------------------------------------------------------------------------
+# pull(), against the S3 day transport. Task 5.
+#
+# FIVE TESTS WERE DELETED HERE, NOT BROKEN. They guarded the hour cache, the
+# per-hour resume and the partial-day rule -- machinery that existed because
+# the HTTP datafeed served fewer than 24 requests a day. E0 replaced it with
+# one object per day, so a day now arrives whole or not at all and there is no
+# longer a code path that can write a day with holes. The invariant survives;
+# what is gone is the code that had to enforce it. Git remembers the old path.
 
 
-def test_a_clean_day_is_written_and_a_shut_market_is_a_real_answer(
-    tmp_path: Path, monkeypatch
-) -> None:
-    """An hour with no ticks is a zero-byte file, not a failure -- weekends."""
-    def quiet(symbol, hour, **kw):
-        return dk.decode_bi5(b"", symbol, hour)
-
-    monkeypatch.setattr(dk, "fetch_hour", quiet)
-    spot.pull("XAUUSD", ["2026-05"], tmp_path, pause=0.0)
-    written = sorted(tmp_path.glob("*.parquet"))
-    assert len(written) == 31, "May has 31 days and every one of them resolved"
-    assert len(pd.read_parquet(written[0])) == 0
+def fake_day(n: int = 3) -> pd.DataFrame:
+    ts = pd.date_range("2025-06-02T00:00:00Z", periods=n, freq="1h")
+    return pd.DataFrame({"timestamp": ts, "bid": 3000.0, "ask": 3000.5})
 
 
-def test_a_throttled_pass_keeps_the_hours_it_won(tmp_path: Path, monkeypatch) -> None:
-    """The property that makes the pull converge under a budget below 24.
-
-    Measured 2026-09-14: the feed serves ~17 requests from cold, then refuses.
-    Resuming by day threw away the hours a pass did win, so no day could ever
-    complete. Here the first pass gets a budget of 10 and the second finishes
-    the day -- and the total fetch count proves nothing was fetched twice.
-    """
-    budget, calls = 10, []
-
-    def throttled(symbol, hour, **kw):
-        calls.append(hour)
-        if len(calls) > budget:
-            raise ConnectionError("reset")
-        return ticks(n=2, start=f"{hour:%Y-%m-%dT%H:%M:%S}Z")
-
-    monkeypatch.setattr(dk, "fetch_hour", throttled)
-    spot.pull("XAUUSD", ["2026-05"], tmp_path, pause=0.0)
-    assert list(tmp_path.glob("*.parquet")) == [], "wrote a day with a hole in it"
-    first_pass = len(calls)
-
-    budget = 10_000
-    spot.pull("XAUUSD", ["2026-05"], tmp_path, pause=0.0)
-    assert (tmp_path / "2026-05-01.parquet").exists(), "second pass never finished day one"
-    resumed = [h.hour for h in calls[first_pass:] if h.day == 1]
-    assert resumed == list(range(10, 24)), \
-        "second pass should fetch only the 14 hours the first one lost"
-
-
-def test_the_hour_cache_is_scratch_and_does_not_survive_the_day(
-    tmp_path: Path, monkeypatch
-) -> None:
-    """The day parquet is the artefact; the cache is deleted once it exists."""
-    monkeypatch.setattr(dk, "fetch_hour",
-                        lambda symbol, hour, **kw: ticks(n=1, start=f"{hour:%Y-%m-%dT%H:%M:%S}Z"))
-    spot.pull("XAUUSD", ["2026-05"], tmp_path, pause=0.0)
-    assert not list((tmp_path / ".hours").glob("*")), "left hour files behind"
-
-
-def test_a_day_already_on_disk_is_not_fetched_again(tmp_path: Path, monkeypatch) -> None:
+def test_a_day_is_one_request_and_is_written_whole(tmp_path: Path) -> None:
     calls = []
 
-    def counted(symbol, hour, **kw):
-        calls.append(hour)
-        return ticks(n=1, start=f"{hour:%Y-%m-%dT%H:%M:%S}Z")
+    def fetch(sym: str, day: date) -> pd.DataFrame:
+        calls.append(day)
+        return fake_day()
 
-    monkeypatch.setattr(dk, "fetch_hour", counted)
-    spot.pull("XAUUSD", ["2026-05"], tmp_path, pause=0.0)
+    spot.pull("XAUUSD", ["2025-06"], tmp_path, fetch=fetch)
+    assert len(calls) == 30, "one request per calendar day, not 24"
+    assert len(list(tmp_path.glob("*.parquet"))) == 30
+
+
+def test_a_shut_day_is_written_empty_rather_than_skipped(tmp_path: Path) -> None:
+    # Every Saturday. Skipping it means the next pass re-requests it forever,
+    # and a billed request repeated forever is worse than an empty file.
+    def fetch(sym: str, day: date) -> pd.DataFrame:
+        return fake_day() if day.weekday() != 5 else fake_day(0)
+
+    spot.pull("XAUUSD", ["2025-06"], tmp_path, fetch=fetch)
+    sat = tmp_path / "2025-06-07.parquet"
+    assert sat.exists() and len(pd.read_parquet(sat)) == 0
+
+
+def test_a_day_already_on_disk_is_not_fetched_again(tmp_path: Path) -> None:
+    # Resumability survives the simplification, and it is what makes a 1,776
+    # day pull restartable. Each fetch is billed, so this is money as well as
+    # time.
+    calls = []
+
+    def fetch(sym: str, day: date) -> pd.DataFrame:
+        calls.append(day)
+        return fake_day()
+
+    spot.pull("XAUUSD", ["2025-06"], tmp_path, fetch=fetch)
     first = len(calls)
-    spot.pull("XAUUSD", ["2026-05"], tmp_path, pause=0.0)
-    assert len(calls) == first, "re-fetched days that were already cached"
+    spot.pull("XAUUSD", ["2025-06"], tmp_path, fetch=fetch)
+    assert len(calls) == first, "a second pass must cost nothing"
+
+
+def test_there_is_no_hour_cache_left_behind(tmp_path: Path) -> None:
+    spot.pull("XAUUSD", ["2025-06"], tmp_path, fetch=lambda s, d: fake_day())
+    assert not (tmp_path / ".hours").exists()
+
+
+def test_the_default_transport_is_s3_not_the_http_datafeed(tmp_path: Path) -> None:
+    # The swap itself, pinned. The HTTP path is rate-limited to ~2 requests
+    # per multi-day period and cannot serve this pull at any pace.
+    import inspect
+
+    assert inspect.signature(spot.pull).parameters["fetch"].default is spot_s3.fetch_day

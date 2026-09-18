@@ -58,91 +58,54 @@ from __future__ import annotations
 
 import argparse
 import time
+from collections.abc import Callable
+from datetime import date
 from pathlib import Path
-from shutil import rmtree
 
 import pandas as pd
 
-import dukascopy as dk
+import spot_s3
 from features import portable
 from instruments import Instrument
 
-# The feed throttles by IP and the failure is a reset or a 503, not a refusal.
-# Measured 2026-09-10: 0 of 6 succeed unpaced, 3 of 6 at 1.5s, and after ~40
-# requests `curl` fails too -- so this is politeness, not a workaround.
-PAUSE = 2.0
 
-# FAIL FAST AND COME BACK, rather than fight one hour. Measured 2026-09-10 the
-# other way round -- 5 retries at a 20s timeout -- and a single lost hour cost
-# 131 seconds, which at a throttled hit rate is ~50 minutes per day and puts
-# three months out of reach. Because a day with any loss is not written at all,
-# a cheap pass that gives up early and is run again is strictly better than an
-# expensive pass that grinds: each pass fills what the feed will give it that
-# hour, and the days already down are skipped for free.
-RETRIES = 2     # 1+2s of backoff
-TIMEOUT = 15    # so a lost hour costs ~31s, not 131
-
-
-def pull(symbol: str, months: list[str], out: Path, *, pause: float = PAUSE) -> None:
-    """Every hour of every month, one parquet per UTC day. Resumable.
+def pull(symbol: str, months: list[str], out: Path, *,
+         fetch: Callable[[str, date], pd.DataFrame] = spot_s3.fetch_day) -> None:
+    """Every day of every month, one parquet per UTC day. Resumable.
 
     A day already on disk is skipped, so an interrupted pull costs what is
-    missing rather than the run -- `reach.build`'s rule, for the same reason:
-    this takes hours and losing it to one reset is a bad property.
+    missing rather than the run -- `reach.build`'s rule.
 
-    **An hour that fails every retry is written as missing, not as empty.** A
-    zero-byte file means the market was shut and is a real answer; a connection
-    reset means we do not know. Recording them the same way would put a
-    fabricated quiet hour into a volatility feature.
+    THE HOUR CACHE IS GONE, AND SO ARE PAUSE, RETRIES AND TIMEOUT. All four
+    existed for one reason: the HTTP datafeed served fewer than 24 requests a
+    day, so a day could not be fetched in one pass and a partial day had to be
+    kept between runs. E0 replaced that transport with one S3 object per day
+    (`analysis/E0_TRANSPORT.md`), so a day now arrives whole or not at all and
+    ~50 lines of resume machinery answer a question nobody is asking. Deleted
+    rather than left in place -- git remembers the HTTP path.
 
-    RESUME IS BY HOUR, NOT BY DAY, AND THAT IS NOT AN OPTIMISATION. Measured
-    2026-09-14: the feed serves ~17 requests from cold and then refuses every
-    one, and it does not recover in 90s. Resuming by day discards the hours a
-    throttled pass *did* win, so with a budget under 24 the loop can never
-    finish a single day however many times it is re-run -- not slow,
-    non-convergent. Each hour is cached the moment it lands, so a pass keeps
-    what it got and the next one starts from there.
+    **The day-completeness invariant survives the simplification and is now
+    structural rather than enforced.** One object is one whole day, so there is
+    no longer a code path that can write a day with holes. A day with holes
+    looks exactly like a quiet day once it is on disk, and `atr_bp` and
+    `rv_slope` would read the hole as calm rather than as absent.
 
-    **The day-completeness invariant is unchanged.** The day parquet is still
-    only written when all 24 hours are present; the hour cache is scratch, and
-    it is deleted once the day it belongs to is assembled.
+    An empty frame is a real answer -- every Saturday, and any day the venue
+    was shut -- and is written as an empty parquet rather than skipped, so a
+    later pass does not re-request it forever.
     """
     out.mkdir(parents=True, exist_ok=True)
     for month in months:
         start = pd.Timestamp(f"{month}-01", tz="UTC")
-        for day in pd.date_range(start, start + pd.offsets.MonthEnd(0), freq="D", tz="UTC"):
-            f = out / f"{day:%Y-%m-%d}.parquet"
+        for ts in pd.date_range(start, start + pd.offsets.MonthEnd(0), freq="D", tz="UTC"):
+            f = out / f"{ts:%Y-%m-%d}.parquet"
             if f.exists():
                 continue
-            cache = out / ".hours" / f"{day:%Y-%m-%d}"
-            cache.mkdir(parents=True, exist_ok=True)
-            t0, lost = time.perf_counter(), []
-            for h in range(24):
-                hf = cache / f"{h:02d}.parquet"
-                if hf.exists():
-                    continue
-                time.sleep(pause)
-                try:
-                    hour = day + pd.Timedelta(hours=h)
-                    dk.fetch_hour(symbol, hour, retries=RETRIES, timeout=TIMEOUT).to_parquet(hf)
-                except ConnectionError:
-                    lost.append(h)
-                    print(f"  {day:%Y-%m-%d} {h:02d}h LOST", flush=True)
-            dt = time.perf_counter() - t0
-            if lost:
-                # NOT written. A day with holes looks exactly like a quiet day
-                # once it is on disk, and `atr_bp` and `rv_slope` would read the
-                # hole as calm rather than as absent. The hours that did land
-                # stay in the cache, so the next run retries only the holes.
-                kept = 24 - len(lost)
-                print(f"{day:%Y-%m-%d}  INCOMPLETE, {len(lost)} of 24 lost, "
-                      f"{kept} cached  {dt:5.0f}s", flush=True)
-                continue
-            ticks = pd.concat([pd.read_parquet(cache / f"{h:02d}.parquet") for h in range(24)],
-                              ignore_index=True)
+            t0 = time.perf_counter()
+            ticks = fetch(symbol, ts.date())
             ticks.to_parquet(f)
-            rmtree(cache)
-            print(f"{day:%Y-%m-%d}  {len(ticks):>7,} ticks  {dt:5.0f}s", flush=True)
+            print(f"{ts:%Y-%m-%d}  {len(ticks):>7,} ticks  {time.perf_counter() - t0:5.1f}s",
+                  flush=True)
 
 
 def load_ticks(cache: Path, months: list[str]) -> pd.DataFrame:
@@ -204,9 +167,8 @@ def main() -> None:
     p.add_argument("--symbol", default="XAUUSD")
     p.add_argument("--months", nargs="+", required=True, help="YYYY-MM")
     p.add_argument("--out", type=Path, default=Path("data/spot/XAUUSD"))
-    p.add_argument("--pause", type=float, default=PAUSE)
     a = p.parse_args()
-    pull(a.symbol, a.months, a.out, pause=a.pause)
+    pull(a.symbol, a.months, a.out)
 
 
 if __name__ == "__main__":
