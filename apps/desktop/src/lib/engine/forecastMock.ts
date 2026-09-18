@@ -10,7 +10,7 @@
  * That is the same split `mock.ts` uses and for the same reason — its bars are
  * real and reconcile to `s1.py`, and only its outliers are invented shapes.
  *
- * **Where those rows are read from is now a switch.** `VITE_FORECAST_API` points
+ * **Where those rows are read from is now a switch.** `VITE_API_BASE` points
  * this at `services/api`'s S7 route; unset, it reads the committed copy and
  * `pnpm dev` needs nothing running. See `TABLE_URL`.
  *
@@ -281,7 +281,7 @@ export type TableLoader = () => Promise<Fixture>;
 export const FIXTURE_URL = "/fixtures/reach_table.json";
 
 /**
- * Where the table is read from — the S7 route when `VITE_FORECAST_API` is set,
+ * Where the table is read from — the S7 route when `VITE_API_BASE` is set,
  * the committed fixture otherwise.
  *
  * **An env var rather than a hardcoded URL, because where the API lives is not
@@ -296,10 +296,10 @@ export const FIXTURE_URL = "/fixtures/reach_table.json";
  * today, and the day they are not, "the app quietly served the stale one" is the
  * failure nobody can see from either end.
  *
- *     VITE_FORECAST_API=http://localhost:8000 pnpm dev
+ *     VITE_API_BASE=http://localhost:8000 pnpm dev
  */
-export const TABLE_URL: string = import.meta.env.VITE_FORECAST_API
-  ? `${String(import.meta.env.VITE_FORECAST_API).replace(/\/+$/, "")}/api/v1/forecast/table`
+export const TABLE_URL: string = import.meta.env.VITE_API_BASE
+  ? `${String(import.meta.env.VITE_API_BASE).replace(/\/+$/, "")}/api/v1/forecast/table`
   : FIXTURE_URL;
 
 const fetchFixture: TableLoader = async () => {

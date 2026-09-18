@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Trading Intelligence",
+  "productName": "Vision Hub",
   "version": "0.1.0",
-  "identifier": "com.tradingintelligence.desktop",
+  "identifier": "com.visionhub.desktop",
   "build": {
     "beforeDevCommand": "pnpm dev",
     "devUrl": "http://localhost:1420",
@@ -13,7 +13,7 @@
     "macOSPrivateApi": true,
     "windows": [
       {
-        "title": "Trading Intelligence",
+        "title": "Vision Hub",
         "width": 380,
         "height": 820,
         "transparent": true,

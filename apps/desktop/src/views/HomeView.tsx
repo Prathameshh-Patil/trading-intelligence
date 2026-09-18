@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import {
   BookIcon,
   ChartIcon,
+  KeyIcon,
   ScanIcon,
   ShieldIcon,
   SlidersIcon,
@@ -140,6 +141,13 @@ export default function HomeView({
           title="Journal"
           subtitle="Log and review trades."
           onClick={() => onNavigate("journal")}
+        />
+
+        <ActionTile
+          icon={<KeyIcon size={17} />}
+          title="Licence"
+          subtitle="Your key, and whether it checks out."
+          onClick={() => onNavigate("licence")}
         />
       </motion.div>
     </motion.div>

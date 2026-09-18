@@ -5,6 +5,7 @@ import { AlertIcon, CheckIcon } from "./Icons";
 import { pressable, riseIn, softSpring, spring } from "./motion";
 import type { RiskLevel } from "../lib/rules";
 import { formatDuration, type Feed } from "../lib/feed";
+import { shortKey, type LicenceState } from "../lib/licence";
 import type { FeedState } from "../lib/engine/types";
 
 /* ------------------------------------------------------------------ */
@@ -212,6 +213,40 @@ export function FeedPill({ feed, onClick }: { feed: Feed; onClick: () => void })
       {/* Announce a change of state, not every second of the stale counter:
           the counter is hidden from the live region and the state is not. */}
       {counting && <span aria-hidden>{`\u00a0${elapsed}`}</span>}
+    </motion.button>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Licence pill                                                        */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Beside the feed pill: the licence's state, in the feed pill's own
+ * vocabulary so the two read as a pair. Active is a steady green dot with no
+ * word, exactly like a live feed; offline is amber with the word, and the
+ * gate means an invalid or missing key never shares a topbar with this.
+ */
+export function LicencePill({ licence, onClick }: { licence: LicenceState; onClick: () => void }) {
+  const state = licence.kind === "active" ? "live" : licence.kind === "offline" ? "stale" : "connecting";
+  const label = licence.kind === "active" ? "Licensed" : licence.kind === "offline" ? "Offline" : "Checking";
+  const title =
+    licence.kind === "active"
+      ? `Licence active · ${licence.tier} · ${shortKey(licence.key)}`
+      : licence.kind === "offline"
+        ? `Vision Hub unreachable; running on the last valid check. ${licence.error}`
+        : "Checking the licence key";
+  return (
+    <motion.button
+      className={`feed-pill ${state}`}
+      onClick={onClick}
+      whileTap={{ scale: 0.95 }}
+      transition={spring}
+      title={title}
+      aria-label={label}
+    >
+      <span className="feed-glyph" aria-hidden />
+      {state === "live" ? <span className="sr-only">{label}</span> : label}
     </motion.button>
   );
 }

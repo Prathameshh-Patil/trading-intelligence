@@ -74,4 +74,5 @@ export type ViewKey =
   | "rules"
   | "strategy-review"
   | "strategy-change"
-  | "journal";
+  | "journal"
+  | "licence";
