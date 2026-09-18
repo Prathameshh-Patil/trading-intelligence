@@ -1,6 +1,6 @@
 # Trading Intelligence — Current Plan
 
-Live tracker: who owns what, what is done, what is next. **Last updated: 2026-09-07.**
+Live tracker: who owns what, what is done, what is next. **Last updated: 2026-09-18.**
 
 > **The twelve-week schedule lives in [`plans/team/`](team/README.md).** This file stays the live
 > status tracker — what is done, what is open, who owns it. `plans/team/` is the day-by-day
@@ -137,8 +137,24 @@ is not.** The next gate is **Friday 18 September, 16:00**, whatever it ends up b
 > is real and what is a typed fake, and the architecture as built against the architecture at the
 > end of the project.
 >
-> [`docs/strategy/TRACK_C_ENGINE.md`](../docs/strategy/TRACK_C_ENGINE.md) — **a plan, not a
-> build.** Track C as an independent mathematical engine that suggests a trade: `track_c/`, ten
+> [`docs/strategy/TRACK_C_BUILD.md`](../docs/strategy/TRACK_C_BUILD.md) — **the build, 18 Sep.**
+> Track C is now **four structurally independent mathematical strategies** (Asian-range breakout ·
+> prior-day sweep-and-reclaim · session-VWAP mean reversion · squeeze momentum), every input a
+> closed-form quantity of OHLC bars, **no fitted model anywhere**. 22 modules, ~2,400 lines, +126
+> tests (660 passing), `ruff`/`mypy` clean. **Two of the plan's four blockers dissolve:** none of
+> the four reads `p_expand`, `p_e` or `classifier.py`, so **E4's HMM verdict no longer gates
+> anything**, and the granularity question is settled by the user — 5-minute trades, 1-minute
+> audits. **Code complete through build step 3; step 4 is blocked on AWS credentials** —
+> `~/.aws/` does not exist, `data/spot/XAUUSD/` is empty, and the Dukascopy bucket is
+> requester-pays, so **no result is claimed and none can be until there are bars**. Two findings
+> arrived before any data: §13's cost exclusion narrows §10's `[$2,$5]` stop band to **`D ≥ $4.55`**
+> at the measured 1.91 bp spread, and this build's own first draft compared a six-hour Asian range
+> to a one-hour ATR — a filter that refused 100% of a synthetic archive, corrected before the
+> first real run.
+>
+> [`docs/strategy/TRACK_C_ENGINE.md`](../docs/strategy/TRACK_C_ENGINE.md) — **the plan it came
+> from**, superseded on the one-strategy-versus-four question by the build record above. It
+> describes Track C as an independent mathematical engine that suggests a trade: `track_c/`, ten
 > files, ~1,100 lines, four filter layers that can only refuse, its own event-driven backtest with a
 > pessimistic fill model, and **eight gates committed before the first run** — six adapted from
 > `Quant_trading`'s `backtest.md`, one added (deflated Sharpe), two dropped because a

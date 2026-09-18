@@ -19,7 +19,7 @@ import numpy as np
 
 # Scales in bars. Geometric, because the estimators regress against log(scale)
 # and evenly-spaced scales would weight the long end by density alone.
-_SCALES: tuple[int, ...] = (4, 8, 16, 32, 64, 128, 256)
+SCALES: tuple[int, ...] = (4, 8, 16, 32, 64, 128, 256)
 
 # §6's "preferably H_5m > 0.50" alongside "H_15m > 0.55" is a tolerance of
 # about 0.05 between two readings of the same series, so that is the default.
@@ -50,7 +50,7 @@ def _loglog_slope(x: list[float], y: list[float]) -> float:
     return float(np.polyfit(np.log(x), np.log(y), 1)[0])
 
 
-def hurst_dfa(logprice: np.ndarray, scales: tuple[int, ...] = _SCALES) -> float:
+def hurst_dfa(logprice: np.ndarray, scales: tuple[int, ...] = SCALES) -> float:
     """Detrended fluctuation analysis. Input is LOG PRICE LEVELS.
 
     The profile is built by differencing to returns and re-integrating them
@@ -80,7 +80,7 @@ def hurst_dfa(logprice: np.ndarray, scales: tuple[int, ...] = _SCALES) -> float:
     return _loglog_slope([float(s) for s in used], f)
 
 
-def hurst_vt(logprice: np.ndarray, scales: tuple[int, ...] = _SCALES) -> float:
+def hurst_vt(logprice: np.ndarray, scales: tuple[int, ...] = SCALES) -> float:
     """Variance-time regression. Input is LOG PRICE LEVELS.
 
     `Var(X_{t+tau} - X_t) ~ tau^{2H}`, so the slope of log variance on log

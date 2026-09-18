@@ -75,3 +75,40 @@ def noise(n: int) -> list[int]:
     """Small deltas with real spread -- a constant series has zero standard
     deviation and every z-score off it is infinite."""
     return [8, 10, 12, 9, 11][: n % 5] + [8, 10, 12, 9, 11] * (n // 5)
+
+
+def spot_bars(
+    closes: Sequence[float],
+    *,
+    start: str = "2026-07-15T22:00:00Z",
+    freq: str = "5min",
+    rng: float = 0.0,
+    ticks: int = 400,
+    spread_bp: float = 1.9,
+) -> pd.DataFrame:
+    """Bars shaped like `spot.resample` output: mid OHLC, `ticks`, `spread_bp`.
+
+    Deliberately NOT `bars_at`. That builder carries `volume`, `delta` and
+    `cvd`, which spot XAUUSD does not have and `instruments.require_flow`
+    refuses to invent -- a Track C test that ran against a frame with a `delta`
+    column would be testing a frame the engine will never see.
+
+    `rng` is the high-low spread in PRICE, centred on the close, so a caller
+    that needs a level swept says so explicitly rather than by accident.
+    """
+    idx = pd.date_range(pd.Timestamp(start), periods=len(closes), freq=freq, tz="UTC")
+    c = pd.Series(list(closes), index=idx, dtype="float64")
+    bars = pd.DataFrame(
+        {
+            "open": c.shift(1).fillna(c.iloc[0]),
+            "high": c + rng / 2,
+            "low": c - rng / 2,
+            "close": c,
+            "ticks": ticks,
+            "spread_bp": spread_bp,
+        },
+        index=idx,
+    )
+    # `instruments.XAUUSD.session_shift`, applied the way `spot.minute_bars` does.
+    bars["session"] = pd.DatetimeIndex(bars.index + pd.Timedelta(hours=2)).date
+    return bars

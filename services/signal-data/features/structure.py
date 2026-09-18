@@ -51,17 +51,25 @@ def _require_aware(ts: pd.DatetimeIndex, what: str) -> None:
             "five-minute lockout lands five hours from the release")
 
 
-def in_window(ts: pd.DatetimeIndex) -> pd.Series:
-    """§1: is each instant inside one of the two active windows?
+def in_window(ts: pd.DatetimeIndex,
+              windows: tuple[tuple[time, time], ...] = WINDOWS) -> pd.Series:
+    """§1: is each instant inside one of the active windows?
 
     Weekends are excluded on the calendar rather than on the clock -- spot
     runs 24x5, so a Saturday morning has a valid New York reading inside the
     morning window and no market behind it.
+
+    **`windows` became a parameter on 2026-09-18 and defaults to §1's pair, so
+    every existing caller reads the same answer as before.** Track C's four
+    strategies each name their own window in `config/track_c.toml` -- S1 trades
+    the London open, which §1 excludes -- and the alternative was a second copy
+    of this tz-conversion, which is how two files come to disagree about where
+    a session starts.
     """
     _require_aware(ts, "in_window's index")
     local = ts.tz_convert(SESSION_TZ)
     clock = pd.Series(False, index=ts)
-    for start, end in WINDOWS:
+    for start, end in windows:
         clock |= pd.Series(
             (local.time >= start) & (local.time < end), index=ts)
     return clock & pd.Series(local.dayofweek < 5, index=ts)

@@ -5,10 +5,22 @@ engine**: a deterministic mathematical pipeline that takes bars in and emits *a 
 nothing*, with its own filters, its own backtester, its own pass/fail gates and its own CLI —
 structurally modelled on `~/Documents/Quant_trading`, and held to this repo's evidence discipline.
 
-> **Status: a plan, not a build.** Nothing here is implemented. Where it names a module that exists
-> today, it says so. Precedence is unchanged: [`plans/current.md`](../../plans/current.md) is live
-> status and [`plans/team/`](../../plans/team/README.md) is the plan of record. This document does
-> not authorise its own execution — §9's build order does, once its prerequisites are signed.
+> **Status, updated 2026-09-18: built, and on one point superseded.**
+> [`TRACK_C_BUILD.md`](TRACK_C_BUILD.md) is the build record and takes precedence where the two
+> disagree. **The disagreement is structural and is stated here rather than left to be discovered:
+> this document designs ONE strategy — §9's sweep event, §13's score, §8's logistic, §7's HMM. The
+> 18 Sep brief replaces that with FOUR structurally independent strategies whose every input is a
+> closed-form quantity of OHLC bars, and no fitted model anywhere.**
+>
+> What that changes below: §2's table rows for §7 (HMM) and §8 (the logistic) are **not in Track C's
+> path** — nothing reads `p_expand` or `p_e` — so **§9.1's blocker 2 (E4's verdict) no longer gates
+> anything**, and §9.1's blocker 3 (granularity) was decided by the user: 5-minute trades, 1-minute
+> audits. §9.1's blocker 4 (AWS credentials) is where the build stops. §4's module layout, §5's four
+> refusing layers, §6's fill model and walk-forward, §7's gates and §11's borrowings are all built
+> as written.
+>
+> Precedence is otherwise unchanged: [`plans/current.md`](../../plans/current.md) is live status and
+> [`plans/team/`](../../plans/team/README.md) is the plan of record.
 
 ---
 
