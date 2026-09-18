@@ -202,3 +202,141 @@ def test_the_target_floor_and_cap_come_from_one_definition() -> None:
 
     assert fsm.TARGET_FLOOR_USD is e3_cost.TARGET_FLOOR_USD
     assert fsm.TARGET_CAP_USD is e3_cost.TARGET_CAP_USD
+
+
+# ------------------------------------------------- the frame-row -> FSM-row seam
+
+def frow(**over: float) -> dict[str, float]:
+    """One S13 frame row that clears every gate, so a test can break exactly one.
+
+    Only the columns `fsm_row` reads. `frame.FEATURES` is wider and the extra
+    columns are deliberately not required here -- the adapter reads what it
+    needs, and a test that passed all twenty would pass for the wrong reason.
+    """
+    base = {
+        "mid": 3000.0, "spread_bp": 1.0,
+        "r_hat_60_usd": 30.0,
+        "h_dfa_15m": 0.75, "h_vt_15m": 0.72,
+        "p_expand": 0.70,
+        "swept_level": 2994.0, "reclaim_dt_s": 6.0,
+        "news_lockout": 0.0,
+    }
+    return base | over
+
+
+def built(**over: float) -> dict[str, float]:
+    return fsm.fsm_row(frow(**over), p_e=0.70, d_usd=3.0, slippage_usd=0.10)
+
+
+def test_the_adapter_produces_exactly_what_the_fsm_reads() -> None:
+    # The whole reason the seam exists: the frame's names are not these names,
+    # and score/exclusions raise KeyError on a row assembled by eye.
+    r = built()
+    assert set(r) == set(fsm.ROW)
+    fsm.score(r)
+    fsm.exclusions(r, day())
+
+
+def test_a_frame_row_reaches_a_trade_candidate() -> None:
+    # End to end: frame columns in, TradeCandidate out, no hand-built dict.
+    c = admit(built(), day())
+    assert c is not None
+    assert c.p_e == 0.70
+
+
+def test_a_missing_hmm_raises_rather_than_scoring_as_nan() -> None:
+    # §7 is NaN on every real row today, so this is the state of the world
+    # until E4 settles it. NaN < SCORE_MIN is False, so a NaN score does not
+    # fail the gate -- it passes it, and admit returns a live candidate.
+    with pytest.raises(ValueError, match="s_hmm"):
+        built(p_expand=float("nan"))
+
+
+def test_a_nan_score_would_otherwise_be_admitted() -> None:
+    # The bug the line above prevents, demonstrated on the FSM directly so the
+    # test fails if `admit` ever stops needing the adapter to protect it.
+    # `NaN < SCORE_MIN` is False, so the score gate does not catch it.
+    assert admit(row(s_hmm=float("nan")), day()) is not None
+
+
+def test_no_sweep_is_a_refusal_not_an_exception() -> None:
+    # §9 looked and found nothing: that is an observation, and `exclusions`
+    # already has the word for it. Only an ABSENT measurement raises.
+    r = built(swept_level=float("nan"), reclaim_dt_s=float("nan"))
+    assert r["has_sweep"] == 0.0
+    assert r["s_sweep"] == 0.0
+    assert "no_sweep" in fsm.exclusions(r, day())
+    assert admit(r, day()) is None
+
+
+def test_the_lower_hurst_estimate_is_the_one_used() -> None:
+    # Two estimators, agreeing on 25.3% of real bars. Neither gets to carry a
+    # bar past 0.58 alone.
+    assert built(h_dfa_15m=0.75, h_vt_15m=0.61)["h_agree_value"] == pytest.approx(0.61)
+    assert built(h_dfa_15m=0.61, h_vt_15m=0.75)["h_agree_value"] == pytest.approx(0.61)
+
+
+def test_a_disagreeing_pair_cannot_pass_the_hurst_gate() -> None:
+    r = built(h_dfa_15m=0.80, h_vt_15m=0.40)
+    assert "hurst" in fsm.exclusions(r, day())
+
+
+def test_the_spread_comes_back_to_usd_before_it_is_divided_by_the_stop() -> None:
+    # 1 bp of $3000 is $0.30, which is a tenth of a $3 stop. Left in bp it
+    # would read as 1.0/3.0 and a third of the stop -- a 3000x error that
+    # looks entirely reasonable on the page.
+    assert built()["s_spread"] == pytest.approx(0.10)
+
+
+def test_a_spread_wider_than_the_stop_is_a_full_penalty_not_more() -> None:
+    # Components are normalised to [0,1]; an unclipped one would reach past
+    # its weight and quietly outvote the other five.
+    assert built(spread_bp=200.0)["s_spread"] == 1.0
+
+
+def test_the_volatility_component_is_zero_at_the_spec_s_own_floor() -> None:
+    # $15/oz is where §9's condition 3 starts, so it is where the component
+    # starts, and the exclusion fires at the same number rather than near it.
+    assert built(r_hat_60_usd=15.0)["s_vol"] == 0.0
+    assert "forecast_range" in fsm.exclusions(built(r_hat_60_usd=15.0), day())
+
+
+def test_a_zero_stop_raises_rather_than_reporting_no_slippage() -> None:
+    with pytest.raises(ValueError, match="d_usd"):
+        fsm.fsm_row(frow(), p_e=0.70, d_usd=0.0, slippage_usd=0.10)
+
+
+def test_the_three_inputs_the_frame_does_not_carry_are_required() -> None:
+    # A defaulted p_e is a trade admitted on a probability nobody computed.
+    with pytest.raises(TypeError):
+        fsm.fsm_row(frow())  # type: ignore[call-arg]
+
+
+# ------------------------------------------------------- §10 the stop bounds
+
+def test_both_of_section_10s_bounds_are_enforced_not_just_the_wide_one() -> None:
+    # §10 reads "20 <= D <= 50 ticks". Only the upper bound was checked, so a
+    # stop tighter than the spec allows passed silently for as long as the
+    # module existed. Found writing docs/strategy/TRACK_C_ENGINE.md.
+    assert "stop_too_tight" in fsm.exclusions(row(d_usd=0.50), day())
+    assert "stop_too_wide" in fsm.exclusions(row(d_usd=6.00), day())
+
+
+def test_the_bounds_are_section_10s_ticks_in_usd() -> None:
+    # 20 and 50 ticks at GC's $0.10, the same translation §10's 100 and 150
+    # already get in e3_cost. XAUUSD's 0.001 is Dukascopy's price quantum and
+    # is explicitly not a tradeable tick, so it is not this number.
+    assert fsm.D_MIN_USD == pytest.approx(20 * 0.10)
+    assert fsm.D_MAX_USD == pytest.approx(50 * 0.10)
+
+
+def test_the_floor_itself_is_allowed() -> None:
+    # "20 <= D", so 20 ticks is inside the spec and not the first value out.
+    assert "stop_too_tight" not in fsm.exclusions(row(d_usd=fsm.D_MIN_USD), day())
+
+
+def test_a_tight_stop_no_longer_buys_a_twenty_to_one_target() -> None:
+    # The reason the floor exists rather than the rule it states: the target is
+    # clip(2.5D, $10, $15), so a $0.50 stop took a $10 target -- a 20:1 nominal
+    # R that came from the target FLOOR, not from anything anyone chose.
+    assert admit(row(d_usd=0.50), day()) is None

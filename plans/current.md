@@ -131,6 +131,37 @@ is not.** The next gate is **Friday 18 September, 16:00**, whatever it ends up b
 > bars, §9's condition 7 is effectively permanently closed and two S13 columns are dead on
 > arrival.** This belongs before the pull, not after it.
 
+> ### Orientation documents, 2026-09-18 — two, and they are maps not sources of truth
+>
+> [`docs/PROJECT_MAP.md`](../docs/PROJECT_MAP.md) — the whole repo: every directory and module, what
+> is real and what is a typed fake, and the architecture as built against the architecture at the
+> end of the project.
+>
+> [`docs/strategy/TRACK_C_ENGINE.md`](../docs/strategy/TRACK_C_ENGINE.md) — **a plan, not a
+> build.** Track C as an independent mathematical engine that suggests a trade: `track_c/`, ten
+> files, ~1,100 lines, four filter layers that can only refuse, its own event-driven backtest with a
+> pessimistic fill model, and **eight gates committed before the first run** — six adapted from
+> `Quant_trading`'s `backtest.md`, one added (deflated Sharpe), two dropped because a
+> one-trade-a-week strategy makes them meaningless. ~400 lines are unblocked today. It found a
+> defect on the way: **§10 requires `20 ≤ D ≤ 50` ticks and `fsm.exclusions` enforced only the upper
+> bound**, so a $0.50 stop passed and took a $10 target — a 20:1 R that came from the target floor
+> rather than from any choice. ✅ **Fixed the same day**: `D_MIN_USD = 2.00`, a `stop_too_tight`
+> exclusion, four tests, 534 passing.
+>
+> [`docs/STRATEGY_WORKFLOW.md`](../docs/STRATEGY_WORKFLOW.md) — narrower: the **three strategy
+> tracks drawn separately**, data to verdict, each checked against function signatures and module
+> imports rather than against prose. It records two things the prose did not say. **(1)** `fsm.py`
+> imports only `e3_cost` and `frame.TradeCandidate` — not `pipeline`, not `classifier` — and the
+> `row` dict it consumes uses names the S13 frame does not carry, so **the frame-row → FSM-row
+> adapter did not exist.** **Written 18 Sep as `fsm.fsm_row`** (530 tests, +12; `ruff`/`mypy`
+> clean) — and it closed a bug it was not written for: `NaN < SCORE_MIN` is False, so a NaN score
+> passed `admit`'s gate rather than failing it. It raises on every real row until E4 settles §7,
+> which is the honest state of the block. **§13's six normalisers are a choice this module made and
+> the room should ratify** — the spec says *normalize to [0,1]* and gives no formula. **(2)** E2's stage 13, *near a
+> prior-day LVN/HVN*, needs a volume profile that spot XAUUSD has no real volume for, and it is not
+> on the SKIPPED list beside 8, 9, 10 and 14 — **either it joins them or the tick-count proxy is
+> written down as its definition before E2 runs.** That is a room decision, not a solo one.
+
 ### Friday 18 Sep — before the 16:00 gate
 
 | | Item | Owner | Why this date |
