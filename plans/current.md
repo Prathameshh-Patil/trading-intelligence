@@ -1079,7 +1079,9 @@ finding two bugs**, both of which would have survived into `real.ts`.
       next replayed bar overwrote it (designed behaviour, not a bug). Not independently
       screenshotted — same treatment as row #2/#8, closed on account rather than a logged artefact.
       **First button in either app anyone has actually clicked**, since Claude's own testing is all
-      programmatic (Accessibility ungranted).
+      programmatic (Accessibility ungranted). **Amended 2026-09-19:** the one-second flash is
+      why no screenshot existed; `emitWideCvd` now stops the replay, and the 19 Sep entry has the
+      screenshot and the actual bug beneath this surface (a flex squash, not the number).
 - [ ] **The other four mock controls, and the rest of the UI, remain unclicked.** The six home
       tiles, back button, drag region and `goStale`/`drop`/`resume`/`40-char symbol` were all fired
       programmatically by Claude. One Accessibility grant on Claude's environment — or Prathamesh
@@ -2238,6 +2240,52 @@ a localStorage mock and `services/api` had no auth at all; both are gone.
 - [ ] **Unsigned and unmerged.** The S3/S5 amendments need Varad's and Shreyas's signatures; the
       branch is pushed and needs review. Real `CONTACT`/`PAYMENT`/`TEAM` values are still
       `PLACEHOLDER_…`.
+
+### 2026-09-19 — four fixes: the CVD card was being squashed, S7's warm-up counted the wall clock, Route 2 reaches S3, E4 is code · [`daily_updates/2026-09-19.md`](../daily_updates/2026-09-19.md)
+
+**On `feat/vision-hub`, unmerged. Two desktop bugs found by driving the panel in Chrome at
+380px, one data-lane check, and E4 built to the pre-commit without running it.**
+
+- [x] **The 7-digit CVD "layout break" was a flex squash, not an overflow.** `+1,234,567`
+      measures 174px in a 308px box in every font on the stack; it never overflowed. What
+      actually happens: `.view` is a fixed-height flex column that scrolls, and any child that
+      clips its own overflow gives up `min-height: auto`, so flex shrinks it to fit — **the
+      `GC · 1m · 0 gaps · 18:16 ET` meta row on Order Flow has been rendering at 0px since W1D2**,
+      and the first attempt at hardening the CVD card collapsed it to its label the same way.
+      `.view > * { flex-shrink: 0 }`; `.cvd-sub` clips like `.cvd-value`. **`emitWideCvd` now
+      stops the replay** so the bar stays on screen until Resume — the 2026-09-03 row below is
+      amended: the one-second flash is why it was never screenshotted, and now it is
+      (`daily_updates/2026-09-19.md` §1). `scrollWidth === clientWidth` on both views.
+- [x] **S7's warm-up counted wall-clock minutes from the first time the Forecast view opened.**
+      120 real minutes under a 10× replay that delivers two hours of bars in twelve; a countdown
+      that reset on every navigation; a full two hours again on every relaunch. **Warm-up is now
+      feed time** — `Forecaster.warmUp()` reports bars received since connect (or since time
+      went backwards, which is a reconnect), the forecaster is constructed when the feed
+      connects rather than when the view mounts, and the view renders the forecaster's number.
+      Under the mock the copy says *~12m at 10× replay*. `finishWarmUp`/`restartWarmUp` keep
+      working; `Mode` loses the `"warming"` value nothing ever set.
+- [x] **Route 2, investigated: nothing is broken.** 27 tests green; one billed day
+      (`XAUUSD/2026/06/16_ticks.bi5`) decodes to 429,422 quotes spanning 00:00:00.002 →
+      23:59:56.063 UTC, bid ≈ 4057.8 at midnight UTC (the GC fixture is ~4069 that date — right
+      scale). `spot.minute_bars` and
+      `spot.resample` already read `inst.session_shift`; the hardcoded `SESSION_SHIFT` is in
+      `s1.py`/`regimes.py` only, both instruments declare 2h, so spot's `session` column is
+      right. **The 3-month pull is not run** — it bills the account and the run is Varad's:
+      `PYTHONPATH=. uv run python spot.py --months 2026-05 2026-06 2026-07`.
+- [x] **E4 is built, tested and not run.** `hmm.py` — a Gaussian HMM in numpy (no `hmmlearn`;
+      a dependency is its own PR) with the likelihood proven against brute-force path
+      enumeration, EM monotone, a planted chain recovered at 97%, and a **no-lookahead guard**:
+      `filtered` is the only posterior a feature may read. `e4_hmm.py` — the five observations
+      derived from the S13 frame (`range_compression = log(σ_yz_12/σ_yz_288)` is new and named
+      here, not in `portable.py`), z-scored on `m2_magnitude.TRAIN` only, k∈{2,3} × 5 seeds,
+      §17's refusals as pinned constants, `decide` on held-out loglik per bar with the ladder
+      test, `apply` fills `p_build`/`p_expand` from the filtered posterior for outcome 2 only.
+      **E4a runs `--no-spread` on GC's four observations; E4b runs `--spread` on spot once the
+      pull lands.** 21 tests; 555 passing; ruff/mypy clean across 80 files.
+- [ ] **§17 is still unwritten in `strategy-precommit.md`.** The prediction exists in
+      `strategy-precommit-drafts.md` §17 (outcome 3, a vol ladder). Varad moves it, adds the
+      observation definitions and the constants above, commits, and only then:
+      `PYTHONPATH=. uv run python e4_hmm.py --data data --no-spread --out-dir analysis/e4_hmm_<date>`.
 - [ ] **Deployment is untouched** — no hosting decision remade, no `COOKIE_DOMAIN` set, no
       production `.env`. Row #4 stands.
 
