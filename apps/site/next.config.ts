@@ -17,6 +17,9 @@ const nextConfig: NextConfig = {
   // project) and what a plain static host or a drag-and-drop upload needs too.
   output: 'export',
 
+  // Workspace packages are consumed as TypeScript source.
+  transpilePackages: ['@vision-hub/contracts', '@vision-hub/ui'],
+
   // Next 16 writes its own AGENTS.md and CLAUDE.md into the app on first run.
   // This repo already has its conventions written down in `plans/` and `docs/`,
   // and a generated file arriving in `git status` unasked is noise at best and

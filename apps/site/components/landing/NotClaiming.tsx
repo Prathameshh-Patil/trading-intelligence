@@ -11,7 +11,7 @@
  * Larger type, more whitespace, highest contrast. Do not "fix" this.
  */
 
-import { Eyebrow } from '../ui'
+import { Eyebrow } from '@vision-hub/ui'
 import { NOT_CLAIMING } from '@/content/site'
 
 export function NotClaiming() {

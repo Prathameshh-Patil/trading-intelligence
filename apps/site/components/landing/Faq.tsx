@@ -13,7 +13,7 @@
  * screen-reader-correct without a line of ARIA.
  */
 
-import { Eyebrow } from '../ui'
+import { Eyebrow } from '@vision-hub/ui'
 import { FAQ } from '@/content/site'
 import { useReveal } from '@/lib/motion'
 

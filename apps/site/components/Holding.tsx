@@ -14,7 +14,7 @@ import Link from 'next/link'
 import { useState } from 'react'
 
 import { api } from '@/lib/api'
-import { Banner, buttonClass } from './ui'
+import { Banner, Mark, buttonClass } from '@vision-hub/ui'
 import { BRAND, CONTACT, HOLDING } from '@/content/site'
 
 export function Holding() {
@@ -40,9 +40,7 @@ export function Holding() {
 
       <div className="flex max-w-[660px] flex-col items-center gap-5 text-center">
         <div className="flex items-center gap-2.5 font-bold text-ink">
-          <span className="grid h-7 w-7 place-items-center rounded-lg grad text-sm font-extrabold text-black">
-            T
-          </span>
+          <Mark size={28} />
           {BRAND.name}
         </div>
 
@@ -78,7 +76,7 @@ export function Holding() {
               onChange={(e) => setEmail(e.target.value)}
               className="flex-1"
             />
-            <button className={buttonClass.primary} type="submit" disabled={state === 'sending'}>
+            <button className={buttonClass('primary', 'lg')} type="submit" disabled={state === 'sending'}>
               {state === 'sending' ? 'Adding…' : 'Tell me when it ships'}
             </button>
           </form>

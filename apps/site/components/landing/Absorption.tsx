@@ -11,7 +11,7 @@
 
 import { useCallback, useEffect, useRef } from 'react'
 
-import { Eyebrow } from '../ui'
+import { Eyebrow } from '@vision-hub/ui'
 import { ABSORPTION } from '@/content/site'
 import { fitCanvas, useScrubber } from '@/lib/motion'
 import { clamp01, mulberry32, phase } from '@/lib/rng'

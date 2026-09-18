@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 
-import { Card, PageHeader } from '@/components/ui'
+import { Card, PageHeader } from '@vision-hub/ui'
 import { CONTACT } from '@/content/site'
 
 export default function ContactPage() {

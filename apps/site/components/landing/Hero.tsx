@@ -14,7 +14,7 @@
 import { useMemo } from 'react'
 
 import { AppPanel } from './AppPanel'
-import { ButtonLink, Eyebrow } from '../ui'
+import { ButtonLink, Eyebrow } from '@vision-hub/ui'
 import { HERO } from '@/content/site'
 import { mulberry32 } from '@/lib/rng'
 
@@ -59,8 +59,8 @@ export function Hero() {
           <p className="max-w-[54ch] text-[19px] leading-[1.65] text-dim">{HERO.body}</p>
 
           <div className="mt-10 flex flex-wrap gap-3.5">
-            <ButtonLink href="/pricing">See pricing →</ButtonLink>
-            <ButtonLink href="/contact" kind="secondary">Talk to us first</ButtonLink>
+            <ButtonLink href="/pricing" size="lg">See pricing →</ButtonLink>
+            <ButtonLink href="/contact" kind="secondary" size="lg">Talk to us first</ButtonLink>
           </div>
 
           <ul className="mt-10 flex flex-wrap gap-x-6 gap-y-3 text-[13px] text-faint">

@@ -4,6 +4,7 @@ use tauri::{Emitter, Manager, WindowEvent};
 use tauri_plugin_global_shortcut::ShortcutState;
 
 mod creds;
+mod licence;
 mod placement;
 use placement::{Placements, Rect};
 
@@ -246,7 +247,10 @@ pub fn run() {
             log_webview,
             creds::creds_save,
             creds::creds_load,
-            creds::creds_clear
+            creds::creds_clear,
+            licence::licence_save,
+            licence::licence_load,
+            licence::licence_clear
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

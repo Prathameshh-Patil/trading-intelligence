@@ -10,7 +10,7 @@
 
 import type { ReactNode } from 'react'
 
-import { Eyebrow } from '../ui'
+import { Eyebrow } from '@vision-hub/ui'
 import { SHOWS } from '@/content/site'
 import { useReveal } from '@/lib/motion'
 

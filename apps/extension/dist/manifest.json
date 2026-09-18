@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Trading Intelligence",
+  "name": "Vision Hub",
   "version": "0.1.0",
-  "description": "AI-assisted market analysis, trade rules, and journalling.",
+  "description": "Order flow for gold futures: the aggressor side the chart threw away, trade rules, and a journal.",
   "minimum_chrome_version": "114",
   "permissions": [
     "activeTab",
@@ -21,7 +21,7 @@
     "128": "icons/icon-128.png"
   },
   "action": {
-    "default_title": "Trading Intelligence",
+    "default_title": "Vision Hub",
     "default_icon": {
       "16": "icons/icon-16.png",
       "32": "icons/icon-32.png",
@@ -41,7 +41,9 @@
       "id": "{08df3b0c-6f2b-4eb3-a14b-e581e579d9e6}",
       "strict_min_version": "140.0",
       "data_collection_permissions": {
-        "required": ["websiteContent"]
+        "required": [
+          "websiteContent"
+        ]
       }
     }
   }

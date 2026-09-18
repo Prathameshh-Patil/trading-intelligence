@@ -2,12 +2,13 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { BackIcon, CrosshairIcon } from "./ui/Icons";
-import { FeedPill, RulePill, Toast } from "./ui/components";
+import { FeedPill, LicencePill, RulePill, Toast } from "./ui/components";
 import { viewVariants } from "./ui/motion";
 import "./ui/theme.css";
 
 import { useClickThrough } from "./lib/clickThrough";
 import { useFeed } from "./lib/feed";
+import { unlocked, useLicence } from "./lib/licence";
 import { computeStats, evaluateRules, riskLevel } from "./lib/rules";
 import {
   addJournalEntry,
@@ -31,12 +32,13 @@ import FlowView from "./views/FlowView";
 import ForecastView from "./views/ForecastView";
 import HomeView from "./views/HomeView";
 import JournalView from "./views/JournalView";
+import LicenceView from "./views/LicenceView";
 import RulesView from "./views/RulesView";
 import StrategyChangeView from "./views/StrategyChangeView";
 import StrategyReviewView from "./views/StrategyReviewView";
 
 const TITLES: Record<ViewKey, string> = {
-  home: "Trading Intelligence",
+  home: "Vision Hub",
   analyze: "Analyze screen",
   flow: "Order flow",
   forecast: "Forecast",
@@ -44,7 +46,21 @@ const TITLES: Record<ViewKey, string> = {
   "strategy-review": "Review strategy",
   "strategy-change": "Change strategy",
   journal: "Journal",
+  licence: "Licence",
 };
+
+/** The brand mark: the V from `packages/ui`, drawn once here so the
+ *  desktop needs no dependency on the web packages. */
+function BrandMark() {
+  return (
+    <div className="brand-mark" aria-hidden>
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
+        <path d="M4 6l8 12 8-12" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
+        <circle cx="12" cy="7.2" r="2.1" fill="currentColor" />
+      </svg>
+    </div>
+  );
+}
 
 const isSameDay = (a: number, b: number) => {
   const da = new Date(a);
@@ -65,6 +81,10 @@ export default function SidePanel() {
   // The feed belongs to the shell, not to whichever view is open -- see
   // `lib/feed.ts`. Connected here once; every view reads the same status.
   const feed = useFeed();
+
+  // The licence gates everything below the topbar. Loaded from the keychain
+  // and checked against Vision Hub once on launch -- see `lib/licence.ts`.
+  const licence = useLicence();
 
   // Diagnostic aid: an opaque panel makes click-through untestable, because
   // there is nothing under it to aim at. Faded while armed so what is being
@@ -211,8 +231,8 @@ export default function SidePanel() {
       <div className="shell">
         <div className="topbar" data-tauri-drag-region>
           <div className="brand">
-            <div className="brand-mark">T</div>
-            <span className="brand-text">Trading Intelligence</span>
+            <BrandMark />
+            <span className="brand-text">Vision Hub</span>
           </div>
         </div>
       </div>
@@ -220,7 +240,16 @@ export default function SidePanel() {
   }
 
   const renderView = () => {
+    // The gate. A missing or invalid key shows the licence screen and
+    // nothing else; the topbar stays so the window can still be dragged and
+    // hidden. Only `active` and `offline` (a week's grace when Vision Hub
+    // cannot be reached) unlock the views.
+    if (!unlocked(licence)) return <LicenceView />;
+
     switch (view) {
+      case "licence":
+        return <LicenceView />;
+
       case "analyze":
         return <AnalyzeView violations={violations} onNavigate={navigate} />;
 
@@ -303,8 +332,8 @@ export default function SidePanel() {
               exit={{ opacity: 0, x: -8 }}
               transition={{ duration: 0.16 }}
             >
-              <div className="brand-mark">T</div>
-              <span className="brand-text">Trading Intelligence</span>
+              <BrandMark />
+              <span className="brand-text">Vision Hub</span>
             </motion.div>
           ) : (
             <motion.div
@@ -332,6 +361,7 @@ export default function SidePanel() {
 
         {/* W3D1: the four feed states, visible from every view. Tapping it
             opens Order Flow, where the detail (vendor, gaps, last tick) lives. */}
+        {unlocked(licence) && <LicencePill licence={licence} onClick={() => navigate("licence")} />}
         <FeedPill feed={feed} onClick={() => navigate("flow")} />
 
         <button

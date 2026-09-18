@@ -9,7 +9,7 @@
  * which does not depend on our software being any good.
  */
 
-import { Eyebrow } from '../ui'
+import { Eyebrow } from '@vision-hub/ui'
 import { COMPARE } from '@/content/site'
 import { useReveal } from '@/lib/motion'
 

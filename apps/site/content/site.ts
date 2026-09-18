@@ -13,8 +13,9 @@
  */
 
 export const BRAND = {
-  name: 'Trading Intelligence',
+  name: 'Vision Hub',
   product: 'a desktop order-flow overlay for gold futures',
+  tagline: 'Order flow for gold futures',
 } as const
 
 /** PLACEHOLDER — all four. */
@@ -132,7 +133,7 @@ export function formatPrice(amount: number, currency: Currency): string {
 export const HERO = {
   eyebrow: 'Gold futures · GC · desktop overlay',
   title: ['Two identical sessions.', 'Opposite order flow.'],
-  body: 'A candle keeps the open, high, low and close. It does not keep the aggressor side of a single trade — the chart threw that away when it drew the bar. Trading Intelligence reads the raw tape on your own machine and shows what the chart underneath structurally cannot.',
+  body: 'A candle keeps the open, high, low and close. It does not keep the aggressor side of a single trade — the chart threw that away when it drew the bar. Vision Hub reads the raw tape on your own machine and shows what the chart underneath structurally cannot.',
   facts: ['Runs on your machine', 'Your own feed entitlement', 'Sits over any chart platform'],
 } as const
 
@@ -235,8 +236,18 @@ export const FOUNDING = {
   body: `The first ${PRICING.foundingSeats} subscribers keep this price for as long as their subscription runs without a break. If we raise prices later, it does not go up for them. We are saying this on the page, in the checkout and in the email that carries your key — because we would rather have your honest opinion than your polite one.`,
 } as const
 
+/**
+ * How a key is issued.
+ *
+ * The account is what gets approved, not a payment. A person reads the signup,
+ * approves it, and the key appears on the account page in the same second —
+ * live, no refresh. Payment is by UPI or USDT with the receipt attached from
+ * the same page, and it is deliberately not on the path to the key: a buyer
+ * who has just sent money to strangers should not also be waiting on a
+ * screenshot to be matched before they can see anything work.
+ */
 export const HOW_PAYING_WORKS =
-  'There is no card processor. You pay by UPI or in USDT, upload the receipt, and one of us checks it and issues your licence key — usually within a few hours. Nothing auto-renews, because there is nothing holding a card to renew against. When you want another month, you send another payment.'
+  'There is no card processor. Create an account and one of us approves it by hand — usually within a few hours. The moment that happens your licence key appears on your account page, and you paste it into the desktop app. You pay by UPI or in USDT and attach the receipt from the same page. Nothing auto-renews, because there is nothing holding a card to renew against. When you want another month, you send another payment.'
 
 export const HOLDING = {
   badge: 'Not released yet',
@@ -387,7 +398,7 @@ export const FAQ = [
   },
   {
     q: 'How does paying work, and can I stop?',
-    a: 'You pay by UPI or in USDT, upload the receipt, and one of us checks it by hand and issues your key. Nothing auto-renews, because there is no card on file to renew against — when you want another month you send another payment. Fourteen-day refund, no reason needed.',
+    a: 'You create an account, one of us approves it by hand, and your licence key appears on your account page — live, the moment it happens. You pay by UPI or in USDT and attach the receipt from the same page. Nothing auto-renews, because there is no card on file to renew against — when you want another month you send another payment. Fourteen-day refund, no reason needed.',
   },
   {
     q: 'Why only gold?',
@@ -398,4 +409,63 @@ export const FAQ = [
 export const FINAL_CTA = {
   title: 'Ten people. Every one of them talks to us first.',
   body: 'If you read this far you are probably one of the ten. Book the call before you pay anything — we would rather talk you out of it now than refund you in a fortnight.',
+} as const
+
+/* ── the rail, and the account page ─────────────────────────────────────── */
+
+/**
+ * The left navigation, in this order. Six things a visitor can do, then the
+ * policy as small print. The account block lives at the bottom of the rail
+ * and is not a nav item -- it is who you are, not where you are going.
+ */
+export const NAV = [
+  { href: '/features', label: 'Features' },
+  { href: '/use-cases', label: 'Use cases' },
+  { href: '/services', label: 'Services' },
+  { href: '/pricing', label: 'Pricing' },
+  { href: '/support', label: 'Support' },
+  { href: '/contact', label: 'Contact' },
+] as const
+
+/**
+ * The four stops between signing up and a running app. `pending` and
+ * `approved` come from the server; `activated` is inferred from the key's
+ * `last_validated_at`, which the desktop app writes the first time it checks
+ * the key -- so the last step only lights up when the app really has run.
+ */
+export const ACCOUNT_STEPS = [
+  { id: 'signed_up', title: 'Signed up', body: 'Your account exists and one of us has been told.' },
+  {
+    id: 'pending',
+    title: 'Awaiting approval',
+    body: 'A person reads every signup. Usually a few hours; always within a business day.',
+  },
+  {
+    id: 'approved',
+    title: 'Approved',
+    body: 'Your licence key is issued and shown below. It appears here the moment it happens.',
+  },
+  {
+    id: 'activated',
+    title: 'Activated in the app',
+    body: 'The desktop app has validated the key. From here on it is between you and the tape.',
+  },
+] as const
+
+export const PAGES = {
+  features: {
+    eyebrow: 'FEATURES',
+    title: 'What the bar dropped, on screen.',
+    lede: 'Six things the tape carries that a candle cannot, each one measured rather than inferred, and one honest section on what none of them are.',
+  },
+  useCases: {
+    eyebrow: 'USE CASES',
+    title: 'Four situations a gold trader will recognise.',
+    lede: 'Each one ends at what the tool shows. What happens next is your decision and your risk — that line is drawn on purpose.',
+  },
+  services: {
+    eyebrow: 'SERVICES',
+    title: 'What comes with it beyond the software.',
+    lede: 'Four commitments, made to ten people. If any of them stops being true it comes off this page first.',
+  },
 } as const

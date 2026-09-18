@@ -196,9 +196,9 @@ body.standalone .shell {
 }
 
 /* At 380px the topbar cannot always hold the brand, the feed pill, the
-   crosshair and the rule pill at full width -- `Stale 42s` next to
-   `Trading Intelligence` is ~30px over. The name is decoration and the feed
-   state is information, so the name is what truncates. */
+   crosshair and the rule pill at full width -- `Stale 42s` next to the
+   brand was ~30px over when the brand was two words. The name is decoration
+   and the feed state is information, so the name is what truncates. */
 .topbar .brand,
 .topbar .row {
   min-width: 0;
@@ -385,6 +385,15 @@ body.standalone .shell {
   display: flex;
   flex-direction: column;
   gap: 14px;
+}
+
+/* The view is a fixed-height column that scrolls. A child that clips its own
+   overflow (`.feed-meta`, any card that gains `overflow: hidden`) also gives
+   up `min-height: auto`, and flex then shrinks it to make the column fit --
+   `.feed-meta` was rendering at 0px on Order Flow. Nothing here shrinks; the
+   column scrolls instead. */
+.view > * {
+  flex-shrink: 0;
 }
 
 .eyebrow {
@@ -1204,10 +1213,14 @@ body.standalone .shell {
 .cvd-value.pos { color: var(--green); }
 .cvd-value.neg { color: var(--red); }
 
+/* Analyze appends `· N contracts`, making this the longest line in the card. */
 .cvd-sub {
   font-size: 12px;
   color: var(--text-dim);
   font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .flow-grid {

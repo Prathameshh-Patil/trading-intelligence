@@ -17,7 +17,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 
-import { Button, Eyebrow, PageHeader } from '@/components/ui'
+import { Button, Eyebrow, PageHeader } from '@vision-hub/ui'
 import {
   FOUNDING,
   HOW_PAYING_WORKS,
@@ -30,11 +30,13 @@ import { useSession } from '@/lib/session'
 
 export default function PricingPage() {
   const [currency, setCurrency] = useState<Currency>('usd')
-  const { me } = useSession()
+  const { user } = useSession()
   const router = useRouter()
 
-  function choose(plan: PlanId) {
-    router.push(me ? `/checkout?plan=${plan}&currency=${currency}` : '/signup')
+  // The key comes from approval, not from paying, so both buttons lead to the
+  // account: a stranger creates one, a member goes to where the key lands.
+  function choose(_plan: PlanId) {
+    router.push(user ? '/account' : '/signup')
   }
 
   return (
@@ -108,8 +110,8 @@ export default function PricingPage() {
               ))}
             </ul>
 
-            <Button onClick={() => choose(plan.id)}>
-              {me ? 'Continue to payment' : 'Create an account'} →
+            <Button size="lg" onClick={() => choose(plan.id)}>
+              {user ? 'Go to your account' : 'Create an account'} →
             </Button>
           </div>
         ))}
@@ -121,7 +123,7 @@ export default function PricingPage() {
       </section>
 
       <section className="mt-5 surface rounded-2xl p-7">
-        <h2 className="mb-3 text-[19px] font-semibold">How paying works</h2>
+        <h2 className="mb-3 text-[19px] font-semibold">How the key is issued, and how paying works</h2>
         <p className="text-dim">{HOW_PAYING_WORKS}</p>
         <p className="mt-3 text-sm text-faint">
           Fourteen-day refund, no reason needed —{' '}

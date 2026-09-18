@@ -126,7 +126,7 @@ export interface MockEngine extends Engine {
   drop(): void;
   /** Resume normal replay from wherever it stopped. */
   resume(): void;
-  /** Emit one bar carrying a 7-digit CVD. */
+  /** Stop the replay and emit one bar carrying a 7-digit CVD; `resume()` continues. */
   emitWideCvd(): void;
   /**
    * Report a 40-character vendor string.
@@ -503,6 +503,13 @@ export function createMockEngine(options: MockOptions = {}): MockEngine {
 
       // 7 digits, which is what a UI that sized its CVD field for four will
       // fail on. Not reachable from the fixture — GC's session CVD is O(1e3).
+      //
+      // The replay is stopped first so the bar stays on screen until Resume.
+      // Left running, the next replayed bar overwrote it within a second,
+      // which is why the only verification on record was "looked fine for a
+      // moment". Emitting after the clear still arms the stale watchdog, so
+      // the pill turns stale on schedule rather than claiming a live feed.
+      clearTimers();
       emit({ ...last, t: last.t + BAR_MS, cvd: 1_234_567, delta: 98_765 });
     },
 

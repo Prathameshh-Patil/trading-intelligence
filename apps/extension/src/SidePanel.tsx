@@ -32,7 +32,7 @@ import StrategyChangeView from "./views/StrategyChangeView";
 import StrategyReviewView from "./views/StrategyReviewView";
 
 const TITLES: Record<ViewKey, string> = {
-  home: "Trading Intelligence",
+  home: "Vision Hub",
   analyze: "Analyze screen",
   rules: "Trade rules",
   "strategy-review": "Review strategy",
@@ -192,8 +192,13 @@ export default function SidePanel() {
       <div className="shell">
         <div className="topbar">
           <div className="brand">
-            <div className="brand-mark">T</div>
-            Trading Intelligence
+            <div className="brand-mark" aria-hidden>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
+                <path d="M4 6l8 12 8-12" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
+                <circle cx="12" cy="7.2" r="2.1" fill="currentColor" />
+              </svg>
+            </div>
+            Vision Hub
           </div>
         </div>
       </div>
@@ -271,8 +276,13 @@ export default function SidePanel() {
               exit={{ opacity: 0, x: -8 }}
               transition={{ duration: 0.16 }}
             >
-              <div className="brand-mark">T</div>
-              Trading Intelligence
+              <div className="brand-mark" aria-hidden>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
+                  <path d="M4 6l8 12 8-12" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
+                  <circle cx="12" cy="7.2" r="2.1" fill="currentColor" />
+                </svg>
+              </div>
+              Vision Hub
             </motion.div>
           ) : (
             <motion.div

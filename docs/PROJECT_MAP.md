@@ -50,31 +50,39 @@ question #1 and is a product decision, not an architecture one.**
 
 This is the part no diagram shows. Ordered as a real person meets it.
 
-### 2.1 Discover → buy (the website, `apps/site`, Next.js App Router)
+### 2.1 Discover → sign up → approved (the website, `apps/site`, Next.js App Router)
+
+**Updated 2026-09-18 for `feat/vision-hub` (unmerged).** The product is Vision Hub; the site has a
+left rail rather than a top nav; there is no checkout on the path to a key.
 
 | Route | File | What the visitor does |
 | :--- | :--- | :--- |
-| `/` | `app/page.tsx` | Landing — the claim, in one screen |
+| `/` | `app/page.tsx` | Landing — the claim, in one screen, then the price and the questions |
+| `/features`, `/use-cases`, `/services` | `app/*/page.tsx` | The chapters that used to follow the fold, each under its own header |
 | `/pricing` | `app/pricing/page.tsx` | **One currency at a time, toggled, never side by side.** A visitor who can see both prices is being shown a decision they did not ask to make |
-| `/signup` | `app/signup/page.tsx` | Account creation |
-| `/login` | `app/login/page.tsx` | Return visit |
-| `/checkout` | `app/checkout/page.tsx` | Payment |
-| `/key` | `app/key/page.tsx` | **The licence key, after payment** — the single artefact that connects web to desktop |
-| `/support` | `app/support/page.tsx` | Help |
-| `/contact` | `app/contact/page.tsx` | *"There are three of us."* — the honest scale of the team, said out loud |
-| `/policy` | `app/policy/page.tsx` | Terms, privacy, refunds |
-| `/admin` | `app/admin/page.tsx` | Internal — key issuance and account state |
+| `/signup`, `/login` | `app/*/page.tsx` | Account creation and return; both land on `/account` |
+| `/account` | `app/account/page.tsx` | **Signed up → Awaiting approval → Approved → Activated in the app.** The licence key, once a person has approved the account; rotate; optional payment proof; tickets; sessions. Live over SSE. `/key` and `/checkout` redirect here |
+| `/support`, `/contact`, `/policy` | `app/*/page.tsx` | Tickets; *"There are three of us."*; terms, privacy, refunds |
 
-**The website only ever sees the exit door.** Per S5, it reads `GET /api/v1/keys/mine`. Webhook
-verification, idempotency and the fact that **payment webhooks arrive twice** are invisible to it.
+The admin queue is no longer a page on this site: it is **`apps/admin`**, a separate static export
+on its own origin (Approvals, Users, Keys, Tickets, Waitlist, Audit, Settings), refusing any
+non-admin token with one sentence. Both sites draw on `packages/ui` and speak through
+`packages/contracts`, whose client owns the token lifecycle so no page ever sees a JWT.
+
+**The website only ever sees the exit door.** Per S5 as amended, it reads `GET /api/v1/keys/mine`
+(404 with a `reason` until approved) and `GET /api/v1/keys/mine/activation`. Approval is of the
+*account*, by an admin; payment proof is an attachment the admin can see and is not a gate.
 
 ### 2.2 Install → activate
 
 1. Download the desktop app (Tauri bundle, macOS today; Windows and Linux untested).
 2. Launch. A **380 × 820 transparent, borderless, always-on-top panel** appears.
-3. Paste the licence key. The desktop calls `POST /api/v1/keys/validate` (S3).
-   **`valid: false` is a `200`, not a `401`** — the app must distinguish "your key is bad" from "we
-   could not reach the server", because those demand opposite responses from the user.
+3. Paste the licence key on the app's **Licence screen** — the only screen an unactivated app
+   shows. The desktop calls `POST /api/v1/keys/validate` (S3) and re-checks every six hours.
+   **`valid: false` is a `200`, not a `401`** — the app must distinguish "your key is bad" (the
+   licence screen, locked) from "we could not reach the server" (keep working for seven days from
+   the last good check, pill reads *Offline*), because those demand opposite responses from the
+   user. The key goes to the OS keychain (`licence.rs`), the same path as the feed credentials.
 4. Enter **feed credentials** — vendor username/password/server. These go
    **webview → Rust → OS keychain** and nowhere else (`creds.rs`, `creds.ts`). JavaScript never
    writes the secret to anything that persists; `localStorage` holds only the *vendor name*, so the
@@ -516,7 +524,7 @@ connected is the live feed, and it is the second of the plan's two named fatal-r
 | :--- | :--- | :--- |
 | 2–4 | App is real locally — correct live delta over a real chart | overlay ✅, delta ❌ |
 | 5 | **Backend** — real `keys/validate`, `dev/issue-key`, Postgres, deployment | fakes only |
-| 6 | **Website, three days then stop** — checkout → key in hand | routes exist, flow ❌ |
+| 6 | **Website, three days then stop** — signup → approval → key in hand → activated | built on `feat/vision-hub`, driven end to end 18 Sep, unmerged |
 | 7 | **Private beta, three outside traders** | nobody outside has run it |
 | 8 | **Fix the five things** they report — and *"would you pay $39"*, two of three saying yes unprompted | — |
 | 9 | **Open the doors** | — |

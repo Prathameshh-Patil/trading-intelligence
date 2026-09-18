@@ -13,6 +13,8 @@
  * hero. No number here is a claim.
  */
 
+import { Mark } from '@vision-hub/ui'
+
 const OUTLIERS = [
   { kind: 'Absorption', tone: 'text-violet', price: '2418.40', side: 'ask', size: '1,940' },
   { kind: 'Trapped', tone: 'text-warn', price: '2417.90', side: 'bid', size: '612' },
@@ -29,9 +31,7 @@ export function AppPanel() {
       <div className="relative overflow-hidden rounded-[20px] border border-white/[0.1] bg-bg shadow-[0_40px_120px_-20px_rgba(0,0,0,0.8),0_0_60px_-20px_rgba(139,92,246,0.35)]">
         {/* topbar */}
         <div className="flex items-center gap-2.5 border-b border-white/[0.08] bg-bg/70 px-4 py-3.5 backdrop-blur-md">
-          <span className="grad grid h-[26px] w-[26px] place-items-center rounded-lg text-[13px] font-bold text-white shadow-[0_4px_14px_rgba(139,92,246,0.4)]">
-            T
-          </span>
+          <Mark size={26} />
           <span className="text-[14px] font-semibold">Flow</span>
           <span className="flex-1" />
           <span className="inline-flex items-center gap-1.5 rounded-full border border-bid/30 bg-bid/10 px-2.5 py-1 text-[11px] font-semibold text-bid">

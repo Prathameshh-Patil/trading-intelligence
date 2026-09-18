@@ -57,7 +57,7 @@ let forecaster: Forecaster | null = null;
  * S7 · the reach table, behind the same switch as S2.
  *
  * **The table is no longer the missing half** — `services/api`'s
- * `GET /api/v1/forecast/table` serves it, and `VITE_FORECAST_API` points the
+ * `GET /api/v1/forecast/table` serves it, and `VITE_API_BASE` points the
  * forecaster at it. What is still missing is the other half of `reach.py`:
  * `cell_of` needs `atr_bp` and `rv_slope`, so forming the key needs a live feed
  * and `plans/current.md` C1 reopened on 5 Sep. Until then the key is derived
@@ -79,7 +79,9 @@ export function getForecaster(): Forecaster {
     );
   }
 
-  forecaster = createMockForecaster();
+  // The same engine the shell's feed store connects, so warm-up counts the
+  // bars the trader is actually watching.
+  forecaster = createMockForecaster(getEngine());
   return forecaster;
 }
 

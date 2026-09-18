@@ -8,7 +8,7 @@
  * reputation than the $39 is worth.
  */
 
-import { ButtonLink } from '../ui'
+import { ButtonLink } from '@vision-hub/ui'
 import { FINAL_CTA } from '@/content/site'
 import { useReveal } from '@/lib/motion'
 
@@ -26,8 +26,8 @@ export function FinalCta() {
         </p>
 
         <div className="mt-10 flex flex-wrap justify-center gap-3.5">
-          <ButtonLink href="/contact">Book the call →</ButtonLink>
-          <ButtonLink href="/pricing" kind="secondary">See pricing</ButtonLink>
+          <ButtonLink href="/contact" size="lg">Book the call →</ButtonLink>
+          <ButtonLink href="/pricing" kind="secondary" size="lg">See pricing</ButtonLink>
         </div>
       </div>
     </section>

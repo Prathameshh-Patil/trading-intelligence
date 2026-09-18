@@ -119,3 +119,11 @@ export const CrosshairIcon = ({ size = 15, className }: IconProps) => (
     <path d="M12 2v4M12 18v4M2 12h4M18 12h4" />
   </svg>
 );
+
+/** The licence tile and pill. */
+export const KeyIcon = ({ size = 15, className }: IconProps) => (
+  <svg {...base(size)} className={className}>
+    <circle cx="8" cy="15" r="4" />
+    <path d="M11 12l9-9M15 8l2 2M18 5l2 2" />
+  </svg>
+);

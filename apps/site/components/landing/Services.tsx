@@ -10,7 +10,7 @@
  * before it comes off the plan.
  */
 
-import { Eyebrow } from '../ui'
+import { Eyebrow } from '@vision-hub/ui'
 import { SERVICES } from '@/content/site'
 import { useReveal } from '@/lib/motion'
 

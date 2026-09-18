@@ -1,0 +1,220 @@
+/*
+ * Vision Hub design tokens -- one palette for the customer site, the admin
+ * portal and (by hand, in `apps/desktop/src/ui/theme.css`) the desktop app.
+ *
+ * Dark only. Violet and indigo carry the brand; green, red and amber are
+ * reserved for real state -- approved/rejected/pending, bid/ask, warn -- and
+ * are never decorative. Data pages stay flat and quiet; the glow and grain
+ * belong to the landing page and are opt-in classes there.
+ *
+ * Consumers: `@import 'tailwindcss'; @import '<relative>/packages/ui/tokens.css';`
+ * plus `@source '<relative>/packages/ui';` so the utilities used here are built.
+ */
+
+@theme {
+  --color-bg: #07080c;
+  --color-raise: #0c0e15;
+  --color-panel: #0f1119;
+  --color-ink: #f2f4f9;
+  --color-dim: #a2a9ba;
+  --color-faint: #6b7285;
+  --color-line: rgba(255, 255, 255, 0.08);
+  --color-line-hi: rgba(255, 255, 255, 0.14);
+
+  --color-violet: #8b5cf6;
+  --color-indigo: #6366f1;
+  --color-violet-lift: #a78bfa;
+
+  --color-bid: #34d399;
+  --color-ask: #f87171;
+  --color-warn: #fbbf24;
+
+  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+
+  --spacing-rail: 248px;
+}
+
+@layer base {
+  body {
+    margin: 0;
+    background: var(--color-bg);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-size: 15px;
+    line-height: 1.55;
+    letter-spacing: -0.005em;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  code,
+  kbd,
+  .num {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+
+  h1,
+  h2,
+  h3 {
+    letter-spacing: -0.03em;
+    line-height: 1.1;
+    text-wrap: balance;
+    font-weight: 600;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  ::selection {
+    background: rgba(139, 92, 246, 0.35);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-violet);
+    outline-offset: 2px;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.12);
+    border-radius: 99px;
+  }
+
+  input,
+  select,
+  textarea {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--color-line);
+    border-radius: var(--radius-sm);
+    background: rgba(0, 0, 0, 0.28);
+    color: var(--color-ink);
+    font: inherit;
+  }
+
+  input:focus,
+  select:focus,
+  textarea:focus {
+    outline: none;
+    border-color: rgba(139, 92, 246, 0.55);
+    box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.14);
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    color: var(--color-faint);
+  }
+
+  input[type='checkbox'] {
+    width: auto;
+    padding: 0;
+  }
+}
+
+/* -- surfaces: translucent white over the dark ground, not flat grey boxes. */
+.surface {
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid var(--color-line);
+}
+.surface-hi {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--color-line-hi);
+}
+
+/* -- the accent */
+.grad {
+  background: linear-gradient(135deg, #8b5cf6, #6366f1);
+}
+.grad-text {
+  background: linear-gradient(120deg, #c4b5fd 0%, #8b5cf6 45%, #6366f1 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.glow {
+  box-shadow: 0 6px 20px rgba(99, 102, 241, 0.32);
+}
+
+/* -- hairline divider that fades at both ends */
+.rule-soft {
+  height: 1px;
+  background: linear-gradient(to right, transparent, var(--color-line-hi) 20%, var(--color-line-hi) 80%, transparent);
+}
+
+/* -- live indicator */
+@keyframes vh-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.5);
+  }
+  70% {
+    box-shadow: 0 0 0 6px rgba(52, 211, 153, 0);
+  }
+}
+.live-dot {
+  animation: vh-pulse 2s ease-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .live-dot {
+    animation: none;
+  }
+}
+
+/* -- modal / drawer entrance */
+@keyframes vh-fade {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes vh-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+@keyframes vh-slide {
+  from {
+    transform: translateX(24px);
+    opacity: 0;
+  }
+}
+.vh-fade {
+  animation: vh-fade 0.18s ease-out both;
+}
+.vh-rise {
+  animation: vh-rise 0.22s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.vh-slide {
+  animation: vh-slide 0.24s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .vh-fade,
+  .vh-rise,
+  .vh-slide {
+    animation: none;
+  }
+}
+
+/* -- row flash when a live event touches it */
+@keyframes vh-flash {
+  from {
+    background: rgba(139, 92, 246, 0.18);
+  }
+}
+.vh-flash {
+  animation: vh-flash 1.6s ease-out both;
+}

@@ -77,7 +77,7 @@ export default function FeedCredsCard() {
       setRows(keys.length ? keys.map((k) => ({ key: k, value: "" })) : [{ key: "", value: "" }]);
       setNote(
         PERSISTENT
-          ? `Saved to the OS keychain as trading-intelligence.feed / ${v}, and connecting.`
+          ? `Saved to the OS keychain as com.visionhub.desktop.feed / ${v}, and connecting.`
           : `Kept in memory for this page only — no Tauri runtime, so nothing is persisted. Connecting.`,
       );
     } catch (e) {

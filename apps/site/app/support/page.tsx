@@ -15,14 +15,16 @@
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 
-import { Banner, Button, Field, PageHeader, Pill } from '@/components/ui'
+import type { Ticket } from '@vision-hub/contracts'
+import { Banner, Button, Field, PageHeader, Pill, formatDateTime } from '@vision-hub/ui'
+
 import { CONTACT, TICKET_CATEGORIES } from '@/content/site'
 import { api } from '@/lib/api'
+import { useLive } from '@/lib/live'
 import { useSession } from '@/lib/session'
-import type { Ticket } from '@/lib/types'
 
 export default function SupportPage() {
-  const { me } = useSession()
+  const { user: me } = useSession()
   const [email, setEmail] = useState('')
   const [category, setCategory] = useState<string>(TICKET_CATEGORIES[0])
   const [subject, setSubject] = useState('')
@@ -37,6 +39,11 @@ export default function SupportPage() {
     setEmail(me.email)
     void api.myTickets().then(setMine).catch(() => setMine([]))
   }, [me, raised])
+
+  // A reply from support lands in the list without a reload.
+  useLive(['ticket.replied', 'ticket.closed'], () => {
+    void api.myTickets().then(setMine).catch(() => {})
+  })
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
@@ -96,7 +103,7 @@ export default function SupportPage() {
             maxLength={140}
             value={subject}
             onChange={(e) => setSubject(e.target.value)}
-            placeholder="Paid by UPI two days ago, no key yet"
+            placeholder="Signed up two days ago, still awaiting approval"
           />
         </Field>
 
@@ -115,8 +122,8 @@ export default function SupportPage() {
 
         {error ? <Banner kind="error">{error}</Banner> : null}
 
-        <Button type="submit" disabled={busy}>
-          {busy ? 'Sending…' : 'Raise ticket'}
+        <Button type="submit" size="lg" loading={busy}>
+          Raise ticket
         </Button>
       </form>
 
@@ -135,13 +142,13 @@ export default function SupportPage() {
                     <Pill status={t.status} />
                   </div>
                   <p className="num mt-1 text-sm text-faint">
-                    {t.category} · {new Date(t.createdAt).toLocaleString()}
+                    {t.category} · {formatDateTime(t.created_at)}
                   </p>
                   <p className="mt-2 text-dim">{t.body}</p>
                   {t.replies.map((r) => (
-                    <div key={r.id} className="mt-3 border-l-2 border-violet pl-4">
+                    <div key={r.id} className={`mt-3 border-l-2 pl-4 ${r.from_staff ? 'border-violet' : 'border-line-hi'}`}>
                       <span className="num text-xs text-faint">
-                        Support · {new Date(r.createdAt).toLocaleString()}
+                        {r.from_staff ? 'Support' : 'You'} · {formatDateTime(r.created_at)}
                       </span>
                       <p className="text-ink">{r.body}</p>
                     </div>

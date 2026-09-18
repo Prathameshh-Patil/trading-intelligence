@@ -218,4 +218,15 @@ export interface Forecaster {
   cellAt(t: number): ForecastCell | null;
   /** Everything this cell can answer at one horizon. */
   forecastAt(t: number, horizonMinutes: HorizonMinutes): ForecastResult;
+  /**
+   * How far through the warm-up the feed is, **in feed time**.
+   *
+   * `rv_slope` needs two hours of bars, so the warm-up is a property of the
+   * bars received, not of the wall clock: a 10x replay warms up in twelve
+   * real minutes, and a feed that has been live all session does not restart
+   * the two hours because a view was reopened. The view renders this rather
+   * than keeping a clock of its own -- the first version did, and reset its
+   * countdown on every navigation while the forecaster's did not.
+   */
+  warmUp(): { elapsedMs: number; requiredMs: number };
 }

@@ -32,7 +32,12 @@ use keyring::Entry;
 
 /// The keychain "service". Every entry this app writes is under this name,
 /// so a trader looking in Keychain Access sees exactly what we hold.
-const SERVICE: &str = "trading-intelligence.feed";
+// Renamed from `trading-intelligence.feed` with the Vision Hub rebrand. An
+// entry saved under the old name is not migrated: the form asks for the
+// credentials again, which is one paste, and a migration that copies a
+// secret between keychain entries is code that handles a secret for no
+// gain.
+const SERVICE: &str = "com.visionhub.desktop.feed";
 
 fn entry(vendor: &str) -> Result<Entry, String> {
     if vendor.trim().is_empty() {

@@ -5,4 +5,5 @@ class Base(DeclarativeBase):
     pass
 
 
-from app.models.user import User  # noqa: F401
+# Registers every table with Base.metadata; Alembic autogenerate reads it.
+import app.models  # noqa: F401
