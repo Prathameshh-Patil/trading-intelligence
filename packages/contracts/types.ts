@@ -46,6 +46,12 @@ export type LicenceKey = {
   created_at: string
 }
 
+/** Has the desktop app ever validated the key? Own route, so S5's shape stays frozen. */
+export type Activation = {
+  activated: boolean
+  last_validated_at: string | null
+}
+
 /** S3: `valid: false` is a 200. */
 export type ValidateResponse =
   | { valid: true; tier: Tier; expires_at: string | null; reason: null }
@@ -175,6 +181,7 @@ export type ServerEvent =
   | { type: 'user.role_changed'; data: UserEventData & { role: Role } }
   | { type: 'key.rotated'; data: { prefix: string; user_id?: number; email?: string } }
   | { type: 'key.revoked'; data: UserEventData & { prefix: string } }
+  | { type: 'key.activated'; data: { prefix: string; at: string } }
   | { type: 'payment.submitted'; data: { user_id: number; email: string; payment_id: number } }
   | { type: 'ticket.created'; data: { ticket_id: number; ref: string; email: string } }
   | { type: 'ticket.replied'; data: { ticket_id: number; ref: string; by?: string } }

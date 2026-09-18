@@ -58,6 +58,14 @@ class LicenceKey(BaseModel):
     created_at: datetime
 
 
+class Activation(BaseModel):
+    """Whether the desktop app has ever validated the key -- S5's shape is
+    frozen, so this rides on its own route rather than as a fourth field."""
+
+    activated: bool
+    last_validated_at: datetime | None
+
+
 class ValidateResponse(BaseModel):
     """S3, verbatim: `valid: false` is a 200."""
 

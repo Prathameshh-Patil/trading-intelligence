@@ -21,6 +21,7 @@
 
 import { ApiError } from './types'
 import type {
+  Activation,
   ApproveResponse,
   AuditEntry,
   AuthResponse,
@@ -269,6 +270,20 @@ export function createApi(base: string) {
     },
 
     me: () => request<Me>('/api/v1/auth/me'),
+
+    /**
+     * Re-read the signed-in user and publish the result. The access token's
+     * claims are fifteen minutes old at worst; after an event says the
+     * status changed, the page wants the server's answer now, not at the
+     * next refresh.
+     */
+    async refreshUser(): Promise<Me | null> {
+      if (!access) return null
+      user = await request<Me>('/api/v1/auth/me')
+      emit()
+      channel?.postMessage({ kind: 'signed-in', access, expiresAt, user } satisfies BroadcastMessage)
+      return user
+    },
     sessions: () => request<SessionInfo[]>('/api/v1/auth/sessions'),
     endSession: (familyId: string) =>
       request<void>(`/api/v1/auth/sessions/${encodeURIComponent(familyId)}`, { method: 'DELETE' }),
@@ -283,6 +298,7 @@ export function createApi(base: string) {
 
     /** 404 means "not yet" -- `ApiError.detail.reason` says why. */
     keysMine: () => request<LicenceKey>('/api/v1/keys/mine'),
+    activation: () => request<Activation>('/api/v1/keys/mine/activation'),
     rotateMyKey: () => request<LicenceKey>('/api/v1/keys/mine/rotate', { method: 'POST' }),
 
     // ------------------------------------------------------------ payments

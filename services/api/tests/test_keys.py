@@ -34,6 +34,39 @@ def test_approve_mints_a_key_the_user_can_then_see(client, admin, pending_user, 
     assert mine.json()["key"] == body["key"]["key"]
 
 
+def test_activation_flips_once_the_app_validates(client, admin, pending_user, login):
+    token = bearer(login(pending_user.email))
+    r = client.get("/api/v1/keys/mine/activation", headers=token)
+    assert r.status_code == 200
+    assert r.json() == {"activated": False, "last_validated_at": None}
+
+    key = client.post(
+        f"/api/v1/admin/users/{pending_user.id}/approve", headers=admin
+    ).json()["key"]["key"]
+    assert (
+        client.get("/api/v1/keys/mine/activation", headers=token).json()["activated"]
+        is False
+    )
+
+    assert validate(client, key).json()["valid"] is True
+    body = client.get("/api/v1/keys/mine/activation", headers=token).json()
+    assert body["activated"] is True
+    assert body["last_validated_at"] is not None
+
+
+def test_first_validation_publishes_key_activated(client, admin, pending_user):
+    from app.services.events import broadcaster
+
+    key = client.post(
+        f"/api/v1/admin/users/{pending_user.id}/approve", headers=admin
+    ).json()["key"]["key"]
+    assert validate(client, key).json()["valid"] is True
+    assert validate(client, key).json()["valid"] is True
+    activated = [e for e in broadcaster.recent if e.type == "key.activated"]
+    assert len(activated) == 1, "once, on the first validation only"
+    assert key.startswith(activated[0].data["prefix"])
+
+
 def test_double_approval_returns_the_same_key(client, admin, pending_user):
     first = client.post(
         f"/api/v1/admin/users/{pending_user.id}/approve", headers=admin

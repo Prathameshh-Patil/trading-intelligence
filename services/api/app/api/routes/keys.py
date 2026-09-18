@@ -13,7 +13,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from app.api.dependencies import DB, ApiKeyHeader, ApprovedUser, CurrentUser
 from app.core.ratelimit import client_ip
-from app.schemas import LicenceKey, ValidateResponse
+from app.schemas import Activation, LicenceKey, ValidateResponse
 from app.services import audit, keys
 from app.services.events import ADMIN_CHANNEL, broadcaster, user_channel
 
@@ -37,6 +37,17 @@ def mine(user: CurrentUser, db: DB) -> LicenceKey:
             status_code=404, detail={"error": "no key yet", "reason": "revoked"}
         )
     return licence_of(row)
+
+
+@router.get("/mine/activation", response_model=Activation)
+def activation(user: CurrentUser, db: DB) -> Activation:
+    """The account page's last timeline step: has the app actually run with
+    this key? `validate` writes `last_validated_at`; this reads it. A user
+    without an active key simply has not activated -- no 404, because the
+    question has an answer either way."""
+    row = keys.active_key(db, user.id) if user.status == "approved" else None
+    seen = row.last_validated_at if row is not None else None
+    return Activation(activated=seen is not None, last_validated_at=seen)
 
 
 @router.post("/mine/rotate", response_model=LicenceKey)
@@ -75,8 +86,18 @@ def validate(x_api_key: ApiKeyHeader, db: DB) -> ValidateResponse:
         now = datetime.now(UTC)
         if row.expires_at is not None and row.expires_at < now:
             return ValidateResponse(valid=False, reason="expired", **NOT_VALID)
+        first = row.last_validated_at is None
         row.last_validated_at = now
         db.commit()
+        if first:
+            # The account page's last timeline step. Once, on the first
+            # validation -- every later one is the app's routine six-hourly
+            # check and nobody is waiting on it.
+            broadcaster.publish(
+                user_channel(row.user_id),
+                "key.activated",
+                {"prefix": row.prefix, "at": now.isoformat()},
+            )
         return ValidateResponse(
             valid=True, tier=row.tier, expires_at=row.expires_at, reason=None
         )  # type: ignore[arg-type]
