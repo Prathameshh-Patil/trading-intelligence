@@ -59,3 +59,6 @@ services/signal-data/analysis/.replay_path_cache/
 
 # Route 2 spot ticks: derived, re-pullable, and large.
 services/signal-data/data/spot/
+
+# Uploaded payment proofs (services/api)
+services/api/var/
