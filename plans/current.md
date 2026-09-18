@@ -2263,6 +2263,29 @@ Full detail: [`daily_updates/2026-09-19.md`](../daily_updates/2026-09-19.md).
 
 ---
 
+### 2026-09-19 (later) — contract sign-off drops to two · [`team/contracts.md`](team/contracts.md)
+
+**Varad's decision, recorded as a decision rather than as the conclusion of an argument.**
+
+- [x] **Contract amendments are signed by Varad and Prathamesh.** New section in
+      [`team/contracts.md`](team/contracts.md), placed after the S8/S9 record and superseding it;
+      a *"Does not decide"* line and a decision-rights row in [`team/roles.md`](team/roles.md).
+- [x] ⚠️ **The S8/S9 table is left as written** — all three signed, Shreyas's relayed by
+      Prathamesh both times. That is what happened, and rewriting it to match a later decision is
+      the failure `contracts.md` exists to prevent.
+- [x] **No rationale is recorded, because none was given.** Inventing one for a named person
+      would be worse than the blank.
+- [x] **`roles.md` is otherwise untouched** — *"Is this a real signal?"* is still Shreyas's, and
+      still stops the sprint.
+- [ ] **Shreyas has not been told.** A conversation, not a commit.
+
+**PR #7's S3/S5 amendment now needs two signatures, one of whom wrote it** — it is no longer
+waiting on a third person.
+
+Full detail: [`daily_updates/2026-09-19.md`](../daily_updates/2026-09-19.md) §8.
+
+---
+
 ## Next
 
 Ordered. **Rows #2, #6, #7 and #8 all closed between 25 Aug and 3 Sep** — the S1 fixture cut, the

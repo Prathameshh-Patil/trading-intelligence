@@ -90,6 +90,10 @@ only caught by chance.
 **Decides:** whether a signal is right. **If Shreyas says the signal looks wrong, that stops the
 sprint.** Not "gets logged". Stops it.
 
+**Does not decide:** whether a contract amendment stands. Changed **2026-09-19, by Varad's
+decision** — [`contracts.md`](contracts.md) records it and supersedes the S8/S9 precedent, where
+all three signed. The seat above is unchanged.
+
 **Failure mode:** being treated as a helper rather than an owner. The two engineers cause this, not
 Shreyas. Watch for it in standup — if two days pass where Shreyas only reports on things the
 engineers asked for, the seat is being misused.
@@ -101,6 +105,7 @@ engineers asked for, the seat is being misused.
 | Question | Decides | Everyone else |
 | :--- | :--- | :--- |
 | Is this a real signal? | Shreyas | Can argue, cannot override |
+| Does a contract amendment stand? | Varad and Prathamesh, both | Changed 2026-09-19 — [`contracts.md`](contracts.md) |
 | Is this measurement honest? | Varad | Can argue, cannot override |
 | Does this ship to users? | Prathamesh | Can argue, cannot override |
 | Do we slide a gate? | All three, unanimous | No unanimity = gate does not slide |

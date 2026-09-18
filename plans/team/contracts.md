@@ -543,6 +543,20 @@ each signer in their own account, and it costs each of them one message.
 
 ---
 
+## Who signs a contract amendment
+
+**Varad and Prathamesh. Both.** Changed **2026-09-19, by Varad's decision** — recorded as a
+decision rather than as the conclusion of an argument, because that is what it was.
+
+**This supersedes the S8/S9 precedent immediately above.** That table stays exactly as written:
+it records what happened, and rewriting history to match a later decision is the specific failure
+this file exists to prevent.
+
+**Nothing else in [`roles.md`](roles.md) moves.** *"Is this a real signal?"* is still Shreyas's
+call, and it still stops the sprint.
+
+---
+
 ## Fixture ledger
 
 Everything committed so both engineers can work offline, on a plane, at 2am, with the other one
