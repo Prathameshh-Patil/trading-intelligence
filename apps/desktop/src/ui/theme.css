@@ -387,6 +387,15 @@ body.standalone .shell {
   gap: 14px;
 }
 
+/* The view is a fixed-height column that scrolls. A child that clips its own
+   overflow (`.feed-meta`, any card that gains `overflow: hidden`) also gives
+   up `min-height: auto`, and flex then shrinks it to make the column fit --
+   `.feed-meta` was rendering at 0px on Order Flow. Nothing here shrinks; the
+   column scrolls instead. */
+.view > * {
+  flex-shrink: 0;
+}
+
 .eyebrow {
   font-size: 10px;
   font-weight: 700;
@@ -1204,10 +1213,14 @@ body.standalone .shell {
 .cvd-value.pos { color: var(--green); }
 .cvd-value.neg { color: var(--red); }
 
+/* Analyze appends `· N contracts`, making this the longest line in the card. */
 .cvd-sub {
   font-size: 12px;
   color: var(--text-dim);
   font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .flow-grid {
