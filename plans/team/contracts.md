@@ -303,6 +303,25 @@ header is a 422 — the seventh case, and the one the desktop app should never p
 **Frozen:** W0D3. *(This section previously read W1D1, which contradicted `week-00.md` and
 `varad/README.md`; both put it on Fri 28. W0D3 is correct and the fixture is now ahead of it.)*
 
+### ⚠️ S3 amended 2026-09-18 — the prefix, and what "bad key" means to the app
+
+**Landed as one commit series on `feat/vision-hub`, real implementation, fake and both consumers
+together.** The shape is untouched; two things around it changed.
+
+1. **Prefix `ti_live_` → `vh_live_`**, with the product's rename to Vision Hub. `vh_live_` +
+   exactly 32 of `[a-z0-9]`. `keys_fake.py`, `services/api`, `@vision-hub/contracts` and
+   `apps/desktop/src/lib/licence.ts` all carry the new one; the desktop checks the shape before
+   any network call.
+2. **"Your key is bad" now means the licence screen, not "keep working offline".** The note
+   above said a bad key should *show a message, keep working offline*. That conflated the two
+   answers the 200-not-401 rule exists to separate. As built: `valid: false` → the app shows
+   only its licence screen; **unreachable** (network failure, 5xx, wrong shape) → the app keeps
+   working for seven days from its last successful check and the pill reads *Offline*; past
+   seven days, unreachable reads as `unknown`. Re-validated on launch and every six hours.
+
+Signatures for this amendment: as with S8/S9, none is a logged artefact yet. **Recorded here so
+the next reader knows the wire is the same and the app's response to it is not.**
+
 ---
 
 ## S4 · Journal sync — local-first, Prathamesh owns from W6
@@ -341,6 +360,33 @@ The handler is idempotent or it issues two keys and bills once.**
 **Fixture:** a `POST /api/v1/dev/issue-key` route, dev-only, gated on a config flag. Prathamesh
 builds and tests the full purchase→key→install flow in Week 6 without a payment processor being
 connected. The flag is asserted `false` in the production config test.
+
+### ⚠️ S5 amended 2026-09-18 — issuance is approval of the account, not settlement of a payment
+
+**The exit door is unchanged: `GET /api/v1/keys/mine` still answers `200 {key, tier, created_at}`
+or `404`.** What is upstream of it changed, and so did the door's lock.
+
+- **There is no processor and no webhook.** A signup lands `pending`; an admin approves the
+  *account* (`POST /api/v1/admin/users/{id}/approve`) and that mints the key. Approving twice
+  returns the same key — the idempotency rule survives, applied to two admins with the queue
+  open instead of a webhook arriving twice. Payment proof is an optional attachment the admin
+  can see (`POST /api/v1/payments`, multipart) and is **not on the path to the key.**
+- **`404` carries a reason:** `{"error": "no key yet", "reason": "pending" | "rejected" |
+  "suspended" | "revoked"}`. The account page's timeline is driven by it.
+- **"(Clerk session cookie)" → bearer access JWT.** EdDSA, 15 minutes, memory only; the refresh
+  token is an httpOnly cookie scoped to `Path=/api/v1/auth`. `/keys/mine` is a bearer route.
+- **Added beside it, not inside it:** `POST /api/v1/keys/mine/rotate` (revokes the active key,
+  mints a replacement, same shape back) and `GET /api/v1/keys/mine/activation` →
+  `{activated, last_validated_at}`, read from what `/keys/validate` writes. The frozen
+  three-field shape stays three fields; the account page's last timeline step needed a fourth
+  fact, so it got its own route.
+- **The page no longer polls 2s/30s.** It subscribes to `GET /api/v1/events` (SSE, bearer) and
+  re-fetches `/keys/mine` on `user.approved`; polling every 15 s is the fallback when the stream
+  is not open. `/dev/issue-key` is superseded by the admin approve route and the admin portal.
+
+**Who approved, and how:** built and verified end to end on 2026-09-18 by Prathamesh with Claude;
+Varad and Shreyas have not signed. Same status as S8/S9 — recorded as unsigned rather than
+implied.
 
 ---
 
