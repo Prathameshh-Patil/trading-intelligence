@@ -258,6 +258,17 @@ is not.** The next gate is **Friday 18 September, 16:00**, whatever it ends up b
 > **dissolved**, read by none of S1–S4.
 > ⛔ **Nothing signed, rewritten or withdrawn** — the mechanism is that the person with the bias
 > commits in their own name. Three options recorded in `plans/team/strategy-precommit-drafts.md`.
+> ✅ **Resolved 22:05 IST, Varad's instruction — all four moved.** ⚠️ **Three are recorded as NOT
+> pre-commitments**, because the git timestamp reads 19 Sep, after the measurements; what is
+> recorded is which lapsed and why. **E1 🔴 LAPSED** (kill condition 1 fires as a *measurement*; the
+> live question is its own "~$7, not $15", to be re-derived at the measured `σ₆₀`) · **E2 🔴 VOID**
+> (not re-scoped — **C1 already replaced it** and reads 38/57/4/0: E2's outcome 1 reached honestly) ·
+> **E3 ⚠️ PARTIAL** (level struck; **ordering, break exclusion and the sweep-blur risk committed and
+> still unmeasured**) · **E4 ✅ COMMITTED** — genuine, since **no HMM has been fitted on spot**.
+> 🔴 **E4's Hurst pillar was withdrawn in the act of signing** (§15–§16: estimator bias, window
+> 256→1025, agreement ~50%), which **argues against its own prediction** and is stated that way in
+> the block; the prediction rests on the mechanism instead. 📌 Drafts file **kept, not deleted** —
+> it is the evidence the 18 Sep predictions were made when they claim.
 >
 > ✅ **Done, Varad's call: §10 is now ATR multiples.** `fsm.D_MIN_ATR = 0.8` / `D_MAX_ATR = 2.0`,
 > converted on **GC** — six months of 2025, median 60-minute ATR **$2.56**, so §10's own $2/$5 are

@@ -1,3 +1,21 @@
+# ⛔ SUPERSEDED 2026-09-19 22:05 IST — all four blocks have been resolved
+
+**Do not sign anything from this file.** `strategy-precommit.md` §§14–17 now carry the outcomes:
+
+| | outcome |
+| :--- | :--- |
+| **E1** | 🔴 **LAPSED** — its answer was published before it could be signed |
+| **E2** | 🔴 **VOID** — predicts a funnel that was never built; C1 replaced it |
+| **E3** | ⚠️ **PARTIALLY COMMITTED** — level struck, per-session ordering committed |
+| **E4** | ✅ **COMMITTED** — genuine: no HMM has been fitted on spot |
+
+**This file is kept rather than deleted, against its own instruction below.** It holds the 18 Sep
+00:15 draft text verbatim, and that text is the evidence that E1's and E2's predictions were
+actually made on the day they claim. A lapsed prediction is still evidence about the person who
+made it; deleting it would leave only the assertion that it existed.
+
+---
+
 # The four predictions, in final form — for Varad and Prathamesh to review and sign
 
 **Nothing here is a pre-commitment yet.** `strategy-precommit.md` §14–§17 carry 🚫 blocking gaps,

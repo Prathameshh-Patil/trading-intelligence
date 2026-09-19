@@ -25,6 +25,10 @@ the one genuine methodological upgrade the split buys (§7).
 | 6 | The 2025/2026 split date | Prathamesh | Varad | ✅ **committed 2026-09-06** |
 | 7 | The opening-range length | Prathamesh | Varad | ✅ **committed 2026-09-06** — a fourth, not in the original six |
 | 11 | M4b's path-ordering prediction and kill condition | Prathamesh | Varad | ✅ **committed 2026-09-11**, before the first line of code |
+| 14 | **E1** — is §Objective's `P(|ΔP₆₀| ≥ $15) ≥ 0.60` ever satisfied? | Varad | — | 🔴 **LAPSED 2026-09-19** — §13b's measured ATR settled it before it was signed |
+| 15 | **E2** — does §9's funnel give a testable event count? | Varad | — | 🔴 **VOID 2026-09-19** — predicts a funnel that was never built; C1 replaced it |
+| 16 | **E3** — per-session spread and the D floor | Varad | — | ⚠️ **PARTIAL 2026-09-19** — level struck (published); per-session ordering committed |
+| 17 | **E4** — three states on five observations | Varad | — | ✅ **COMMITTED 2026-09-19** — genuine: no HMM has been fitted on spot |
 
 **Where the numbers live in code.** `ATR_BP_EDGES` is in `features/portable.py`, because that is
 where `atr_bp` is and a test fails if it drifts from what is written here. The grid and
@@ -1102,7 +1106,7 @@ to contaminate, by its own design; the daily update records the sequence.
 
 ---
 
-## 14 · E1 — is §Objective's own filter ever satisfied? Varad, committed 2026-09-18
+## 14 · E1 — is §Objective's own filter ever satisfied? Varad · 🔴 **LAPSED 2026-09-19**
 
 **Why this exists.** `mathematical.md`'s §Objective permits a trade only when
 `P(M_{t,60} ≥ 150 ticks) ≥ 0.60`. **That quantity is not new to this repo** — `reach.py` has
@@ -1132,16 +1136,29 @@ decide on    max p across cells, against the spec's own 0.60
 
 ### The pre-committed prediction — Varad, before the run
 
-> 🚫 **UNWRITTEN — and E1 does not run until it is filled in and committed.**
+> ### 🔴 LAPSED — overtaken by measurement, 2026-09-19
 >
-> This is a blocking gap, not a placeholder. A threshold chosen after seeing the distribution is not
-> a threshold, and the same is true of a prediction. **Write the number you expect `max p` to be,
-> and the reasoning, so a miss can be diagnosed rather than merely scored.**
+> **Resolved 2026-09-19 22:05 IST, Varad's instruction, applied by Claude.** ⚠️ **This is not a pre-commitment and must never be cited as one** — the git timestamp is the mechanism this file runs on, and it reads 19 Sep, *after* the measurements below. What is recorded is which predictions lapsed, and why.
 >
-> The material to argue from is already in this repo: M2 cleared and it was about scale;
-> `REACH.md` finds `ev_sym` positive on 4.4% of served rows; M1 is a random walk minus cost. A
-> forecast that gold moves $15 in an hour with probability ≥ 0.60 is a claim about the upper tail of
-> the hourly magnitude distribution, and `BASE_RATES.md` bounds it.
+> **The 18 Sep 00:15 draft predicted:** *"No cell reaches 0.60. `max p` in the range 0.25–0.40, in
+> the highest-`atr_bp` cell. Kill condition 1 fires and §Objective's threshold has to move."*
+> Preserved verbatim because a lapsed prediction is still evidence about the person who made it.
+>
+> **What settled it before it could be signed.** `daily_updates/2026-09-19.md` §13b published the
+> **60-minute ATR on 17,651 real spot bars: p50 $4.53**, p90 $7.90. Run through **the draft's own
+> derivation chain** — `E[range] ≈ 1.596 σ` — that is `σ₆₀ ≈ $2.84`, putting the spec's $15.00 at
+> **≈ 5.3 σ**. The draft's fattest-cell case assumed `σ₆₀ = $13.29`; the measured median is a fifth
+> of it, and even p90 gives ≈ 3.0 σ.
+>
+> **So kill condition 1 is settled by numbers already in the tracker, and it is recorded as a
+> measurement rather than as a prediction that came true.** ⚠️ That the data *agrees* with the draft
+> is exactly why this must be marked lapsed: a prediction written after its answer is published is a
+> retrodiction whichever way it lands, and a file that blurs the two is worth nothing.
+>
+> **What stays genuinely open, and is the live question:** the draft's own corollary that *"the
+> honest version of §Objective's filter is roughly $7, not $15"* — derived from `0.524 × 13.29`, so
+> it needs re-deriving at the measured `σ₆₀`. **No threshold has been re-set on this axis**, and
+> whoever sets it should write the number here first.
 
 ### The kill condition, stated in what it licenses
 
@@ -1155,7 +1172,7 @@ decide on    max p across cells, against the spec's own 0.60
 
 ---
 
-## 15 · E2 — does §9's funnel produce a testable number of events? Varad (delegated by Prathamesh 2026-09-18), committed 2026-09-18
+## 15 · E2 — does §9's funnel produce a testable number of events? Varad (delegated by Prathamesh 2026-09-18) · 🔴 **VOID 2026-09-19**
 
 **Why this exists.** §9 stacks **sixteen** conditions. If fewer than 100 candidates survive the
 archive, no parameter setting makes the spec testable — and every hour spent on §2's ensemble before
@@ -1178,19 +1195,37 @@ decide on    survivors at stage 12
 
 ### The pre-committed prediction — Varad, before the run
 
-> 🚫 **UNWRITTEN — and E2 does not run until it is filled in and committed.**
+> ### 🔴 VOID — the funnel it predicts was never built
 >
-> **Delegated to Varad by Prathamesh, 2026-09-18 ~11:00 IST**, before any E2 code exists. The
-> funnel's stages 3–7 are Varad's magnitude columns and the draft's own argument is that stage 3
-> does the killing, so the person with the model of that axis writes the number. Prathamesh keeps
-> the stages he owns (1, 2, 11, 12) as consumer and will read the result, not predict it.
-> `strategy-precommit-drafts.md` §15 is the 00:15 draft; sign it, or replace its numbers with yours,
-> from pre-09:46 material only — the drafts file says why.
+> **Resolved 2026-09-19 22:05 IST, Varad's instruction, applied by Claude.** ⚠️ **This is not a pre-commitment and must never be cited as one** — the git timestamp is the mechanism this file runs on, and it reads 19 Sep, *after* the measurements below. What is recorded is which predictions lapsed, and why.
 >
-> **Write the number of stage-12 survivors you expect, and which single condition you expect to do
-> most of the killing.** The second half matters more than the first: if the funnel dies at the
-> sweep-reclaim stage that is a structure finding, and if it dies at `OFI_z > 2.5 for 3 bars` it
-> died at a condition that cannot even run here.
+> **The 18 Sep 00:15 draft predicted:** *"Stage-12 survivors 200–500 over five years, and the single
+> condition doing most of the killing is **stage 3, `R̂₆₀ > $15`** — not the sweep."*
+>
+> 🔴 **Track C has no `R̂₆₀ > $15` stage, and never had one.** Nothing under `track_c/` reads
+> `r_hat`, `reach`, or any $15 magnitude gate. The funnel actually built is **four strategies of
+> 11–13 conditions each**:
+>
+> ```
+> s1  window news_lock inputs range_width vol_expansion hurst_agree
+>     hurst_trending breakout not_extended no_atr stop_too_tight stop_too_wide slippage
+> s2  window news_lock inputs hurst_agree hurst_not_trending sweep reclaim ...
+> ```
+>
+> E2's numbering — 1 session, 2 news, **3 `R̂₆₀`**, 7 `H₁₅ₘ`, 11 sweep, 12 reclaim — describes
+> **§9's sixteen-condition single strategy**, which `TRACK_C_BUILD.md` §1 replaced with four
+> structurally independent ones on 18 Sep. **The draft was written at 00:15 that morning, hours
+> before the brief that superseded its subject.** It is void rather than contaminated.
+>
+> ⛔ **Deliberately not re-scoped to the four-strategy funnel.** §13a and §18 have already published
+> the per-stage pass rates on real bars, and a five-year count extrapolates straight from them. A
+> "prediction" written from those would be the worst of the three options.
+>
+> ✅ **And E2's function is already served, pre-committed, by something that was.** `TRACK_C_ENGINE.md`
+> records that **C1 replaces it at the funnel** — §7's gate table requires **≥ 100 funnel events**
+> per strategy, and that gate was committed before the first run. E2 asked "is there a testable
+> number of events?"; C1 asks it as a gate with a number attached. **On the three-month archive C1
+> reads 38 / 57 / 4 / 0 and fails for all four** — E2's outcome 1, arrived at honestly.
 
 ### The kill condition, stated in what it licenses
 
@@ -1207,7 +1242,7 @@ every stage precisely so that reads as the warning it is.
 
 ---
 
-## 16 · E3 — the cost floor, and where §10's stop range actually starts. Varad, committed 2026-09-18
+## 16 · E3 — the cost floor, and where §10's stop range actually starts. Varad · ⚠️ **PARTIALLY COMMITTED 2026-09-19**
 
 **Why this exists.** Execution moves to spot XAUUSD on a CFD prop firm, which voids §1's GC-tick
 economics entirely. Three venues differ by ~6×: GC **0.29 bp**, a prop firm **0.88 bp**
@@ -1236,13 +1271,40 @@ decide on    the surviving (D, R) region, and the D floor
 
 ### The pre-committed prediction — Varad, before the run
 
-> 🚫 **UNWRITTEN — and E3's spread measurement does not run until it is filled in and committed.**
+> ### ⚠️ PARTIALLY COMMITTED — the level is struck, the ordering stands
 >
-> The arithmetic half is already settled and is not a prediction: at `D = $5.00/oz` and
-> `R = 2.5D`, EV is positive at 42% at all three costs, and the design §4 predicts the §13 exclusion
-> puts the D floor at **$2.60/oz** under a 1.91 bp spread. **What needs predicting is the empirical
-> half: what the per-session spread distribution looks like, and whether the Asian session — where
-> §9's sweep of the Asian extreme is defined — is wide enough to move that floor materially.**
+> **Resolved 2026-09-19 22:05 IST, Varad's instruction, applied by Claude.** ⚠️ **This is not a pre-commitment and must never be cited as one** — the git timestamp is the mechanism this file runs on, and it reads 19 Sep, *after* the measurements below. What is recorded is which predictions lapsed, and why. **The empirical half split in two between 18 and 19 Sep, and only one half is still
+> predictable.**
+>
+> 🔴 **STRUCK — the spread level.** The draft's header read *"nothing measured to date touches spot
+> spread."* True at 18 Sep 09:57, **false now**: §13 measured June 2026, 6,024 bars —
+> p10 **1.201** · p50 **1.452** · p75 **1.696** bp. The draft predicted ~1.9 bp at the London-NY
+> overlap and called that *"the tightest of the day"*; **the measured pooled median is tighter than
+> its tightest hour.** No prediction about the level can be made from here.
+>
+> ✅ **COMMITTED, and genuinely unmeasured — the per-session ORDERING.** The published figure is
+> **pooled**; nothing has measured spread *by session*. So this stands as a real pre-commitment:
+>
+> ```
+> ordering     overlap tightest  <  NY  <  London  <  Asia widest
+> break        the daily break exceeds all four and is EXCLUDED, not measured
+> accept       any ordering that keeps Asia widest and the overlap tightest
+> ```
+>
+> ✅ **COMMITTED — the reason outcome 2 should not fire**, unchanged and still untested: Asia's wider
+> spread does not push the floor above $5.00, because **§9 sweeps a level *formed* during Asia but
+> *executes* in the New York windows.** Asian spread governs how precisely the Asian extreme is
+> *known*, not what it costs to trade.
+>
+> ⚠️ **COMMITTED — and the bigger risk this opens, still unmeasured.** If Asian spread blurs the
+> swept level by more than `δ = max($0.02, 0.05 × ATR₁₀ₛ)`, the level is uncertain by more than the
+> reclaim threshold, and **§9's sweep detection is measuring broker noise rather than structure.**
+> That lands on §9's sweep definition, not §10's stop range, and would be the larger finding.
+>
+> 📌 **Recorded, not claimed: the D floor already landed where the draft said.** `c / 0.25` at
+> 1.452 bp on $4,224 is **$2.45**, inside the predicted **$2.20–$3.00**, and outcome 3 fires —
+> §10's range restated as roughly `$2.45 ≤ D ≤ $5.00`. ⚠️ **Logged as a measurement, not as a
+> prediction met**, for the same reason E1 is marked lapsed.
 
 ### The kill condition, stated in what it licenses
 
@@ -1257,7 +1319,7 @@ decide on    the surviving (D, R) region, and the D floor
 
 ---
 
-## 17 · E4 — is a three-state HMM identifiable on five observations? Varad, committed 2026-09-18
+## 17 · E4 — is a three-state HMM identifiable on five observations? Varad · ✅ **COMMITTED 2026-09-19**
 
 **Why this exists.** §7's observation vector is eight components. **Three of them — `OFI_z`,
 `CVD_z`, `λ_t` — died with the tape.** Fitting the same three-state model on the remaining five and
@@ -1276,11 +1338,51 @@ decide on    whether k=3 separates anything k=2 does not
 
 ### The pre-committed prediction — Varad, before the run
 
-> 🚫 **UNWRITTEN — and E4 does not run until it is filled in and committed.**
+> ### ✅ COMMITTED — with one pillar withdrawn, and the withdrawal weakens it
 >
-> **Predict whether three states survive on five observations, and say what you expect the third
-> state to be made of.** `analysis/regimes_2026-09-02/` already fit `k=3` on this instrument under a
-> different feature set; that is the nearest prior and it is the thing to argue from.
+> **Committed 2026-09-19 22:05 IST — Varad's instruction, applied by Claude.** ⚠️ **Unlike §§14–16,
+> this one is still a genuine prediction, and the reason is narrow and worth stating: no HMM has
+> been fitted on spot XAUUSD by anyone.** The quantity E4 predicts is unmeasured as of this
+> timestamp. What *has* changed since the 18 Sep draft is one piece of its supporting evidence,
+> corrected below rather than quietly kept.
+>
+> **The prediction.** **Three states will not separate into Chop / Build / Expansion. `k=3` will fit
+> and produce an ordered volatility ladder — low, mid, high — and `k=2` will explain nearly as much.
+> Outcome 3, and §7 is dropped.**
+>
+> **Pillar 1 — the nearest prior, unchanged.** `analysis/regimes_2026-09-02/README.md` fit `k=3` on
+> this instrument. **Regimes 0 and 1 are identical on every feature except the SIGN of `cvd_slope`**
+> — `realized_vol` differs by 13%, `cvd_persistence` by 0.001, `price_efficiency` by 0.001, and
+> `realized_vol` spans only 0.000275–0.000357 across all three. **Two of the four fitted features
+> were CVD, and the states resolved on CVD.** E4 removes CVD.
+>
+> 🔴 **Pillar 2 — WITHDRAWN, and it was load-bearing.** The draft argued the reduced vector is *"four
+> correlated volatility measures and one noisy one"*, citing `daily_updates/2026-09-18.md` §21: the
+> Hurst estimators disagree by 0.0849 and `h_agree` is True on only **25.3%** of bars.
+> **`daily_updates/2026-09-19.md` §15–§16 retracted that reading.** The disagreement was the
+> estimators' **own short-ladder bias, not the market's** — `hurst_window_bars = 256` reached only
+> four of the seven declared `SCALES`, DFA read 0.563 against a true 0.5 on random walks, and the
+> window moved to **1025**, lifting agreement from ~26% to **~50%**.
+>
+> ⚠️ **So Hurst is roughly twice as reliable as the draft assumed, and that argues AGAINST this
+> prediction.** It is stated here in the direction that hurts: *if anything rescues §7 besides
+> `spread_bp`, it is a Hurst that actually separates.* The prediction is made anyway.
+>
+> ✅ **Pillar 3 — the mechanism, untouched and the real argument.** §7's "Build" state is defined by
+> accumulation — aggressive buying without price displacement — and **accumulation *is* the tape.**
+> Removing the flow features does not weaken the third state; **it removes the thing that made it a
+> third state rather than a volatility level.**
+>
+> ⛔ **What this no longer gates.** `TRACK_C_BUILD.md` §1 records the HMM as **dissolved** — none of
+> S1–S4 reads `p_expand`, `p_e`, `s_hmm` or `classifier.py`. **E4 gates a claim about §7; it does
+> not gate the run.** If §7 dies, §9's conditions 4–6 go with it, and
+> `P(B_t) > 0.60 → P(E_{t+1}) > 0.60` was going to mean "volatility is rising" — which `r_ratio`
+> says more directly, with one parameter instead of nine.
+>
+> **Where this is most likely wrong:** (1) **`spread_bp` is genuinely new** and GC never had it —
+> the one observation that is neither volatility proxy nor Hurst, already shown non-degenerate
+> (1.64→2.15 bp p10–p90); if anything rescues §7 it is spread. (2) **The prior is one month of GC**
+> against five years of spot. (3) **Hurst may separate at the corrected window** — see pillar 2.
 
 ### The kill condition, stated in what it licenses
 
