@@ -1,3 +1,5 @@
 export * from './types'
 export * from './client'
 export * from './events'
+export * from './alerts'
+export * from './keys'

@@ -20,6 +20,7 @@ import time
 from collections.abc import Callable
 
 from fastapi import HTTPException, Request
+from starlette.requests import HTTPConnection
 
 from app.config import settings
 
@@ -81,7 +82,8 @@ def reset_all() -> None:
         b.reset()
 
 
-def client_ip(request: Request) -> str:
+def client_ip(request: HTTPConnection) -> str:
+    """An HTTP request or a WebSocket -- both carry a peer and headers."""
     peer = request.client.host if request.client else "unknown"
     if not settings.trusted_proxy:
         return peer

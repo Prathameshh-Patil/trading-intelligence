@@ -17,7 +17,8 @@ from sqlalchemy.orm import Session
 
 from app.core.security import TokenError, verify_access_token
 from app.db.session import SessionLocal
-from app.models import User
+from app.models import ApiKey, User
+from app.services import keys
 
 
 def open_session() -> Session:
@@ -140,3 +141,16 @@ def api_key_header(x_api_key: Annotated[str, Header()]) -> str:
 
 
 ApiKeyHeader = Annotated[str, Depends(api_key_header)]
+
+
+def api_key_row(x_api_key: ApiKeyHeader, db: DB) -> ApiKey:
+    """The licence key's row, or 401 with S3's reason. For routes an installed
+    client calls with a key and no JWT -- everything but `/keys/validate`,
+    which answers 200 `valid: false` instead and calls `keys.resolve` itself."""
+    row, reason = keys.resolve(db, x_api_key)
+    if row is None:
+        raise HTTPException(status_code=401, detail={"error": reason})
+    return row
+
+
+KeyRow = Annotated[ApiKey, Depends(api_key_row)]

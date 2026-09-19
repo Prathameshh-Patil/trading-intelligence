@@ -76,6 +76,8 @@ class Broadcaster:
 broadcaster = Broadcaster()
 
 ADMIN_CHANNEL = "admin"
+# Every licensed client, no matter whose. What the socket in `routes/ws.py` fans out.
+ALERTS_CHANNEL = "alerts"
 
 
 def user_channel(user_id: int) -> str:

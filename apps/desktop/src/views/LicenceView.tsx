@@ -22,6 +22,7 @@ import {
   deactivate,
   KEY_PREFIX,
   PERSISTENT,
+  reasonCopy,
   recheck,
   shortKey,
   useLicence,
@@ -33,12 +34,7 @@ const ACCOUNT_URL = import.meta.env.VITE_SITE_URL
   ? `${String(import.meta.env.VITE_SITE_URL).replace(/\/+$/, "")}/account`
   : null;
 
-const REASON: Record<Exclude<LicenceState, { kind: "unactivated" | "checking" | "active" | "offline" }>["reason"], string> = {
-  expired: "This key has expired. Your account page has the current one.",
-  revoked: "This key has been revoked -- rotated from your account page, or the account was suspended.",
-  unknown: "The server does not recognise this key, or could not be reached to check it.",
-  malformed: `A key is ${KEY_PREFIX} followed by exactly 32 letters and digits. Check the paste.`,
-};
+
 
 function StateCard({ s }: { s: LicenceState }) {
   switch (s.kind) {
@@ -101,7 +97,7 @@ function StateCard({ s }: { s: LicenceState }) {
             <span className="feed-state">Not valid · {s.reason}</span>
             <span className="feed-vendor">{shortKey(s.key)}</span>
           </div>
-          <p className="lede">{REASON[s.reason]}</p>
+          <p className="lede">{reasonCopy[s.reason]}</p>
         </div>
       );
   }

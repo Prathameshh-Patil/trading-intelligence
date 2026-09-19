@@ -132,9 +132,16 @@ And the operational fact nobody should discover in production: **the warm-up is 
 
 ### 2.5 The browser extension (`apps/extension`)
 
-A Chrome/Firefox side panel that captures selected text or a chart region and posts it to
-`POST /api/v1/analyze`. Mirrors the desktop's `SidePanel.tsx` / `views/` structure. This is the
-oldest surface in the repo and the one the `/analyze` contract was first proven against.
+**Rebuilt 2026-09-19 as the desktop overlay in browser form.** A Manifest V3 extension for
+Chrome and Firefox: a popup for the licence key (the same `@vision-hub/core` state machine the
+desktop runs, over `chrome.storage`), a service worker that holds the key and the alerts
+WebSocket (`WS /api/v1/ws`, authenticated by the key in its first frame), and a content script
+on four hosts only -- `*.tradingview.com`, `*.ctrader.com`, `trade.mql5.com`,
+`web.metatrader.app` -- that mounts a draggable, collapsible panel in a shadow root. **Sync
+chart** reads symbol / timeframe / last price from the page on the trader's click and keeps it
+in the page; alerts render by tier (breaking → banner, signal → badge, analysis → list). The
+side panel and its `/analyze` call are gone. `docs/ARCHITECTURE.md` §6.3 records the amended
+permission principle; `apps/extension/README.md` the build and the harness.
 
 ---
 
@@ -391,6 +398,8 @@ app/main.py                     app + CORS (extension ids, localhost, tauri://)
 app/api/routes/health.py        /health, /api/v1/health/db
 app/api/routes/analyze.py       POST /api/v1/analyze        → Claude
 app/api/routes/forecast.py      GET  /api/v1/forecast/table → the reach table
+app/api/routes/alerts.py        GET  /api/v1/alerts?since=  (licence key) · POST/GET /api/v1/admin/alerts
+app/api/routes/ws.py            WS   /api/v1/ws             the licence-key socket: alerts + key events
 app/forecast.py                 loads + validates the served table
 app/analysis.py                 the Claude call
 app/db/, app/models/user.py     SQLAlchemy + Alembic, Postgres 17

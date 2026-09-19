@@ -347,11 +347,30 @@ over a live MT5 terminal. **None of that is built yet.**
 
 ### 6.3 `apps/extension` — Chrome + Firefox MV3
 
-The privacy posture is the interesting part. **No content script, no standing permission on any
-site.** The popup reads the selection through `activeTab` + `chrome.scripting` at the moment it is
-opened. A regression that restored `content_scripts` + `<all_urls>` was caught and reverted in
-`955b374` by porting the `activeTab` approach into `capture.ts` rather than restoring the deleted
-file, specifically so the narrow permission set survived.
+**Amended 2026-09-19.** Until this date the principle here was *no content script, no standing
+permission on any site*: the side panel read the selection through `activeTab` at the moment
+it was opened, and a regression that restored `content_scripts` + `<all_urls>` was reverted in
+`955b374`. What that principle protected was two things — no script of ours running on
+arbitrary pages, and nothing scraped from a page without the trader asking.
+
+The extension is now the desktop overlay in browser form — the same licence gate, a floating
+panel over the trader's chart — and that needs a content script. The principle is replaced by
+a narrower one that protects the same two things:
+
+- **Four named hosts, and no others:** `*.tradingview.com`, `*.ctrader.com`,
+  `trade.mql5.com`, `web.metatrader.app`. No `<all_urls>`, no `activeTab`, no `scripting`.
+  A broker-hosted MT5 terminal is a follow-up via `optional_host_permissions`, granted by the
+  trader per site.
+- **Reads are user-initiated and stay in the page.** *Sync chart* runs a read-only adapter
+  (`src/content/sites/`) against the DOM once, on click; the result lives in the panel's React
+  state. There is no message that carries it to the service worker, no socket frame for it,
+  and no storage field -- the API never learns which symbol a trader has open.
+- **The API sees only the key.** The worker validates the licence key and opens the alerts
+  socket with it; the page's content is not part of any request.
+
+The side panel (Analyze / Rules / Journal) is gone from the extension; those live in
+`apps/desktop`. Nothing in the extension calls `/analyze`, so the Anthropic key's "never in the
+extension" rule is unchanged.
 
 `dist` is **committed**, so a fresh clone loads the extension with no build step. That buys
 convenience and costs a discipline: it can go stale. Rebuild and commit `dist` in the same commit as

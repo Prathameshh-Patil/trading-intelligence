@@ -216,3 +216,29 @@ class AuditOut(BaseModel):
     detail: dict | None
     ip: str | None
     created_at: datetime
+
+
+# --- alerts -------------------------------------------------------------
+# Mirrored by `packages/contracts/alerts.ts`.
+
+AlertTier = Literal["breaking", "signal", "analysis"]
+
+
+class AlertIn(BaseModel):
+    tier: AlertTier
+    title: str = Field(min_length=1, max_length=255)
+    body: str = Field(min_length=1, max_length=10_000)
+    symbol: str | None = Field(default=None, max_length=32)
+    expires_at: datetime | None = None
+
+
+class AlertOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    tier: AlertTier
+    title: str
+    body: str
+    symbol: str | None
+    created_at: datetime
+    expires_at: datetime | None

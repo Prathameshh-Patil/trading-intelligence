@@ -8,6 +8,7 @@ admins with the approval queue open is the same bug in a different hat.
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from typing import Literal
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -75,3 +76,24 @@ def reveal(key: ApiKey) -> str:
 
 def lookup(db: Session, plain: str) -> ApiKey | None:
     return db.scalar(select(ApiKey).where(ApiKey.key_hash == sha256_hex(plain)))
+
+
+Rejection = Literal["unknown", "revoked", "expired"]
+
+
+def resolve(db: Session, plain: str) -> tuple[ApiKey, None] | tuple[None, Rejection]:
+    """S3's decision, in one place: the key row when it may be used, else why not.
+
+    `/keys/validate` turns the reason into a 200 `valid: false`; the alerts
+    route and the socket turn it into a refusal. Same three answers either way,
+    and "the owner is no longer approved" reads as `revoked` because that is
+    what it means to the trader.
+    """
+    row = lookup(db, plain)
+    if row is None:
+        return None, "unknown"
+    if row.status == "revoked" or row.user.status != "approved":
+        return None, "revoked"
+    if row.expires_at is not None and row.expires_at < datetime.now(UTC):
+        return None, "expired"
+    return row, None

@@ -1,18 +1,18 @@
 {
   "manifest_version": 3,
   "name": "Vision Hub",
-  "version": "0.1.0",
-  "description": "Order flow for gold futures: the aggressor side the chart threw away, trade rules, and a journal.",
-  "minimum_chrome_version": "114",
+  "version": "0.2.0",
+  "description": "The Vision Hub overlay, inside your chart: alerts from your account, and the symbol you are looking at. TradingView, cTrader Web, MT5 Web.",
+  "minimum_chrome_version": "116",
   "permissions": [
-    "activeTab",
-    "scripting",
     "storage",
-    "sidePanel"
+    "alarms"
   ],
   "host_permissions": [
-    "http://127.0.0.1:8000/*",
-    "http://localhost:8000/*"
+    "https://*.tradingview.com/*",
+    "https://*.ctrader.com/*",
+    "https://trade.mql5.com/*",
+    "https://web.metatrader.app/*"
   ],
   "icons": {
     "16": "icons/icon-16.png",
@@ -22,6 +22,7 @@
   },
   "action": {
     "default_title": "Vision Hub",
+    "default_popup": "popup.html",
     "default_icon": {
       "16": "icons/icon-16.png",
       "32": "icons/icon-32.png",
@@ -29,12 +30,24 @@
       "128": "icons/icon-128.png"
     }
   },
-  "side_panel": {
-    "default_path": "index.html"
-  },
   "background": {
     "service_worker": "background.js",
     "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://*.tradingview.com/*",
+        "https://*.ctrader.com/*",
+        "https://trade.mql5.com/*",
+        "https://web.metatrader.app/*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'"
   },
   "browser_specific_settings": {
     "gecko": {

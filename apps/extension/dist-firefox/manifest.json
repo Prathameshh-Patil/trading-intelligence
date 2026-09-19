@@ -1,0 +1,66 @@
+{
+  "manifest_version": 3,
+  "name": "Vision Hub",
+  "version": "0.2.0",
+  "description": "The Vision Hub overlay, inside your chart: alerts from your account, and the symbol you are looking at. TradingView, cTrader Web, MT5 Web.",
+  "permissions": [
+    "storage",
+    "alarms"
+  ],
+  "host_permissions": [
+    "https://*.tradingview.com/*",
+    "https://*.ctrader.com/*",
+    "https://trade.mql5.com/*",
+    "https://web.metatrader.app/*"
+  ],
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
+  "action": {
+    "default_title": "Vision Hub",
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png",
+      "48": "icons/icon-48.png",
+      "128": "icons/icon-128.png"
+    }
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://*.tradingview.com/*",
+        "https://*.ctrader.com/*",
+        "https://trade.mql5.com/*",
+        "https://web.metatrader.app/*"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'"
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "{08df3b0c-6f2b-4eb3-a14b-e581e579d9e6}",
+      "strict_min_version": "140.0",
+      "data_collection_permissions": {
+        "required": [
+          "websiteContent"
+        ]
+      }
+    }
+  },
+  "background": {
+    "scripts": [
+      "background.js"
+    ],
+    "type": "module"
+  }
+}
