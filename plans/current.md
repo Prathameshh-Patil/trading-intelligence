@@ -237,6 +237,39 @@ is not.** The next gate is **Friday 18 September, 16:00**, whatever it ends up b
 > HTTP (~1,700 requests) — §7 step 1 asks for `2021-09 … 2026-09` — or amend §14's geometry to
 > something this archive can measure. **The 92 days were a transport test that became the dataset.**
 >
+> 🔴 **E1–E4 re-audited 2026-09-19, before the 60-month archive lands — three of four are no longer
+> predictions.** They gate `TRACK_C_ENGINE.md` step 10, all four are still unsigned, and the pull
+> now running is the deadline. The drafts file carried a contamination warning about **18 Sep
+> 00:15→09:46**; that warning is **understated**, because 19 Sep measured and published spot
+> spread, spot ATR, both Hurst estimators and the first real attrition tables.
+> **E1** — predicts "no cell reaches 0.60"; §13b's published 60-min ATR (p50 **$4.53**) run through
+> **E1's own** `E[range] ≈ 1.596σ` gives `σ₆₀ ≈ $2.84`, putting $15.00 at **≈5.3σ**. The verdict is
+> on record, and *confirmation does not make it signable*.
+> **E2** — 🔴 **orphaned, not merely contaminated:** it names *"stage 3, `R̂₆₀ > $15`"* as the main
+> killer, and **nothing under `track_c/` reads `r_hat`, `reach` or any $15 gate**. Its numbering is
+> §9's sixteen-condition single strategy, replaced by four on 18 Sep — drafted hours before the
+> brief that superseded it.
+> **E3** — ⚠️ level published (**1.452 bp**, *tighter than the ~1.9 bp it called the tightest hour*),
+> but the prediction is **per-session** and the figure is **pooled**, so the ordering and the break
+> exclusion stay open; its D floor (`c/0.25` → **$2.45**) lands inside the predicted $2.20–$3.00.
+> **E4** — ⚠️ its *"`h_agree` only 25.3%"* pillar **was withdrawn** by §15–§16 (estimator bias, not
+> market; window 256→**1025**, agreement ~50%). ✅ Core mechanism intact; **the only one repairable
+> by an edit**, and the edit weakens its own Hurst half. ⛔ It no longer gates the run — the HMM is
+> **dissolved**, read by none of S1–S4.
+> ⛔ **Nothing signed, rewritten or withdrawn** — the mechanism is that the person with the bias
+> commits in their own name. Three options recorded in `plans/team/strategy-precommit-drafts.md`.
+> ✅ **Resolved 22:05 IST, Varad's instruction — all four moved.** ⚠️ **Three are recorded as NOT
+> pre-commitments**, because the git timestamp reads 19 Sep, after the measurements; what is
+> recorded is which lapsed and why. **E1 🔴 LAPSED** (kill condition 1 fires as a *measurement*; the
+> live question is its own "~$7, not $15", to be re-derived at the measured `σ₆₀`) · **E2 🔴 VOID**
+> (not re-scoped — **C1 already replaced it** and reads 38/57/4/0: E2's outcome 1 reached honestly) ·
+> **E3 ⚠️ PARTIAL** (level struck; **ordering, break exclusion and the sweep-blur risk committed and
+> still unmeasured**) · **E4 ✅ COMMITTED** — genuine, since **no HMM has been fitted on spot**.
+> 🔴 **E4's Hurst pillar was withdrawn in the act of signing** (§15–§16: estimator bias, window
+> 256→1025, agreement ~50%), which **argues against its own prediction** and is stated that way in
+> the block; the prediction rests on the mechanism instead. 📌 Drafts file **kept, not deleted** —
+> it is the evidence the 18 Sep predictions were made when they claim.
+>
 > ✅ **Done, Varad's call: §10 is now ATR multiples.** `fsm.D_MIN_ATR = 0.8` / `D_MAX_ATR = 2.0`,
 > converted on **GC** — six months of 2025, median 60-minute ATR **$2.56**, so §10's own $2/$5 are
 > 0.78× and 1.95× ATR. **On GC they reproduce $2.05–$5.12, so this restates §10 rather than
