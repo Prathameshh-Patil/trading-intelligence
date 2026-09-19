@@ -167,8 +167,23 @@ is not.** The next gate is **Friday 18 September, 16:00**, whatever it ends up b
 > than inside. **This subsumes the §13 cost finding**: the cost rule barely gets a say because
 > almost nothing reaches it. ⛔ **Room's call** — §10 in ATR multiples, a different cap for spot, or
 > an explicit finding that this strategy family does not fit this instrument at this volatility.
-> ⚠️ `hurst_agree` also refuses ~3 bars in 4 across all four strategies, consistent with the 25.3%
-> agreement measured on GC — an estimator disagreement, not a market fact.
+> 🔴 **`hurst_agree` checked, and it is measuring the estimators rather than the market.** It is now
+> the largest cut in every funnel (~3 bars in 4 refused). `hurst.SCALES` declares 7 scales up to
+> 256, but a scale needs 4 windows in `window − 1` (DFA differences its input), so
+> `hurst_window_bars = 256` reaches only **(4, 8, 16, 32) — 4 of 7, largest scale 32.** That is
+> *exactly* the ladder `test_dfa_is_biased_high_on_a_short_scale_ladder...` was written about on
+> 18 Sep: the bias was documented in a test and then configured into production. ⚠️ The config
+> comment claiming "256 gives 4 windows at the largest scale" was **wrong and is corrected** — 1025
+> is the value that does. **Control:** on 300 random walks with a true H of 0.5, at window 256 DFA
+> reads **0.562** and variance-time **0.420** — a **+0.142** gap on a 0.05 tolerance, agreeing
+> **16.7%**. The real archive agrees **26.2%**, *better than the synthetic floor*. On real bars DFA
+> exceeds VT on **77.4%** of them and the median offset (+0.084) **alone exceeds the tolerance**.
+> Agreement by window: 256 → 26.2%, 512 → 35.1%, 1024 → 50.0%, 2048 → 72.8%.
+> ⛔ **Not changed** — `hurst_window_bars` is a §6 threshold and raising it after seeing a funnel is
+> tuning, with no GC-style external anchor to justify it. Arithmetic pinned as a test instead.
+> **Room's choice:** window 1025 (the only value consistent with `SCALES`) · shorten `SCALES` to fit
+> 256 · widen the tolerance past the bias (weak — a tolerance chosen to exceed a known offset is not
+> an agreement test) · or drop `h_agree` as a gate.
 >
 > ✅ **Done, Varad's call: §10 is now ATR multiples.** `fsm.D_MIN_ATR = 0.8` / `D_MAX_ATR = 2.0`,
 > converted on **GC** — six months of 2025, median 60-minute ATR **$2.56**, so §10's own $2/$5 are
