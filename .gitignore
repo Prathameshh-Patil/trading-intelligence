@@ -62,3 +62,8 @@ services/signal-data/data/spot/
 
 # Uploaded payment proofs (services/api)
 services/api/var/
+
+# Reference PDFs dropped in the tree to read alongside the code -- specs,
+# papers, vendor docs. None has ever been tracked, they are someone else's
+# copy rather than this repo's source, and they are large and binary.
+*.pdf
