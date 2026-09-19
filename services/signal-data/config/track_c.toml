@@ -73,17 +73,34 @@ atr_window = "60min"           # clock window, not bar count -- spot drops empty
 atr_min_bars = 8               # a 60-minute ATR off fewer than 8 bars is an average of a gap
 yz_fast_bars = 12              # §2's n = 12 (one hour)
 yz_slow_bars = 288             # §2's n = 288 (one day) -- the baseline a "ratio" is a ratio TO
-hurst_window_bars = 256        # ⚠️ CORRECTED 2026-09-19: this said "§6's estimators need 4 windows
-                               # at the largest scale; 256 gives them". IT DOES NOT. `_usable_scales`
-                               # keeps s only if (window-1)//s >= 4 -- DFA differences its input --
-                               # so 256 reaches only (4, 8, 16, 32): FOUR of the seven rungs of
-                               # `hurst.SCALES`, largest scale 32. Four windows at the largest
-                               # DECLARED scale needs 1025. On that short ladder DFA is
-                               # biased high -- on random walks with a true H of 0.5 it reads 0.562
-                               # against variance-time's 0.420, a +0.142 gap on a 0.05 tolerance --
-                               # which is why `h_agree` refuses ~3 bars in 4. Left at 256 pending a
-                               # §6 decision; see test_the_production_window_reaches_only_five...
-hurst_step_bars = 12           # recomputed hourly and held between. H is a property of a 256-bar
+hurst_window_bars = 1025       # ⭐ 256 -> 1025, Varad's call 2026-09-19, option 1 of four.
+                               # THE VALUE IS DERIVED, NOT PICKED. `_usable_scales` keeps a scale
+                               # only if (window-1)//s >= 4 -- DFA differences its input, so it has
+                               # one point fewer -- and `hurst.SCALES` tops out at 256. So the
+                               # smallest window that reaches the whole declared ladder is
+                               # 4*256+1 = 1025. Any smaller number silently truncates the ladder.
+                               #
+                               # WHAT 256 WAS DOING. It reached only (4, 8, 16, 32) -- four of the
+                               # seven rungs -- which is exactly the ladder
+                               # `test_dfa_is_biased_high_on_a_short_scale_ladder...` was written
+                               # about on 18 Sep: DFA reads 0.563 there against a TRUE 0.5. The
+                               # bias was documented in a test and then configured into production.
+                               # On 300 random walks at window 256 the two estimators read 0.562 and
+                               # 0.420 -- a +0.142 gap on a 0.05 tolerance, agreeing 16.7% of the
+                               # time, while the real archive agreed 26.2%. A gate a random walk
+                               # fails more often than the market does is not measuring the market.
+                               #
+                               # THIS IS A CONSISTENCY FIX, NOT A TUNING. 1025 follows from SCALES
+                               # and the four-window rule alone; it could have been derived before a
+                               # single bar was pulled, and it is the ONLY value that makes the two
+                               # constants agree. That it also lifts agreement (26% -> ~50% at 1024)
+                               # is a consequence, not the reason -- which matters, because §7's
+                               # gates exist to stop thresholds moving toward a nicer funnel.
+                               #
+                               # COST: ~3.5 days of 5-minute lookback per estimate. Warm-up is
+                               # unchanged in practice -- `pct_lookback_bars = 2880` already
+                               # dominates it.
+hurst_step_bars = 12           # recomputed hourly and held between. H is a property of a 1025-bar
                                # window; recomputing it per bar moves it by less than its own
                                # estimation error and costs ~12x the runtime
 hurst_agree_tol = 0.05         # `features.hurst.AGREE_TOL`, restated so it is visible here

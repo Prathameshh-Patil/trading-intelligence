@@ -181,9 +181,18 @@ is not.** The next gate is **Friday 18 September, 16:00**, whatever it ends up b
 > Agreement by window: 256 → 26.2%, 512 → 35.1%, 1024 → 50.0%, 2048 → 72.8%.
 > ⛔ **Not changed** — `hurst_window_bars` is a §6 threshold and raising it after seeing a funnel is
 > tuning, with no GC-style external anchor to justify it. Arithmetic pinned as a test instead.
-> **Room's choice:** window 1025 (the only value consistent with `SCALES`) · shorten `SCALES` to fit
-> 256 · widen the tolerance past the bias (weak — a tolerance chosen to exceed a known offset is not
-> an agreement test) · or drop `h_agree` as a gate.
+> ✅ **Resolved — Varad took option 1: `hurst_window_bars` 256 → 1025.** Derived, not chosen:
+> `4 × max(SCALES) + 1`, the smallest window reaching the whole declared ladder, and the test is
+> written against that rule rather than against the number. **A consistency fix, not a tuning** — it
+> could have been derived before a bar was pulled. **Effect:** scales 4/7 → **7/7**, agreement
+> 26.2% → **44.3%**, sd of the difference 0.118 → **0.057**, median `h_dfa` 0.536 → **0.512**.
+> Suggestions **42 → 99**, and **s3 produced its first suggestions of the project** (0 → 4); s4
+> still produces none, dying at `breakout` then losing all 9 to `stop_too_wide`.
+> 🔴 **Residual, stated plainly: the +0.054 bias still exceeds the 0.05 tolerance** and DFA still
+> exceeds VT on 80.3% of bars, so **over half of all bars still refuse on `h_agree`** — now an
+> estimator property rather than a config error. Whether a 44%-pass gate is what §6 meant by "do not
+> trade from one noisy Hurst estimate" is **still open**. ⚠️ `inputs` refusals rose with the longer
+> warm-up (1,024 of 18,120 bars). Metrics still not read — E1–E4 unwritten.
 >
 > ✅ **Done, Varad's call: §10 is now ATR multiples.** `fsm.D_MIN_ATR = 0.8` / `D_MAX_ATR = 2.0`,
 > converted on **GC** — six months of 2025, median 60-minute ATR **$2.56**, so §10's own $2/$5 are
