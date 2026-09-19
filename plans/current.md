@@ -1170,7 +1170,9 @@ finding two bugs**, both of which would have survived into `real.ts`.
       next replayed bar overwrote it (designed behaviour, not a bug). Not independently
       screenshotted — same treatment as row #2/#8, closed on account rather than a logged artefact.
       **First button in either app anyone has actually clicked**, since Claude's own testing is all
-      programmatic (Accessibility ungranted).
+      programmatic (Accessibility ungranted). **Amended 2026-09-19:** the one-second flash is
+      why no screenshot existed; `emitWideCvd` now stops the replay, and the 19 Sep entry has the
+      screenshot and the actual bug beneath this surface (a flex squash, not the number).
 - [ ] **The other four mock controls, and the rest of the UI, remain unclicked.** The six home
       tiles, back button, drag region and `goStale`/`drop`/`resume`/`40-char symbol` were all fired
       programmatically by Claude. One Accessibility grant on Claude's environment — or Prathamesh
@@ -2301,6 +2303,88 @@ Full detail: [`analysis/M4_PATH.md`](../services/signal-data/analysis/M4_PATH.md
 
 ---
 
+### 2026-09-18 — Vision Hub: the site, a separate admin portal, JWT auth, and the desktop licence gate · [`daily_updates/2026-09-18.md`](../daily_updates/2026-09-18.md) §36–§38
+
+**Out of band from the strategy block, on Prathamesh's own initiative, on `feat/vision-hub`
+(not merged).** The product is renamed Vision Hub everywhere — site, a new admin portal, desktop
+bundle id and keychain, extension, key prefix `ti_live_` → `vh_live_` — and the whole
+signup → approval → key → activation flow now runs against the real backend. The 9 Sep site ran on
+a localStorage mock and `services/api` had no auth at all; both are gone.
+
+- [x] **`services/api`: auth, keys, approvals, SSE.** Two-token auth — 15-minute EdDSA access JWT
+      in memory, opaque refresh token in an httpOnly cookie scoped to `/api/v1/auth`, rotated per
+      use with family revocation on reuse; argon2id passwords; JWKS at `/.well-known/jwks.json`;
+      rate limits; `audit_log` and an SSE event on every admin mutation. **Issuance is approval of
+      the account, not settlement of a payment** — S5 amended, S3's prefix amended, both recorded
+      as unsigned in `contracts.md`. 87 tests, ruff/mypy clean, every branch driven live with curl.
+- [x] **`packages/contracts` and `packages/ui`** — one typed client that owns the token lifecycle,
+      one design system (tokens, `SidebarShell`, `DataTable` on `@tanstack/react-table`, overlays).
+- [x] **`apps/admin`** — Overview, Approvals (live badge), Users, Keys, Tickets, Waitlist, Audit,
+      Settings; all on `DataTable`; a non-admin token gets one sentence. 11 routes, static export.
+- [x] **`apps/site` redesigned** — left rail (Features · Use cases · Services · Pricing · Support ·
+      Contact) with the account block at the bottom; three new content pages; `/account` replaces
+      `/key` and `/checkout` with a live four-step timeline, the key, rotate, optional payment
+      proof, tickets, sessions. `apps/web` deleted. 15 routes, static export.
+- [x] **`apps/desktop`** — `licence.rs` (keychain), `lib/licence.ts` (five states, S3 verbatim),
+      `LicenceView`, the gate: a missing or invalid key shows only the licence screen; unreachable
+      gets seven days' grace. 17 Rust tests, clippy clean. Extension rebranded, `dist/` rebuilt.
+- [x] **Driven end to end in Chrome** — sign up, approve in the portal, key appears on the site
+      tab live, paste into the desktop page, revoke → locked, API stopped → offline. Detail and
+      the two bugs it surfaced in the daily update.
+- [ ] **Unsigned and unmerged.** The S3/S5 amendments need Varad's and Shreyas's signatures; the
+      branch is pushed and needs review. Real `CONTACT`/`PAYMENT`/`TEAM` values are still
+      `PLACEHOLDER_…`.
+
+### 2026-09-19 — four fixes: the CVD card was being squashed, S7's warm-up counted the wall clock, Route 2 reaches S3, E4 is code · [`daily_updates/2026-09-19.md`](../daily_updates/2026-09-19.md)
+
+**On `feat/vision-hub`, unmerged. Two desktop bugs found by driving the panel in Chrome at
+380px, one data-lane check, and E4 built to the pre-commit without running it.**
+
+- [x] **The 7-digit CVD "layout break" was a flex squash, not an overflow.** `+1,234,567`
+      measures 174px in a 308px box in every font on the stack; it never overflowed. What
+      actually happens: `.view` is a fixed-height flex column that scrolls, and any child that
+      clips its own overflow gives up `min-height: auto`, so flex shrinks it to fit — **the
+      `GC · 1m · 0 gaps · 18:16 ET` meta row on Order Flow has been rendering at 0px since W1D2**,
+      and the first attempt at hardening the CVD card collapsed it to its label the same way.
+      `.view > * { flex-shrink: 0 }`; `.cvd-sub` clips like `.cvd-value`. **`emitWideCvd` now
+      stops the replay** so the bar stays on screen until Resume — the 2026-09-03 row below is
+      amended: the one-second flash is why it was never screenshotted, and now it is
+      (`daily_updates/2026-09-19.md` §1). `scrollWidth === clientWidth` on both views.
+- [x] **S7's warm-up counted wall-clock minutes from the first time the Forecast view opened.**
+      120 real minutes under a 10× replay that delivers two hours of bars in twelve; a countdown
+      that reset on every navigation; a full two hours again on every relaunch. **Warm-up is now
+      feed time** — `Forecaster.warmUp()` reports bars received since connect (or since time
+      went backwards, which is a reconnect), the forecaster is constructed when the feed
+      connects rather than when the view mounts, and the view renders the forecaster's number.
+      Under the mock the copy says *~12m at 10× replay*. `finishWarmUp`/`restartWarmUp` keep
+      working; `Mode` loses the `"warming"` value nothing ever set.
+- [x] **Route 2, investigated: nothing is broken.** 27 tests green; one billed day
+      (`XAUUSD/2026/06/16_ticks.bi5`) decodes to 429,422 quotes spanning 00:00:00.002 →
+      23:59:56.063 UTC, bid ≈ 4057.8 at midnight UTC (the GC fixture is ~4069 that date — right
+      scale). `spot.minute_bars` and
+      `spot.resample` already read `inst.session_shift`; the hardcoded `SESSION_SHIFT` is in
+      `s1.py`/`regimes.py` only, both instruments declare 2h, so spot's `session` column is
+      right. **The 3-month pull is not run** — it bills the account and the run is Varad's:
+      `PYTHONPATH=. uv run python spot.py --months 2026-05 2026-06 2026-07`.
+- [x] **E4 is built, tested and not run.** `hmm.py` — a Gaussian HMM in numpy (no `hmmlearn`;
+      a dependency is its own PR) with the likelihood proven against brute-force path
+      enumeration, EM monotone, a planted chain recovered at 97%, and a **no-lookahead guard**:
+      `filtered` is the only posterior a feature may read. `e4_hmm.py` — the five observations
+      derived from the S13 frame (`range_compression = log(σ_yz_12/σ_yz_288)` is new and named
+      here, not in `portable.py`), z-scored on `m2_magnitude.TRAIN` only, k∈{2,3} × 5 seeds,
+      §17's refusals as pinned constants, `decide` on held-out loglik per bar with the ladder
+      test, `apply` fills `p_build`/`p_expand` from the filtered posterior for outcome 2 only.
+      **E4a runs `--no-spread` on GC's four observations; E4b runs `--spread` on spot once the
+      pull lands.** 21 tests; 555 passing; ruff/mypy clean across 80 files.
+- [ ] **§17 is still unwritten in `strategy-precommit.md`.** The prediction exists in
+      `strategy-precommit-drafts.md` §17 (outcome 3, a vol ladder). Varad moves it, adds the
+      observation definitions and the constants above, commits, and only then:
+      `PYTHONPATH=. uv run python e4_hmm.py --data data --no-spread --out-dir analysis/e4_hmm_<date>`.
+- [ ] **Deployment is untouched** — no hosting decision remade, no `COOKIE_DOMAIN` set, no
+      production `.env`. Row #4 stands.
+
+---
+
 ### 2026-09-19 — CI exists: three jobs, and the lint debt that would have made it red on arrival · [`.github/workflows/ci.yml`](../.github/workflows/ci.yml)
 
 **`gh pr checks 7` reported "no checks reported on the `feat/vision-hub` branch."** A 176-file PR
@@ -2361,6 +2445,42 @@ Full detail: [`daily_updates/2026-09-19.md`](../daily_updates/2026-09-19.md) §8
 
 ---
 
+### 2026-09-19 (night) — PR #7's review, closed after the merge · [`daily_updates/2026-09-19.md`](../daily_updates/2026-09-19.md) §19
+
+**PR #7 merged (`e0bacbc`) with Varad's six *before merge* findings still open. All six are
+closed here, with five of the six *worth fixing* items, on `fix/pr7-review`.** 105 API tests,
+up from 87; `ruff`, `mypy` clean; `tsc` and `vite build` clean for the desktop.
+
+- [x] **1 · `X-Forwarded-For` is ignored unless `TRUSTED_PROXY=true`.** `client_ip` returns the
+      socket peer by default; the header is one setting away from being trusted, on the day a
+      proxy exists. Pinned: four signups with four different forged addresses from one peer hit
+      the wall after two; the same four pass with the flag on; `audit_log.ip` is the peer.
+- [x] **2 · Refresh has its own budget, keyed on the session cookie** (hashed), 60/min by default,
+      and no longer spends the shared 10/min address budget that signup and login use. Six
+      refreshes from one address, then a signup from the same address: all pass. `/keys/validate`
+      (60/min) and uploads (5/min) got their own buckets too.
+- [x] **3 · `BOOTSTRAP_ADMIN_EMAIL` does what its docstring says** — `services/bootstrap.py`,
+      called from `lifespan`. Promotes an *existing* account, never creates one, writes an audit row.
+- [x] **4 · The production guard covers every secret.** `config.production_problems()` refuses to
+      boot on an empty `JWT_KEYS`, `JWT_ACTIVE_KID`, `KEY_ENCRYPTION_SECRET`, or an active kid not
+      in the keyring — naming each — where before only `COOKIE_SECURE` was checked and the rest
+      failed at first use.
+- [x] **5 · `reject` ends every session**, exactly as `suspend` does, and `/auth/refresh` revokes a
+      rejected account's family the way it already did a suspended one.
+- [x] **6 · `POST /tickets` is limited** like `/waitlist`; `/keys/validate` and `/payments` too.
+- [x] **Worth fixing, done:** the refresh race (`SELECT … FOR UPDATE` on the token row); uploads are
+      typed by their bytes (`payments.sniff`), so an HTML file labelled `image/png` is a 415 rather
+      than a stored file served back as whatever it claimed; `user_out` does four queries per
+      *page* (`UserFacts`) rather than four per row, and `/admin/{keys,payments,tickets,waitlist}`
+      take `?limit=&offset=` with a 200-row default; `create-admin` refuses an existing account
+      without `--reset`; the desktop's offline grace now expires in a running app (`licence.ts`
+      matches its own docstring); the CORS regex carries a comment saying what the control actually is.
+- [ ] **Not done:** nothing further on the CORS regex itself; the S3/S5 signatures, the placeholders
+      and the deployment questions are row **V1**.
+- [x] **Also restored here:** the merge `e0bacbc` took `main`'s `plans/current.md` wholesale, which
+      dropped the 18 Sep Vision Hub entry, the 19 Sep four-fixes entry and the 3 Sep row's
+      amendment — the same loss Varad caught and restored in the daily update. Back in, verbatim.
+
 ## Next
 
 Ordered. **Rows #2, #6, #7 and #8 all closed between 25 Aug and 3 Sep** — the S1 fixture cut, the
@@ -2410,6 +2530,7 @@ both ran into**, neither of which is a row below because neither is anyone's tas
 | R8 | ⏱️ **Tick replay — step 5 DONE; the nearer barrier is touched first, and the tie rule is a blanket answer** | Prathamesh, 11 Sep | Result: [`analysis/REPLAY.md`](../services/signal-data/analysis/REPLAY.md). `replay.py`, standalone, 19 months, 127s — **the largest work item in Track B, and the one M4 is blocked on**. **Budget written into `strategy-split.md` §5 before the first line** (3 days), which closes ARCHITECTURE §9 open question 5. **89,646 ties over 14,736,048 leg-brackets — 0.61% — every one ordered by the tape**; the rule sends all of them to the stop and the tape sends 37,301 (41.6%) to the target. ✅ **Reconciles with `reach_table.csv` to the unit, 89,646 against 89,646**, by a different path, and the expected number was fixed while the run was still on month 12. ⚠️ **The finding is about the rule, not the market:** `P(target first)` is monotone in the stop/target ratio — 0.178 at 0.125, exactly 0.500 at symmetry, 0.649 at 2.0 — so the nearer barrier is usually touched first and `ties="stop"` is right where the stop is nearer, a coin flip at symmetry, and **wrong more often than right where the target is nearer** (10 of 72 brackets, 12.9% of ties). It stays the correct conservative choice: a lower bound is a property nobody has to remember, a per-bracket correction is a number somebody has to keep true. ⚠️ **One number was forced and was nearly published as a finding** — at `target == stop` the pooled split is exactly `0.500000` on 19.6% of the ties, because a long and a short on the same bar with equidistant barriers are the same two price levels. Per side the headline survives (short 42.4%, long 40.8%). **`backtest.first_touch` is untouched** per §5 and **no `p_target` moves** — that is Varad's, and only if this earns it. **Still open:** M4b's MFE-vs-retracement ordering, now cheap and deliberately left out of the budget rather than absorbed. **17 Sep:** the two cache dirs `replay.py` writes were never gitignored and sat untracked for six days; ignored now alongside `.reach_cache/` |
 | R9 | 🧭 **M4b answered — bars carry the MFE/MAE sequence 95.8% of the time** | Prathamesh, 12 Sep | Result: [`analysis/M4_PATH.md`](../services/signal-data/analysis/M4_PATH.md). **Prediction and kill condition committed in `d648938` before the code that reads them.** **13,744 of 327,135 legs have both extremes in one bar — 4.20%**, so §11's kill condition fires and **the tick replay the Path-Dependent Exit was blocked on was never the blocker**. ⚠️ **Scored honestly: the 15m horizon breaches the prediction at 10.15%** — the reasoning was right and the arithmetic was the miss, since a 15-minute horizon is *three* 5-minute bars and §11 reasoned as though the count were always large. That is exactly the horizon a PDE rule would live at (`mae > 0.6 * stop` in the first 5 bars). ⚠️ **No conditioning structure:** 63 cells span 1.8× against the tie rate's 276× on the same archive — real (χ² 186.7 on 62 dof) and too small to act on — so **no pocket exists where bars are blind enough to justify a restricted rule**. **Ordering, not magnitude** — bar MFE and tick MFE are the same number, verified at 0.00e+00. ⚠️ **The long/short mirror forced a number a second time**; both summary functions drop `side` rather than summing, each with a test. **Still open:** M4 itself, which §415 also gates on route-2 spot, blocked on the Dukascopy IP block |
 | R10 | 🚦 **The Week 1 gate has a decision document — and the gate itself never happened** | Varad, 13 Sep | [`docs/decisions/2026-09-11-week-1.md`](../docs/decisions/2026-09-11-week-1.md). **There is no record anywhere in this repo of the Fri 11 Sep 16:00 meeting being held**, which is the failure `gates.md` was written to prevent — *"it happens one reasonable-sounding Friday at a time"* — and this one slid by not being held at all. All seven of `week-01.md` §D7's lines are scored against artefacts that exist: **three met or part-met, four not, and three of those four have no work product at all.** Recommendation: **the gate does not slide**, so Week 2 is Week 1's gate and Week 12 ends **4 Dec**. ⚠️ **The votes are deliberately blank** — a decision one person wrote down is not a decision three people made, the standard S7's provenance was recorded under. **Re-scored 13 Sep against what landed after it was drafted:** S8/S9 frozen 3 of 3, step 5 done, M4b answered, position memory landed. **The M4b row is the substantive change** — it was the document's most likely escape route from the fixed-bracket negative and it has been retired by measurement, which strengthens the proposed scope change rather than weakening it. ⚠️ **Step 5 was built twice** — Prathamesh's reconciles to `reach_table.csv` to the unit and is on `main`; Varad's parallel implementation was **dropped, not merged**. It did not fail on a shared file — §4's frozen signature list held — it failed on a step that was on nobody's calendar, and the existing rules do not close that hole. **The duplication's one return: it caught a published error**, see `daily_updates/2026-09-13.md` §4 |
+| V1 | 🔑 **Vision Hub — merged 18 Sep; the review's six blockers closed 19 Sep; what is still open** | Prathamesh → Varad, Shreyas | PR #7 merged to `main` (`e0bacbc`) with Varad's six *before merge* findings still open; **all six closed on `fix/pr7-review`** (Done, 19 Sep — the rate limiter, `BOOTSTRAP_ADMIN_EMAIL`, the production guard, `reject`, the unlimited routes) plus five of the six *worth fixing* items. **Still open:** S3/S5 amendments unsigned (sign-off is two now, per `contracts.md`); `PLACEHOLDER_…` contact/payment/team values in `content/site.ts`; the `.local`-email CLI/validator mismatch; no deployment and no `COOKIE_DOMAIN`; `TRUSTED_PROXY` must be set to true on the day a proxy is put in front of the API, or every per-IP limit silently keys on the proxy's address. |
 ---
 
 ## Standing constraints

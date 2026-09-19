@@ -19,6 +19,8 @@ from app.api.routes.waitlist import router as waitlist_router
 from app.api.routes.wellknown import router as wellknown_router
 from app.config import settings
 from app.core.origins import ORIGIN_REGEX
+from app.db.session import SessionLocal
+from app.services.bootstrap import promote_bootstrap_admin
 from app.services.events import broadcaster
 
 
@@ -27,6 +29,9 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     # Route handlers are sync and run in a threadpool; the SSE queues live on
     # this loop. The broadcaster needs to know which loop to hand events to.
     broadcaster.bind(asyncio.get_running_loop())
+    if settings.bootstrap_admin_email:
+        with SessionLocal() as db:
+            promote_bootstrap_admin(db, settings.bootstrap_admin_email)
     yield
 
 
@@ -39,6 +44,13 @@ app = FastAPI(
 # `ORIGIN_REGEX` covers the extension, Tauri and localhost; `cors_origins`
 # is the deployed customer site and admin portal. Credentials are on because
 # `/auth/refresh` is a cookie route -- every other route is bearer-only.
+#
+# The regex admits ANY extension id and ANY localhost port, in production
+# too, and that is not the control. In production the API is not on
+# localhost, so a page there is cross-site and the `SameSite=Lax` refresh
+# cookie is never sent with its POST; an extension page has no cookie jar
+# for this host at all. The regex decides who may READ a response, and every
+# response worth reading needs a bearer token the page does not have.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,

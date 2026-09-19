@@ -1,10 +1,11 @@
 import secrets
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import DB, CurrentUser, MaybeUser
+from app.core.ratelimit import limit
 from app.models import Ticket, TicketReply, User
 from app.schemas import TicketIn, TicketOut, TicketReplyOut
 from app.services.events import ADMIN_CHANNEL, broadcaster
@@ -46,7 +47,10 @@ def staff_ids(db: Session) -> set[int]:
 
 
 @router.post("", response_model=TicketOut, status_code=201)
-def create(body: TicketIn, user: MaybeUser, db: DB) -> TicketOut:
+def create(
+    body: TicketIn, user: MaybeUser, db: DB, _: None = Depends(limit("tickets"))
+) -> TicketOut:
+    # Unauthenticated, so it gets the same per-address budget as /waitlist.
     email = (user.email if user else body.email or "").lower()
     if not email:
         raise HTTPException(

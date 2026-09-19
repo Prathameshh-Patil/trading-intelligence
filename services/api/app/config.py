@@ -62,13 +62,24 @@ class Settings(BaseSettings):
     # admin, never as a public static path.
     proof_dir: Path = Path("var/proofs")
 
-    # Token buckets on the auth routes: N requests per window, per IP and per
-    # email. In-memory -- one instance today; Redis is the multi-instance path.
+    # Token buckets: N requests per minute. In-memory -- one instance today;
+    # Redis is the multi-instance path. The auth budget is per address and
+    # per email on signup/login; refresh is per session cookie, because a
+    # 15-minute token across a few tabs would otherwise spend everyone's
+    # signup budget behind one NAT. See `core/ratelimit.py`.
     rate_limit_auth_per_minute: int = 10
+    rate_limit_refresh_per_minute: int = 60
+    rate_limit_validate_per_minute: int = 60
+    rate_limit_upload_per_minute: int = 5
+
+    # Only when a proxy this service trusts terminates the connection is the
+    # first `X-Forwarded-For` hop the client. Off, the socket peer is the
+    # client and the header is ignored -- anyone can send one.
+    trusted_proxy: bool = False
 
     # Bootstrap: on startup, if this email exists, promote it to admin. A
     # convenience for a fresh deployment; `app.cli create-admin` is the
-    # deliberate route.
+    # deliberate route. Read by `main.lifespan` via `services.bootstrap`.
     bootstrap_admin_email: str | None = None
 
     model_config = SettingsConfigDict(
@@ -95,9 +106,34 @@ class Settings(BaseSettings):
         return self.app_env == "production"
 
 
+def production_problems(s: Settings) -> list[str]:
+    """Everything a production deploy must have set, checked before it serves.
+
+    Each of these would otherwise fail at first use rather than at boot: a
+    refresh cookie over plain HTTP is a session handed to the network; empty
+    signing keys make every login a 500; an empty Fernet secret makes
+    `/keys/mine` a 500 for the first trader who opens their account page.
+    """
+    if not s.is_production:
+        return []
+    problems = []
+    if not s.cookie_secure:
+        problems.append("COOKIE_SECURE must be true")
+    if not s.jwt_keys:
+        problems.append("JWT_KEYS must hold at least one signing key")
+    if not s.jwt_active_kid:
+        problems.append("JWT_ACTIVE_KID must name the signing key")
+    elif s.jwt_keys and s.jwt_active_kid not in {k.get("kid") for k in s.jwt_keys}:
+        problems.append(f"JWT_ACTIVE_KID={s.jwt_active_kid!r} is not in JWT_KEYS")
+    if not s.key_encryption_secret:
+        problems.append("KEY_ENCRYPTION_SECRET must be set")
+    return problems
+
+
 settings = Settings()
 
-if settings.is_production and not settings.cookie_secure:
-    # Fail at import, not at the first login: a refresh cookie sent over plain
-    # HTTP in production is a session handed to the network.
-    raise RuntimeError("COOKIE_SECURE must be true when APP_ENV=production")
+if _problems := production_problems(settings):
+    # Fail at import, not at the first request.
+    raise RuntimeError(
+        "refusing to start with APP_ENV=production: " + "; ".join(_problems)
+    )

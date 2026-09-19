@@ -12,12 +12,13 @@ import uuid
 from pathlib import Path
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 from sqlalchemy import select
 
 from app.api.dependencies import DB, CurrentUser
 from app.config import settings
+from app.core.ratelimit import limit
 from app.models import Payment, User
 from app.schemas import PaymentOut
 from app.services.events import ADMIN_CHANNEL, broadcaster
@@ -31,6 +32,22 @@ ALLOWED = {
     "image/webp": ".webp",
     "application/pdf": ".pdf",
 }
+
+
+def sniff(data: bytes) -> str | None:
+    """The media type the BYTES say, or None. The client's `Content-Type` is
+    a claim; this is what decides the stored extension and what is served
+    back, so an HTML file labelled `image/png` is refused rather than stored
+    and later served to an admin's browser."""
+    if data.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "image/png"
+    if data.startswith(b"\xff\xd8\xff"):
+        return "image/jpeg"
+    if data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+        return "image/webp"
+    if data.startswith(b"%PDF-"):
+        return "application/pdf"
+    return None
 
 
 def payment_out(p: Payment, email: str | None = None) -> PaymentOut:
@@ -62,16 +79,17 @@ async def submit(
     currency: Annotated[Literal["usd", "inr"], Form()],
     reference: Annotated[str, Form(min_length=1, max_length=255)],
     proof: Annotated[UploadFile, File()],
+    _: None = Depends(limit("payments")),
 ) -> PaymentOut:
-    media_type = proof.content_type or ""
-    if media_type not in ALLOWED:
-        raise HTTPException(
-            status_code=415, detail={"error": "proof must be a PNG, JPEG, WebP or PDF"}
-        )
     data = await proof.read(MAX_PROOF_BYTES + 1)
     if len(data) > MAX_PROOF_BYTES:
         raise HTTPException(
             status_code=413, detail={"error": "proof must be under 8 MB"}
+        )
+    media_type = sniff(data)
+    if media_type is None:
+        raise HTTPException(
+            status_code=415, detail={"error": "proof must be a PNG, JPEG, WebP or PDF"}
         )
 
     folder = Path(settings.proof_dir) / str(user.id)
