@@ -194,6 +194,20 @@ is not.** The next gate is **Friday 18 September, 16:00**, whatever it ends up b
 > trade from one noisy Hurst estimate" is **still open**. ⚠️ `inputs` refusals rose with the longer
 > warm-up (1,024 of 18,120 bars). Metrics still not read — E1–E4 unwritten.
 >
+> 🔴 **s4's zero suggestions explained: its geometry cannot satisfy §10, and never could.** s4 hides
+> its stop behind the **far** Donchian edge, so `D > channel width + 0.50 × ATR` — and the channel
+> is **20 bars (100 min)** against a **60-min ATR**. Measured over 17,638 bars, width/ATR has median
+> **4.48** and a **minimum of 1.59**, so the best D available anywhere is **2.09 × ATR against a
+> 2.00 cap**: the single narrowest bar in three months still misses, and **0.00% of bars qualify**.
+> Equally impossible under the old dollar band (median D ≈ **$23** vs a $5 cap), which is why the
+> ATR change lifted s1/s2/s3 and left s4 at exactly zero. Same class of error as
+> `TRACK_C_BUILD.md` §3(2)'s six-hour-range-vs-one-hour-ATR. ⚠️ The `track_c.toml` claim that all
+> four stops "LAND inside §10's band" is **false for s4 and has been corrected**.
+> ⛔ **Not fixed — every repair is a strategy call:** stop behind the *broken* edge (always inside,
+> but s4's docstring rejects it) · s4-specific cap near 5 × ATR (risk 2.5× the others) · shorter
+> Donchian (but 20 is Bollinger's default, deliberately untuned) · **or kill s4 and print the
+> reason**, per `TRACK_C_BUILD.md` §7. Pinned as a test that fails the day a repair lands.
+>
 > ✅ **Done, Varad's call: §10 is now ATR multiples.** `fsm.D_MIN_ATR = 0.8` / `D_MAX_ATR = 2.0`,
 > converted on **GC** — six months of 2025, median 60-minute ATR **$2.56**, so §10's own $2/$5 are
 > 0.78× and 1.95× ATR. **On GC they reproduce $2.05–$5.12, so this restates §10 rather than

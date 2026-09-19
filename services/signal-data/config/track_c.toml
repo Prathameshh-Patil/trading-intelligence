@@ -199,10 +199,21 @@ stop_pad_atr = 0.75              # a squeeze is a narrow thing to hide a stop be
 # sits a fraction of an ATR beyond the structure the strategy trades, and the
 # fraction is larger where the structure is tighter: a Bollinger squeeze is a
 # narrow thing to hide behind, a swept extreme is already a wide excursion. The
-# sizes were also chosen so that a structural stop LANDS inside §10's [$2, $5]
-# band at XAUUSD's typical 60-minute ATR -- otherwise `stop_too_tight` refuses
-# the entire archive and the strategies are untestable rather than untested.
+# sizes were also chosen so that a structural stop LANDS inside §10's band at
+# XAUUSD's typical 60-minute ATR -- otherwise `stop_too_tight` refuses the
+# entire archive and the strategies are untestable rather than untested.
 # **They were fixed before the first backtest ran and are not tuned on results.**
+#
+# 🔴 **CORRECTED 2026-09-19: that claim is false for s4, and always was.** s4's
+# stop sits behind the FAR edge of a 20-bar Donchian channel, so its D is the
+# channel width plus 0.50 ATR -- and a 20-bar (100-minute) max-minus-min runs
+# several times a 60-minute ATR. Measured over June-August 2026: width/ATR has
+# a median of 4.48 and a MINIMUM of 1.59, so the best D available anywhere in
+# the archive is 2.09 ATR against §10's 2.00 cap. s4 has produced zero
+# suggestions under the dollar band and zero under ATR multiples, and the
+# narrowest bar in three months still misses. The other three stops do land
+# inside; only s4's cannot. See
+# `test_s4_cannot_satisfy_section_10_with_a_stop_behind_the_far_edge`.
 # `walkforward.py` records them in the trial counter regardless.
 
 # --------------------------------------------------------------------------
