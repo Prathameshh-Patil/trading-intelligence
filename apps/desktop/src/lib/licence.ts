@@ -22,18 +22,19 @@ import {
   type LicenceStorage,
 } from "@vision-hub/core";
 
+import { API_BASE } from "./config";
+
 export { KEY_PREFIX, reasonCopy, shortKey, unlocked } from "@vision-hub/core";
 export type { InvalidReason, LicenceState } from "@vision-hub/core";
 export type { Tier } from "@vision-hub/contracts";
 
 /**
- * Where the API lives. `VITE_API_BASE` is the one setting; unset, validation
- * cannot happen and the licence screen says so rather than every key reading
- * as offline.
+ * Where the API lives -- `lib/config.ts`, which is the build's `VITE_API_BASE`
+ * unless a `localStorage` override says otherwise. Unset, validation cannot
+ * happen and the licence screen says so rather than every key reading as
+ * offline.
  */
-export const API_BASE: string | null = import.meta.env.VITE_API_BASE
-  ? String(import.meta.env.VITE_API_BASE).replace(/\/+$/, "")
-  : null;
+export { API_BASE };
 
 // `ti` is the prefix every localStorage key in this app has carried since
 // before the rebrand (`ti.` in `creds.ts`, `ti:` in `storage.ts`). It stays:
