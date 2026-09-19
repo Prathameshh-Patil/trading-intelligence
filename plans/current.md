@@ -209,6 +209,34 @@ is not.** The next gate is **Friday 18 September, 16:00**, whatever it ends up b
 > reason**, per `TRACK_C_BUILD.md` §7. Pinned as a test that fails the day a repair lands.
 > **Merged as PR #13 (`2552c3b`)** — the diagnosis is in `main`; the choice among the four is open.
 >
+> ✅ **Done: `TRACK_C_BUILD.md` §7's run order is complete — steps 3, 4 and 5 ran.** `audit`,
+> `walkforward` and `report` on the 92-day archive; the engine has now run end to end on real bars.
+> **`audit` puts a number on §4's upper bound: entry agreement 56.7%, outcome agreement 60.0% of
+> the 25 trades that resolve at both frames** — 43.3% of 5-minute fills are unconfirmed by the
+> first minute, and 40% of resolvable outcomes flip at 1-minute resolution. Only a tick replay
+> closes it.
+>
+> 🔴 **And `walkforward` returned `s1..s4: KILL`, which is void — §14 needs 42 months and the
+> archive is 3.** `train_m 24 + val_m 6 + holdout_m 12`, so at three months `tuning.folds` returns
+> **0 windows** and `holdout_start` lands **ten months before the first bar** — every trade counts
+> as holdout, and §6 of the report was restating the in-sample table under an out-of-sample
+> heading. **C6 was NaN and C8 was in-sample, so both read `False` by arithmetic, not evidence** —
+> and §7 makes a KILL final with no re-tune. The report was one command away from retiring all four
+> strategies on the *length of the archive*. **Third instance of the same class as §3(2) and §17:**
+> a quantity scored against a horizon that cannot support it.
+> ✅ **Fixed where the lie was — `report` now refuses the verdict** (`walkforward.months_needed` /
+> `supports_gates`), §6's table carries its own ⛔, and `walkforward` prints the note at the
+> terminal where the table gets quoted. A long-enough archive still gets its verdict, pinned.
+> **695 tests (+3), `ruff`/`mypy` clean.**
+> ⛔ **Deliberately not changed: §14's windows, §7's gates, every threshold.** Shrinking `train_m`
+> until three months produces a window is choosing the contract to fit the data in hand.
+> ⚠️ **What survives is not encouraging either:** s1 EV **−0.29R** (11 trades), s2 **−0.23R** (18),
+> s3 +0.31R on **one** trade, s4 **zero**; **no strategy reaches C1's 100 events** (38/57/4/0). So
+> even the measured gates are being asked a question three months cannot answer.
+> ⛔ **Room's call, and now the same one as §13b's and §17's:** pull the remaining ~57 months over
+> HTTP (~1,700 requests) — §7 step 1 asks for `2021-09 … 2026-09` — or amend §14's geometry to
+> something this archive can measure. **The 92 days were a transport test that became the dataset.**
+>
 > ✅ **Done, Varad's call: §10 is now ATR multiples.** `fsm.D_MIN_ATR = 0.8` / `D_MAX_ATR = 2.0`,
 > converted on **GC** — six months of 2025, median 60-minute ATR **$2.56**, so §10's own $2/$5 are
 > 0.78× and 1.95× ATR. **On GC they reproduce $2.05–$5.12, so this restates §10 rather than

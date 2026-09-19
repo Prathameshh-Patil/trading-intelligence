@@ -107,6 +107,15 @@ def cmd_walkforward(a: argparse.Namespace) -> None:
     res = engine.run(bars, XAUUSD, cfg, events=_events())
     _save(res, bars)
     print(_gates(res, bars, cfg).to_string(index=False))
+    span = (bars.index[0], bars.index[-1])
+    if not walkforward.supports_gates(span, cfg):
+        # The table above is printed either way; what changes is whether C6 and
+        # C8 mean anything. Said here as well as in the report, because this is
+        # the command whose output gets read at the terminal and quoted.
+        print(f"\nNOTE: this archive is shorter than the {walkforward.months_needed(cfg)} months "
+              "§14 needs, so there are no validation windows and no separable holdout. C6 and C8 "
+              "read False for every strategy by arithmetic, not by evidence. `report` issues no "
+              "verdict on a run like this.")
 
 
 def cmd_report(a: argparse.Namespace) -> None:
@@ -125,7 +134,10 @@ def cmd_report(a: argparse.Namespace) -> None:
     text = report.render(res=res, cfg=cfg, per_strategy=per, gates=gates, windows=windows,
                          holdout=holdout, trials=trials,
                          span=(bars_span[0], bars_span[-1]),
-                         independent=walkforward.independent(sp, cfg))
+                         independent=walkforward.independent(sp, cfg),
+                         supported=walkforward.supports_gates(
+                             (bars_span[0], bars_span[-1]), cfg),
+                         months_needed=walkforward.months_needed(cfg))
     print(report.write(text, a.name))
 
 

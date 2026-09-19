@@ -231,3 +231,68 @@ def test_at_refuses_an_empty_frame_rather_than_answering() -> None:
         from track_c import suggest
         suggest.at(spot_bars([3400.0]).iloc[:0], XAUUSD, CFG,
                    events=pd.DatetimeIndex([], tz="UTC"))
+
+
+# ---------------------------------------------------------------------------
+# §7's verdict, and the archive length it silently assumes.
+#
+# FOUND 2026-09-19, ON THE FIRST WALK-FORWARD OVER REAL BARS. Three months of
+# XAUUSD produced `s1..s4: KILL`, and not one of those KILLs was a measurement:
+# §14 wants train 24 + val 6 + holdout 12, so at three months `tuning.folds`
+# returns nothing and `holdout_start` lands ten months before the first bar.
+# C6 is NaN for every strategy and C8 re-scores the in-sample trades. §7 makes
+# a KILL final and forbids a re-tune, so a verdict printed from those two gates
+# would have retired all four strategies on the length of the archive.
+#
+# Same shape as `TRACK_C_BUILD.md` §3(2) (six-hour range vs one-hour ATR) and
+# §17 (20-bar channel vs 60-minute ATR): a quantity scored against a horizon
+# that cannot support it.
+
+
+def _gate_rows(names: tuple[str, ...]) -> pd.DataFrame:
+    """A gate table where everything passes, so a KILL can only come from the
+    refusal under test rather than from a number chosen here."""
+    return pd.DataFrame([{"strategy": s, "gate": g, "what": g, "value": 1.0,
+                          "threshold": 0.0, "op": "gt", "pass": True}
+                         for s in names for g in ("C1", "C6", "C8")])
+
+
+def test_three_months_cannot_measure_section_14s_windows_or_holdout() -> None:
+    """The predicate itself, against §14's committed geometry."""
+    from track_c import walkforward
+    need = walkforward.months_needed(CFG)
+    assert need == 24 + 6 + 12, "train and validate must fit BEFORE the holdout, so they add"
+    short = (pd.Timestamp("2026-06-01", tz="UTC"), pd.Timestamp("2026-08-31", tz="UTC"))
+    assert not walkforward.supports_gates(short, CFG)
+    # And the two failures it stands for are real, not just the arithmetic.
+    sp = walkforward.split(pd.date_range(*short, freq="5min"), CFG)
+    assert sp.windows == (), "no validation window exists, so C6 has nothing to average"
+    assert sp.holdout_start < short[0], "the holdout starts before the archive: C8 is in-sample"
+    assert walkforward.supports_gates(
+        (pd.Timestamp("2021-09-01", tz="UTC"), pd.Timestamp("2026-09-01", tz="UTC")), CFG), \
+        "five years is what §7's run order asks for and it must still pass"
+
+
+def test_no_verdict_is_issued_when_the_archive_cannot_measure_the_gates() -> None:
+    """**A KILL is final. It may never come from a gate nothing measured.**"""
+    from track_c import report
+    out = "\n".join(report._verdicts(_gate_rows(config.STRATEGIES),
+                                     supported=False, months_needed=42))
+    assert "NO VERDICT" in out
+    # Not "the word KILL is absent" -- the refusal explains WHY it withholds one
+    # and says "a KILL is final". What must be absent is a verdict PER STRATEGY.
+    for s in config.STRATEGIES:
+        assert f"{s}: KILL" not in out and f"{s}: KEEP" not in out
+    assert "42" in out, "the reader is told how much archive the contract wants"
+
+
+def test_a_long_enough_archive_still_gets_its_verdict() -> None:
+    """The refusal must not swallow the real thing -- `KEEP` when all gates pass,
+    and `KILL` naming the gate when one does not."""
+    from track_c import report
+    gates = _gate_rows(("s1",))
+    assert "s1: KEEP" in "\n".join(
+        report._verdicts(gates, supported=True, months_needed=42))
+    gates.loc[gates["gate"] == "C6", "pass"] = False
+    killed = "\n".join(report._verdicts(gates, supported=True, months_needed=42))
+    assert "s1: KILL" in killed and "C6" in killed

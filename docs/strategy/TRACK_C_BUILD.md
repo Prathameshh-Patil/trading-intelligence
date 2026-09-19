@@ -238,3 +238,52 @@ In order, and each is a commit that runs:
 The gates and every threshold were committed **before** the first run, in this commit. A gate chosen
 after seeing an equity curve is not a gate — and the four strategies' own thresholds are in
 `config/track_c.toml`, each beside the decision that set it.
+
+---
+
+## 8. Amended 2026-09-19 — §7 ran, and step 4 cannot mean what it says on this archive
+
+**Steps 3, 4 and 5 have run** on the 92-day June–August 2026 archive, so §7's order is complete.
+Step 1 and step 2 were already done. The engine has now executed end to end on real bars.
+
+**Step 3, `audit`** — §4's "every number is an upper bound" is now measured, not asserted: of 30
+trades, **entry agreement is 56.7%** and **outcome agreement 60.0%** across the 25 that resolve at
+both frames. 43.3% of 5-minute fills are unconfirmed by the first minute after the signal, and 40%
+of resolvable outcomes flip at 1-minute resolution. **Only a tick replay closes this.**
+
+🔴 **Step 4, `walkforward`, returned `s1..s4: KILL` and that verdict is void.** §14's geometry is
+`train_m 24 + val_m 6 + holdout_m 12` — **42 months before one validation window can exist.** The
+archive is three. So `tuning.folds` returns **zero windows**, `holdout_start` lands **ten months
+before the first bar**, and every trade falls inside a "holdout" that is the whole in-sample run.
+
+| | on this archive |
+| :--- | :--- |
+| validation windows (C6) | **0** — the gate is NaN for every strategy |
+| holdout (C8) | **starts before the archive** — §6 restated §4 under an out-of-sample heading |
+
+**Both gates therefore read `False` for all four strategies by arithmetic, not by evidence** — and
+§7 above says a failing strategy is killed with **no re-tune following**. That finality is the whole
+problem: the report was one command from retiring four strategies on the *length of the archive*.
+
+**This is the third instance of one class of error**, after §3(2)'s six-hour range against a
+one-hour ATR and §6.2/§17's 20-bar channel against a 60-minute ATR: **a quantity scored against a
+horizon that cannot support it**, invisible until something real ran.
+
+**The fix is in the report, not in the contract.** `walkforward.months_needed` and
+`supports_gates` state the requirement; `report` issues **NO VERDICT** and names what was not
+measured; §6's table carries its own warning; `walkforward` prints the same note at the terminal.
+A long-enough archive still gets its verdict, and that is pinned so the refusal cannot swallow a
+real KILL. **695 tests, `ruff` and `mypy` clean.**
+
+⛔ **§14's windows, §7's gates and every strategy threshold are unchanged.** Shortening `train_m`
+until three months yields a window would be choosing the contract to fit the data on hand, which is
+precisely what committing the gate table before the first run exists to prevent.
+
+**What the measured gates do say:** s1 **−0.29 R**/trade over 11 trades, s2 **−0.23 R** over 18,
+s3 +0.31 R over **one**, s4 **zero** as §17 predicted — and **no strategy reaches C1's 100 events**
+(38 / 57 / 4 / 0). Even the gates that were measured are being asked a question three months cannot
+answer. **E1–E4's predictions still gate any claim.**
+
+**The open decision, which is now the same one §6.2 and §17 leave:** pull the remaining ~57 months
+over HTTP — §7 step 1 asks for `2021-09 … 2026-09`, about 1,700 day requests — or amend §14 to a
+geometry this archive can measure. **The 92 days were a transport test that became the dataset.**
