@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <!--
+    Hardened runtime, and only what a signed build of this app actually needs.
+    Notarization requires the hardened runtime; the hardened runtime forbids
+    nothing this app does -- the keychain is the login keychain (no access
+    group), the webview is WKWebView (no JIT entitlement needed for it), and
+    there is no camera, microphone, or location.
+  -->
+  <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+  <false/>
+  <key>com.apple.security.cs.allow-jit</key>
+  <false/>
+  <key>com.apple.security.cs.disable-library-validation</key>
+  <false/>
+  <key>com.apple.security.network.client</key>
+  <true/>
+</dict>
+</plist>

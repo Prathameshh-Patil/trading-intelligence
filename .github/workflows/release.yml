@@ -1,0 +1,158 @@
+# Desktop installers, as a DRAFT GitHub Release. A human presses Publish.
+#
+# Two ways in:
+#   - push a tag `desktop-v0.1.0`  -> URLs come from the repo variables
+#                                     DESKTOP_API_BASE and DESKTOP_SITE_URL
+#   - Run workflow (dispatch)      -> URLs come from the inputs; for staging
+#                                     builds, or before row #4 has decided
+#                                     where the API lives
+#
+# The two URLs are BAKED INTO THE BINARY by Vite (`apps/desktop/src/lib/config.ts`
+# says how a tester overrides them at runtime). A release built with a
+# localhost URL cannot activate on anyone else's machine, which is why the
+# release is a draft and why the body states the URLs it was built against.
+#
+# Signing, in order of what exists today:
+#   - Updater signature (.sig + latest.json): TAURI_SIGNING_PRIVATE_KEY and
+#     TAURI_SIGNING_PRIVATE_KEY_PASSWORD. The public half is in
+#     tauri.conf.json; the private half was generated outside the repo.
+#     Required -- a release without .sig files cannot be auto-updated to later.
+#   - macOS Developer ID + notarization: APPLE_CERTIFICATE (base64 .p12),
+#     APPLE_CERTIFICATE_PASSWORD, APPLE_SIGNING_IDENTITY, APPLE_ID,
+#     APPLE_PASSWORD (an app-specific password), APPLE_TEAM_ID. Optional:
+#     tauri-action signs and notarizes when they are set and builds an
+#     ad-hoc-signed app when they are not. Gatekeeper BLOCKS the ad-hoc one
+#     ("damaged"); a tester right-clicks -> Open once. Nothing here changes
+#     the day the Developer account exists -- add the six secrets.
+#   - Windows: unsigned, on purpose. Azure's signing service does not
+#     validate Indian organisations and an OV certificate is $215-260/yr plus
+#     a hardware token; the plan buys one at ~50 users. SmartScreen says
+#     "Windows protected your PC" -> More info -> Run anyway, and the release
+#     body says so.
+#
+# Linux is absent: untested (`plans/current.md` row B), and a build nobody has
+# run is a download that fails on someone else's machine.
+name: Desktop release
+
+on:
+  push:
+    tags: ["desktop-v*"]
+  workflow_dispatch:
+    inputs:
+      api_base:
+        description: "VITE_API_BASE baked into the build (e.g. https://api.example.com)"
+        required: true
+        type: string
+      site_url:
+        description: "VITE_SITE_URL baked into the build (e.g. https://example.com)"
+        required: true
+        type: string
+      prerelease:
+        description: "Mark the draft as a pre-release"
+        required: false
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: desktop-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-14
+            target: aarch64-apple-darwin
+            label: macOS (Apple silicon)
+          - os: macos-13
+            target: x86_64-apple-darwin
+            label: macOS (Intel)
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            label: Windows
+
+    name: ${{ matrix.label }}
+    runs-on: ${{ matrix.os }}
+
+    env:
+      # Dispatch inputs win; a tag push reads the repo variables. Either way
+      # the values are stated in the release body below.
+      VITE_API_BASE: ${{ inputs.api_base || vars.DESKTOP_API_BASE }}
+      VITE_SITE_URL: ${{ inputs.site_url || vars.DESKTOP_SITE_URL }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Refuse a build with no API address
+        shell: bash
+        run: |
+          if [ -z "$VITE_API_BASE" ] || [ -z "$VITE_SITE_URL" ]; then
+            echo "::error::VITE_API_BASE and VITE_SITE_URL must be set (dispatch inputs, or the DESKTOP_API_BASE / DESKTOP_SITE_URL repo variables). A build without them cannot activate."
+            exit 1
+          fi
+          case "$VITE_API_BASE" in
+            http://localhost*|http://127.0.0.1*)
+              echo "::warning::VITE_API_BASE is $VITE_API_BASE -- this build only activates on a machine running the API locally. Do not publish it." ;;
+          esac
+
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop/src-tauri
+
+      - name: Install workspace
+        run: pnpm install --frozen-lockfile
+
+      - name: Build and upload to a draft release
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        with:
+          projectPath: apps/desktop
+          tauriScript: pnpm tauri
+          # Updater artifacts are switched on here rather than in
+          # tauri.conf.json so a local `pnpm tauri build` needs no signing key.
+          args: --target ${{ matrix.target }} --config '{"bundle":{"createUpdaterArtifacts":true}}'
+          tagName: desktop-v__VERSION__
+          releaseName: "Vision Hub desktop v__VERSION__"
+          releaseDraft: true
+          prerelease: ${{ inputs.prerelease == true }}
+          includeUpdaterJson: true
+          releaseBody: |
+            Built against `${{ env.VITE_API_BASE }}` (site `${{ env.VITE_SITE_URL }}`).
+
+            ## Install
+
+            **macOS** — open the `.dmg`, drag Vision Hub to Applications. Apple silicon: `aarch64`; Intel: `x64`.
+            If this build is not notarized yet, macOS says it is damaged: right-click the app → **Open** → **Open** once, and it runs from then on.
+
+            **Windows** — run `Vision-Hub_*_x64-setup.exe`. It installs for your user only, no admin needed.
+            Windows will say **"Windows protected your PC"**. Click **More info → Run anyway**. The installer is not code-signed yet — a signing certificate is bought once the first fifty traders are on — and this is what an unsigned installer looks like, not a fault in the download.
+
+            ## First run
+
+            The app opens on its **Licence** screen. Paste the `vh_live_…` key from your account page. It is checked with Vision Hub, stored in your OS keychain, and re-checked every six hours; if Vision Hub cannot be reached the app keeps working for seven days on the last good check.
+
+            The `.sig` files and `latest.json` are for the in-app updater and are not something to download.

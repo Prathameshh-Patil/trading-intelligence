@@ -42,6 +42,10 @@ import { api } from '@/lib/api'
 import { useLive, useLiveStatus } from '@/lib/live'
 import { useSession } from '@/lib/session'
 
+// The installers' home. Unset until the first release exists, and the paragraph
+// below points only at the onboarding call.
+const DOWNLOAD_URL = process.env.NEXT_PUBLIC_DOWNLOAD_URL
+
 /** Polling cadence when the stream is not open. */
 const POLL_MS = 15_000
 
@@ -217,7 +221,14 @@ export default function AccountPage() {
           <p className="mt-6 text-dim">
             Next: install the app, connect your own feed, and book the onboarding call. We do one
             with every subscriber, and it is where install problems go to die.{' '}
-            <Link href="/contact" className="text-violet-lift">Book it →</Link>
+            {DOWNLOAD_URL && (
+              <>
+                <a href={DOWNLOAD_URL} className="text-violet-lift" target="_blank" rel="noreferrer">
+                  Download the app →
+                </a>{' '}
+              </>
+            )}
+            <Link href="/contact" className="text-violet-lift">Book the call →</Link>
           </p>
         </>
       ) : (
