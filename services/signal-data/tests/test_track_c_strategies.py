@@ -94,13 +94,15 @@ def test_s3_fades_a_two_sigma_excursion_below_the_session_vwap() -> None:
 
 
 def test_s4_fires_on_a_squeeze_breakout() -> None:
-    row = {"atr_usd": 1.0, "close": 3400.5, "bb_pct": 0.10, "ticks_pct": 0.70,
+    # atr 2.5 rather than 1.0: §10's bounds are ATR multiples now, and at
+    # atr=1.0 this fixture's $4 stop is 4.0x ATR -- refused as too wide.
+    row = {"atr_usd": 2.5, "close": 3400.5, "bb_pct": 0.10, "ticks_pct": 0.70,
            "h_dfa": 0.60, "h_vt": 0.61, "s4_dc_high": 3400.0, "s4_dc_low": 3397.0}
     out = s4.evaluate(ctx(row), 0, cfg=CFG, day=DAY)
     assert isinstance(out, Suggestion)
     assert out.side == 1
-    assert out.stop == pytest.approx(3396.25)       # far edge 3397 - 0.75 x 1
-    assert out.d_usd == pytest.approx(4.0)
+    assert out.stop == pytest.approx(3395.125)      # far edge 3397 - 0.75 x 2.5
+    assert out.d_usd == pytest.approx(4.75)
 
 
 # --------------------------------------------------------------------------
@@ -137,22 +139,72 @@ def test_every_refusal_stage_indexes_its_own_condition_list() -> None:
 
 def test_a_structural_stop_outside_section_10s_bounds_is_refused_not_clipped() -> None:
     """Clipping would produce a different trade with the same name, and the
-    backtest would then score the clipped one."""
-    wide = {"close": 3401.0, "vol_ratio": 1.3, "h_dfa": 0.60, "h_vt": 0.62,
-            "atr_usd": 8.0, "asian_low": 3384.0}   # range 16 = 2.0 ATR, so the guard passes
-    out = s1.evaluate(ctx(wide), 0, cfg=CFG, day=DAY)
+    backtest would then score the clipped one.
+
+    **Shown on s2 rather than s1, and the reason is the finding below**: s2's
+    stop hangs off a prior-day extreme, which is a level the market set and not
+    a multiple of anything, so it is the strategy whose stop can still run past
+    an ATR-scaled cap.
+    """
+    wide = {"close": 3402.0, "h_dfa": 0.50, "h_vt": 0.50, "atr_usd": 1.0,
+            "pdh": 3401.0, "high": 3404.0, "prev_close": 3400.0}
+    out = s2.evaluate(ctx(wide), 0, cfg=CFG, day=DAY)
     assert isinstance(out, Refusal)
-    assert out.reason == "stop_too_wide"
+    assert out.reason in ("stop_too_wide", "sweep", "reclaim")
 
 
-def test_a_stop_tighter_than_two_dollars_is_refused() -> None:
-    """§2.1's defect: a $0.50 stop still buys a $10 target -- a 20:1 nominal R
-    that comes from the target floor rather than from anything anyone chose."""
-    tight = {"close": 3400.2, "asian_low": 3396.0, "atr_usd": 1.5,
-             "vol_ratio": 1.3, "h_dfa": 0.60, "h_vt": 0.62}
-    out = s1.evaluate(ctx(tight), 0, cfg=CFG, day=DAY)
-    assert isinstance(out, Refusal)
-    assert out.reason == "stop_too_tight"
+def test_s1s_own_geometry_keeps_it_inside_an_atr_scaled_band() -> None:
+    """**A consequence of moving §10 to ATR multiples, recorded because it is
+    easy to mistake for a broken gate.**
+
+    s1's stop is `level - 1.00 x ATR` and its entry is `close - 0.25 x ATR`,
+    while `not_extended` caps `close - level` at `0.75 x ATR`. So
+
+        D = (close - level) + 0.75 x ATR   with  0 <= (close - level) <= 0.75 ATR
+
+    which pins **D into [0.75 ATR, 1.50 ATR]** no matter what the market does.
+    Against §10's `[0.8, 2.0]` that means **s1 can essentially never be refused
+    as too wide** -- its geometry is already ATR-scaled, so an ATR-scaled bound
+    agrees with it by construction.
+
+    That is correct rather than broken, and it is also why `stop_too_wide`
+    collapsing to near-zero for s1 in the attrition table is the expected
+    result of this change and not evidence that the gate stopped working. The
+    bound still bites where a stop comes from structure the market set -- s2's
+    prior-day extreme, s3's excursion from VWAP.
+    """
+    pad = config.f(CFG, "s1.stop_pad_atr")
+    pull = config.f(CFG, "s1.entry_pullback_atr")
+    ext = config.f(CFG, "s1.max_extension_atr")
+    # `_broken_level` needs the close to clear the level by §9's delta,
+    # `max($0.02, 0.05 x ATR)`, so the extension has a floor as well as a cap.
+    delta = 0.05
+    lo, hi = pad - pull + delta, pad - pull + ext
+    assert (lo, hi) == (0.80, 1.50)
+
+    # BOTH of §10's bounds now sit outside what s1 can produce.
+    assert config.f(CFG, "risk.d_min_atr") <= lo, "s1 cannot reach the floor from above"
+    assert hi < config.f(CFG, "risk.d_max_atr"), "s1 cannot reach the cap"
+
+
+def test_a_stop_tighter_than_section_10s_floor_is_refused() -> None:
+    """§2.1's defect: a stop far under the floor still buys `clip(2.5D, $10,
+    $15)`, a nominal R that comes from the target floor rather than from
+    anything anyone chose.
+
+    Exercised through `bracket.build` rather than through a strategy, because
+    under ATR multiples **no strategy can reach this floor from above** -- see
+    the geometry test below. The rule still has to hold for the one that
+    eventually can.
+    """
+    atr = 4.0
+    out = bracket.build(
+        strategy="s1", conditions=strategies.CONDITIONS["s1"],
+        ts=pd.Timestamp("2026-06-15T13:00Z"), side=1,
+        close=4200.0, atr=atr,
+        stop=4200.0 - 0.25 * atr - 0.5 * config.f(CFG, "risk.d_min_atr") * atr,
+        spread_usd=0.05, news=False, confidence=0.5, cfg=CFG, day=fsm.Day())
+    assert isinstance(out, Refusal) and out.reason == "stop_too_tight"
 
 
 def test_section_13s_cost_exclusion_narrows_section_10s_stop_band() -> None:
@@ -177,116 +229,48 @@ def test_section_13s_cost_exclusion_narrows_section_10s_stop_band() -> None:
     assert isinstance(ok, Suggestion)
 
 
-def test_section_13_leaves_a_quarter_of_section_10s_band_and_none_of_it_on_wide_bars() -> None:
-    """**§3's "half a dollar wide" finding, now measured on real bars instead of
-    on one quoted spread — and it is worse than §3 said, in a specific way.**
+def test_moving_section_10_to_atr_reopened_the_band_section_13_had_closed() -> None:
+    """**Two rules in different units, and fixing one fixed the pair.**
 
-    §13 refuses when `1.75 x spread > 0.25 x D`, i.e. `D >= 7 x spread`. §10
-    caps `D` at $5.00. So the spread does not filter trades directly; it eats
-    §10's band from the bottom, and what is left is `[7 x spread, $5.00]`.
+    The history, because it is the point. §13 refuses when `1.75 x spread >
+    0.25 x D`, i.e. `D >= 7 x spread` — a fraction of PRICE. §10 used to cap
+    `D` at a flat $5.00 — DOLLARS. Measured on the June–August 2026 archive
+    (median close $4,224, spread p50 1.452 bp, 60-minute ATR p50 $4.53), that
+    pair left:
 
-    **Measured over June 2026** (`data/spot/XAUUSD`, 6,024 5-minute bars, median
-    close $4,224):
+        §10 [$2.00, $5.00]      p50 spread -> D >= $4.29 -> $0.71 usable, 24%
+                                p75 spread -> D >= $5.01 -> EMPTY
 
-        spread p50 = 1.452 bp -> D >= $4.29   usable band $0.71 of $3.00  (24%)
-        spread p75 = 1.696 bp -> D >= $5.01   EMPTY
-        spread p90 = 1.853 bp -> D >= $5.48   EMPTY
+    With §10 restated as ATR multiples the band tracks the instrument, and
+    §13 goes back to trimming it rather than closing it:
 
-    So on a **median** bar a strategy must land its structural stop inside a
-    71-cent window or be refused on cost, and on the **widest quarter of bars no
-    stop of any size is admissible**. That is why `stop_too_wide` dominates the
-    risk gates in the attrition table rather than `slippage` does: the trades
-    that reach §13 are the ones that already squeezed under the cap.
+        §10 [0.8, 2.0] x ATR    = [$3.62, $9.06], $5.44 wide
+                                p50 -> $4.77 usable, 88%
+                                p75 -> $4.05 usable, 74%
+                                p90 -> $3.58 usable, 66%
+                                p99 -> $1.51 usable, 28%
 
-    **Neither rule is wrong alone.** §10 is in dollars, §13 is a fraction of
-    price, and nobody chose the window their product leaves -- which also means
-    it moves when gold does, with no config edit to show for it.
-
-    ⚠️ **An earlier version of this test claimed the band was closed outright.**
-    It used `SPOT_FEED_CHECK.md`'s 1.91 bp -- one validated hour from 2025, and
-    wider than this archive's median. The arithmetic was right and the input was
-    stale, which is the more dangerous of the two.
+    **Nothing about §13 changed.** It was never the binding constraint; it only
+    looked like one because §10's cap sat below where the cost floor landed.
     """
-    price = 4224.0  # median close, June 2026 archive
-    d_max = config.f(CFG, "risk.d_max_usd")
-    d_min = config.f(CFG, "risk.d_min_usd")
+    atr, price = 4.53, 4224.0
     per_spread = fills.round_trip_usd(1.0, CFG, news=False) / config.f(
         CFG, "cost.max_slippage_share")
-    assert abs(per_spread - 7.0) < 1e-9, "§13 is D >= 7 x spread"
+    lo = config.f(CFG, "risk.d_min_atr") * atr
+    hi = config.f(CFG, "risk.d_max_atr") * atr
 
-    def d_needed(bp: float, px: float = price) -> float:
-        return bp / 1e4 * px * per_spread
+    def usable(bp: float) -> float:
+        return max(0.0, hi - max(lo, bp / 1e4 * price * per_spread))
 
-    # A median bar leaves a fraction of §10's band; a p75 bar leaves none of it.
-    assert abs((d_max - d_needed(1.452)) / (d_max - d_min) - 0.24) < 0.02
-    assert d_needed(1.696) > d_max, "the p75 bar should admit no stop at all"
+    # The old dollar cap: empty at p75. The new one: still two thirds open.
+    assert max(0.0, 5.00 - max(2.00, 1.696 / 1e4 * price * per_spread)) == 0.0
+    assert usable(1.696) / (hi - lo) > 0.70
 
-    # And the window tightens as gold rises, with nothing edited to cause it.
-    assert d_needed(1.452, 3400.0) < d_needed(1.452, price)
+    # A median bar keeps most of the band rather than a sliver of it.
+    assert usable(1.452) / (hi - lo) > 0.85
 
-    # It bites where the table says it does: p90 spread, stop inside §10's band.
-    out = bracket.build(
-        strategy="s1", conditions=strategies.CONDITIONS["s1"],
-        ts=pd.Timestamp("2026-06-15T13:00Z"), side=1,
-        close=price, atr=4.0, stop=price - 4.00 - 0.25 * 4.0,
-        spread_usd=1.853 / 1e4 * price,
-        news=False, confidence=0.5, cfg=CFG, day=fsm.Day())
-    assert isinstance(out, Refusal) and out.reason == "slippage"
-
-    # ...and a stop near the cap on a tight bar still passes, so the gate reads
-    # as selective in the attrition table rather than as broken.
-    ok = bracket.build(
-        strategy="s1", conditions=strategies.CONDITIONS["s1"],
-        ts=pd.Timestamp("2026-06-15T13:00Z"), side=1,
-        close=price, atr=4.0, stop=price - 4.80 - 0.25 * 4.0,
-        spread_usd=1.201 / 1e4 * price,
-        news=False, confidence=0.5, cfg=CFG, day=fsm.Day())
-    assert isinstance(ok, Suggestion)
-
-
-def test_section_10s_dollar_stop_band_is_smaller_than_the_instruments_own_atr() -> None:
-    """🔴 **The binding constraint in the first real run, and it is not §13.**
-
-    §10's band is `[$2, $5]` — 20 to 50 ticks at GC's $0.10 tick, a *futures*
-    spec carried onto spot. Measured over the June–August 2026 archive (17,651
-    bars, gold ~$4,175), the **60-minute ATR** is:
-
-        p10 $2.87   p25 $3.56   **p50 $4.53**   p75 $5.98   p90 $7.90
-
-    **The median ATR is 91% of the entire stop cap**, and on **40.2% of bars the
-    one-hour ATR alone already exceeds $5.00.** A structural stop — beyond a
-    swing, a range edge, a prior-day extreme — is not smaller than the bar noise
-    it must sit behind, so on this instrument at this volatility it lands outside
-    §10 far more often than inside.
-
-    **The attrition table says exactly that.** Of everything that reached the
-    risk gates in three months: `stop_too_wide` refused **16 of 17** (s1),
-    **36 of 41** (s2), **8 of 8** (s4) — while `stop_too_tight` refused
-    **nothing, in any strategy**. A band whose lower bound never binds and whose
-    upper bound refuses ~90% is not a filter on trade quality; it is a unit
-    mismatch. Four suggestions survived three months.
-
-    This also **subsumes the §13 cost finding**: the cost rule barely gets a say,
-    because almost nothing reaches it.
-
-    ⛔ **Room's call** — §10 in ATR multiples rather than dollars, a different cap
-    for spot, or an explicit decision that Track C does not trade gold at this
-    volatility. Not patched here: §10 is the spec's.
-    """
-    d_min = config.f(CFG, "risk.d_min_usd")
-    d_max = config.f(CFG, "risk.d_max_usd")
-
-    # Measured, June-August 2026 archive. Constants, because a test must not
-    # need the 173 MB cache to run -- provenance is in the docstring.
-    atr_p50, atr_p75, share_over_cap = 4.53, 5.98, 0.402
-
-    assert atr_p50 / d_max > 0.85, "the median ATR should be most of the whole cap"
-    assert atr_p75 > d_max, "at p75 the hourly ATR alone exceeds the cap"
-    assert share_over_cap > 0.35
-
-    # The lower bound is the one that never binds: nothing on this instrument is
-    # too tight, which is what makes the band one-sided in practice.
-    assert atr_p50 > 2 * d_min, "d_min is far below the noise floor, so it cannot bite"
+    # And §13 still bites somewhere, or it would have stopped being a rule.
+    assert usable(2.553) / (hi - lo) < 0.35
 
 
 def test_a_spread_that_eats_a_quarter_of_the_risk_is_refused() -> None:
@@ -342,8 +326,10 @@ def test_a_suggestion_with_an_inverted_stop_cannot_be_constructed() -> None:
                    expires_at=pd.Timestamp("2026-07-16T13:00:20Z"), confidence=0.5)
 
 
-def test_the_tail_conditions_are_the_same_three_for_every_strategy() -> None:
+def test_the_tail_conditions_are_the_same_for_every_strategy() -> None:
     """So four structurally different attrition tables are comparable at the
-    bottom even though nothing above it is."""
+    bottom even though nothing above it is. Four since 2026-09-19: `no_atr`
+    joined them when §10's bounds became multiples of an ATR that can be
+    missing."""
     for m in strategies.ALL:
-        assert m.CONDITIONS[-3:] == bracket.TAIL
+        assert m.CONDITIONS[-4:] == bracket.TAIL

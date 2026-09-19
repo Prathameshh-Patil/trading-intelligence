@@ -30,7 +30,7 @@ ASIA_BARS = 72          # 6 hours of 5-minute bars
 
 def test_config_loads_and_agrees_with_the_modules_it_restates() -> None:
     cfg = config.load()
-    assert config.f(cfg, "risk.d_min_usd") == 2.0
+    assert config.f(cfg, "risk.d_min_atr") == 0.8
     assert config.windows(cfg, "s3") == ((time(8, 0), time(11, 30)),
                                          (time(13, 30), time(15, 30)))
 
@@ -43,8 +43,8 @@ def test_a_missing_key_names_itself() -> None:
 def test_a_restatement_that_drifts_is_refused() -> None:
     """The guard that stops the TOML and `fsm.py` quietly disagreeing."""
     cfg = config.load()
-    cfg["risk"]["d_min_usd"] = 1.0
-    with pytest.raises(ValueError, match="disagrees with fsm.D_MIN_USD"):
+    cfg["risk"]["d_min_atr"] = 1.0
+    with pytest.raises(ValueError, match="disagrees with fsm.D_MIN_ATR"):
         config.require(cfg)
 
 
