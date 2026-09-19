@@ -83,14 +83,10 @@ def validate(
     # route that must not be a free oracle for guessing keys, and an office of
     # desktops behind one address that must not read as one.
     try:
-        row = keys.lookup(db, x_api_key)
+        row, reason = keys.resolve(db, x_api_key)
         if row is None:
-            return ValidateResponse(valid=False, reason="unknown", **NOT_VALID)
-        if row.status == "revoked" or row.user.status != "approved":
-            return ValidateResponse(valid=False, reason="revoked", **NOT_VALID)
+            return ValidateResponse(valid=False, reason=reason, **NOT_VALID)
         now = datetime.now(UTC)
-        if row.expires_at is not None and row.expires_at < now:
-            return ValidateResponse(valid=False, reason="expired", **NOT_VALID)
         first = row.last_validated_at is None
         row.last_validated_at = now
         db.commit()

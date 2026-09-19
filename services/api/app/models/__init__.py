@@ -1,4 +1,5 @@
 from app.models.user import (
+    Alert,
     ApiKey,
     AuditLog,
     Payment,
@@ -11,6 +12,7 @@ from app.models.user import (
 )
 
 __all__ = [
+    "Alert",
     "ApiKey",
     "AuditLog",
     "Payment",

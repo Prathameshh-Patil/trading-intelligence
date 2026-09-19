@@ -6,6 +6,8 @@ from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes.admin import router as admin_router
+from app.api.routes.alerts import admin_router as admin_alerts_router
+from app.api.routes.alerts import router as alerts_router
 from app.api.routes.analyze import router as analyze_router
 from app.api.routes.auth import router as auth_router
 from app.api.routes.events import router as events_router
@@ -17,6 +19,7 @@ from app.api.routes.site import router as site_router
 from app.api.routes.tickets import router as tickets_router
 from app.api.routes.waitlist import router as waitlist_router
 from app.api.routes.wellknown import router as wellknown_router
+from app.api.routes.ws import router as ws_router
 from app.config import settings
 from app.core.origins import ORIGIN_REGEX
 from app.db.session import SessionLocal
@@ -94,3 +97,6 @@ app.include_router(tickets_router, prefix="/api/v1")
 app.include_router(waitlist_router, prefix="/api/v1")
 app.include_router(events_router, prefix="/api/v1")
 app.include_router(admin_router, prefix="/api/v1")
+app.include_router(alerts_router, prefix="/api/v1")
+app.include_router(admin_alerts_router, prefix="/api/v1")
+app.include_router(ws_router, prefix="/api/v1")
