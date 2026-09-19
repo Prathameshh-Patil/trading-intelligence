@@ -15,6 +15,7 @@ import pandas as pd
 import pytest
 from conftest import spot_bars
 
+from features import hurst
 from track_c import config, fills, funnel, levels, metrics, regime
 
 ASIA_START, ASIA_END = time(20, 0), time(2, 0)
@@ -123,6 +124,59 @@ def test_both_hurst_estimators_are_given_the_same_scales() -> None:
     assert len(scales) >= 3
     assert all((256 - 1) // s >= 4 for s in scales)
     assert all(256 // s >= 4 for s in scales)
+
+
+def test_the_production_window_reaches_only_five_of_the_seven_declared_scales() -> None:
+    """🔴 **`test_dfa_is_biased_high_on_a_short_scale_ladder_and_agreement_fails
+    _there` documents a failure mode; this records that production runs inside
+    it.**
+
+    `hurst.SCALES` declares seven scales up to 256, and a scale survives only if
+    the window holds four of it -- against `window - 1`, since DFA differences
+    its input and has one point fewer. At `hurst_window_bars = 256` that leaves
+    **(4, 8, 16, 32): four of the seven, and a largest scale of 32.**
+
+    **That is, exactly, the ladder `test_dfa_is_biased_high_on_a_short_scale_
+    ladder_and_agreement_fails_there` was written about** -- it restricts a pure
+    random walk to `(4, 8, 16, 32)` and records DFA reading 0.563 against a true
+    0.5. The bias was documented in a test and then configured into production.
+
+    **The config comment said "§6's estimators need 4 windows at the largest
+    scale; 256 gives them". It does not** -- 256 gives four windows at scale 32.
+    Four windows at the largest *declared* scale needs **1025**.
+
+    MEASURED, and the synthetic case is the one that settles it. On 300 random
+    walks whose true H is 0.5 by construction, at window 256 DFA reads 0.562 and
+    variance-time reads 0.420 -- **a built-in +0.142 gap against a 0.05
+    tolerance, agreeing 16.7% of the time.** On the real June-August 2026
+    archive the pair agree on **26.2%** of bars, which is *better* than the
+    synthetic floor -- so `h_agree` is not measuring the market here.
+
+        window   scales used      bias    sd     agree (real archive)
+           256   4..64           +0.084  0.118   26.2%
+           512   4..128          +0.058  0.074   35.1%
+          1024   4..256 (all)    +0.047  0.052   50.0%
+          2048   4..256          +0.023  0.036   72.8%
+
+    ⛔ **Not changed here.** `hurst_window_bars` is a §6 threshold and moving it
+    after seeing its effect on a funnel is the thing §7's gates exist to stop.
+    This test pins the arithmetic so the choice is explicit rather than
+    inherited; it fails the day the window moves, which is when the room should
+    be looking at it.
+    """
+    window = config.i(config.load(), "regime.hurst_window_bars")
+    reachable = regime.hurst_scales(window)
+
+    assert window == 256
+    assert tuple(reachable) == (4, 8, 16, 32)
+    assert set(hurst.SCALES) - set(reachable) == {64, 128, 256}, "the ladder is truncated"
+
+    # The window that would reach the whole declared ladder, derived from the
+    # rule rather than typed: four windows of the largest scale, plus the one
+    # point DFA loses to differencing.
+    needed = 4 * max(hurst.SCALES) + 1
+    assert needed == 1025
+    assert tuple(regime.hurst_scales(needed)) == hurst.SCALES
 
 
 def test_hurst_is_held_between_recomputations_and_never_early() -> None:

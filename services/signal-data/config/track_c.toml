@@ -73,7 +73,16 @@ atr_window = "60min"           # clock window, not bar count -- spot drops empty
 atr_min_bars = 8               # a 60-minute ATR off fewer than 8 bars is an average of a gap
 yz_fast_bars = 12              # §2's n = 12 (one hour)
 yz_slow_bars = 288             # §2's n = 288 (one day) -- the baseline a "ratio" is a ratio TO
-hurst_window_bars = 256        # §6's estimators need 4 windows at the largest scale; 256 gives them
+hurst_window_bars = 256        # ⚠️ CORRECTED 2026-09-19: this said "§6's estimators need 4 windows
+                               # at the largest scale; 256 gives them". IT DOES NOT. `_usable_scales`
+                               # keeps s only if (window-1)//s >= 4 -- DFA differences its input --
+                               # so 256 reaches only (4, 8, 16, 32): FOUR of the seven rungs of
+                               # `hurst.SCALES`, largest scale 32. Four windows at the largest
+                               # DECLARED scale needs 1025. On that short ladder DFA is
+                               # biased high -- on random walks with a true H of 0.5 it reads 0.562
+                               # against variance-time's 0.420, a +0.142 gap on a 0.05 tolerance --
+                               # which is why `h_agree` refuses ~3 bars in 4. Left at 256 pending a
+                               # §6 decision; see test_the_production_window_reaches_only_five...
 hurst_step_bars = 12           # recomputed hourly and held between. H is a property of a 256-bar
                                # window; recomputing it per bar moves it by less than its own
                                # estimation error and costs ~12x the runtime
