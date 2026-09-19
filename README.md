@@ -104,47 +104,50 @@ dev` runs the same UI as a plain page, with the key held in memory.
 
 ## Extension
 
-`apps/extension/dist` is **committed**, so a fresh clone can load the extension straight away
-with no build step:
+The overlay in browser form: a floating panel on TradingView, cTrader Web and the MT5 web
+terminal, gated by the same licence key as the desktop app, fed by the same API. Chrome and
+Firefox, Manifest V3. `apps/extension/dist` (Chrome) and `apps/extension/dist-firefox`
+(Firefox) are **committed**, so a fresh clone loads either with no build step:
 
-```sh
-git clone … && cd trading-intelligence
-```
-
-The same `dist` loads in both browsers:
-
-- **Chrome** — `chrome://extensions`, Developer mode on, "Load unpacked", pick `dist`.
+- **Chrome** — `chrome://extensions`, Developer mode on, "Load unpacked", pick
+  `apps/extension/dist`.
 - **Firefox** — `about:debugging#/runtime/this-firefox`, "Load Temporary Add-on…", pick
-  `dist/manifest.json`. Firefox MV3 treats `host_permissions` as opt-in, so if Analyze fails
-  with a network error, grant the localhost permission from the add-on's permissions panel.
+  `apps/extension/dist-firefox/manifest.json`.
+
+Then: click the toolbar icon, set the API address under Settings if the build has none baked
+in (the committed `dist` does not), paste the `vh_live_…` key from your account page, open a
+chart on one of the four hosts. The panel floats top-right; drag it by its header, collapse it
+with ▾, and its place is remembered per site. **Sync chart** reads the symbol, timeframe and
+last price from the page, on your click only, and shows them in the panel — nothing read from
+the page leaves it. Alerts arrive over a WebSocket: *breaking* as a banner, *signal* as a badge
+count, *analysis* in the list; each tier's treatment is a setting in the popup.
 
 The `browser_specific_settings.gecko.id` in the manifest is the add-on's permanent identity in
 Firefox. Do not regenerate it — changing it after release makes existing installs a different
-add-on rather than an update.
+add-on rather than an update. `public/manifest.json` is the one source; the Firefox copy is
+derived by `scripts/firefox-manifest.mjs` at build time.
 
 ### If you change anything under `apps/extension/src`
 
-Because `dist` is committed, it can go stale — the repo saying one thing while the loaded
-extension does another. Rebuild and commit it in the same commit as the source change:
+Because both `dist` folders are committed, they can go stale — the repo saying one thing while
+the loaded extension does another. Rebuild and commit them in the same commit as the source
+change:
 
 ```sh
 cd apps/extension
-pnpm install          # first time only
-pnpm build
-git status            # dist/ should appear — commit it with your src change
+pnpm build            # tsc, the popup+worker build, the content-script build, the Firefox manifest
+git status            # dist/ and dist-firefox/ should appear — commit them with your src change
 ```
 
 Vite hashes the asset filenames, so a real source change always shows up in `git status` after
 a build. **A clean `git status` after `pnpm build` means `dist` is current**; a dirty one you
 did not expect means someone committed source without rebuilding.
 
-`pnpm dev` runs the popup as a plain web page for faster iteration, and does not touch `dist`.
-
-To use it: highlight text on any page, then open the popup and click **Analyze**. The popup
-reads the selection via `activeTab` at the moment you open it — there is no content script and
-no standing permission on any site. It posts to `http://localhost:8000`, so the backend above
-must be running; Chrome blocks reading the selection on `chrome://` pages, the Web Store and
-the PDF viewer.
+`pnpm dev` runs a **harness** at `/dev/harness.html`: a fake chart page with the real service
+worker, content panel and popup running in one tab over a `chrome.*` stub, against whatever
+API `VITE_API_BASE` names. Everything but "Load unpacked" can be checked there — activation,
+drag, chart sync, all three alert tiers (`POST /api/v1/admin/alerts` with an admin token), and
+revocation re-gating the panel.
 
 ## Project tracking
 

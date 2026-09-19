@@ -2496,6 +2496,42 @@ up from 87; `ruff`, `mypy` clean; `tsc` and `vite build` clean for the desktop.
       dropped the 18 Sep Vision Hub entry, the 19 Sep four-fixes entry and the 3 Sep row's
       amendment — the same loss Varad caught and restored in the daily update. Back in, verbatim.
 
+### 2026-09-19 (late) — the extension becomes the overlay: a floating panel on TradingView, cTrader and MT5 Web, gated by the same key · [`daily_updates/2026-09-19.md`](../daily_updates/2026-09-19.md) §21
+
+**The desktop app in browser form, for a trader who would rather not install one.** Three
+things had to exist first and none did: a shared licence state machine, an alert model with a
+push channel a key-holding client can open, and a content script -- which reverses a recorded
+principle, on purpose and in writing.
+
+- [x] **`@vision-hub/core`** — `apps/desktop/src/lib/licence.ts`'s state machine moved out
+      behind a `LicenceStorage` seam (keychain on the desktop, `chrome.storage` in the
+      extension) and `reasonCopy` with it, so both apps say the same thing about the same
+      reason. The desktop file is now ~60 lines of adapter; `tsc` and `vite build` clean.
+- [x] **`services/api`** — `alerts` table + migration; `POST /admin/alerts` (audited, fanned
+      out), `GET /admin/alerts` paged, `GET /alerts?since=` behind the key (the reconnect
+      catch-up); **`WS /api/v1/ws`** authenticated by the key in its first frame, `Origin`
+      checked by hand (CORS does not apply to sockets), the validate budget spent on the
+      attempt, alerts and the owner's key events fanned in, close 4401 on rotate / revoke /
+      reject / suspend, six-hourly re-check. `keys.resolve` is S3's decision in one place. No
+      new dependency. **117 tests**, ruff, mypy.
+- [x] **`apps/extension`, rebuilt** — MV3, `permissions: storage, alarms`, four hosts and no
+      `activeTab`/`scripting`/`<all_urls>`; a popup that is the desktop Licence screen in
+      miniature plus tier settings and the API address; a service worker holding the key and
+      the socket (25s pings keep the worker alive); a shadow-root panel, draggable and
+      collapsible, position remembered per host, **the same gate as the desktop**; *Sync chart*
+      reads symbol / timeframe / last price from the page on click and keeps it there; alerts by
+      tier — banner, badge, list. Firefox from the same bundle via the derived manifest.
+      **Verified in the harness against the local API:** activate → live socket → drag persists
+      → chart read → three tiers rendered → key rotated → panel re-gated in under two seconds
+      (`daily_updates/assets/2026-09-19-extension-harness-three-tiers.jpg`).
+- [x] **`docs/ARCHITECTURE.md` §6.3 amended and dated:** what "no content script" protected,
+      and the narrower rule that now protects it — four named hosts, user-initiated reads that
+      stay in the page, the API sees only the key.
+- [ ] **Not done:** loading the unpacked build on real tradingview.com / cTrader / MT5 pages
+      (a native file dialog — the one step that needs a person; the three adapters' selectors
+      are best-effort until then); broker-hosted MT5 via `optional_host_permissions`; a `/alerts`
+      publish screen in the admin portal (curl today); Chrome Web Store / AMO listing.
+
 ## Next
 
 Ordered. **Rows #2, #6, #7 and #8 all closed between 25 Aug and 3 Sep** — the S1 fixture cut, the
