@@ -326,6 +326,60 @@ def test_a_suggestion_with_an_inverted_stop_cannot_be_constructed() -> None:
                    expires_at=pd.Timestamp("2026-07-16T13:00:20Z"), confidence=0.5)
 
 
+def test_s4_cannot_satisfy_section_10_with_a_stop_behind_the_far_edge() -> None:
+    """🔴 **s4 has produced zero suggestions in the whole archive, and it is not
+    a threshold that is slightly wrong -- the geometry cannot close.**
+
+    s4 breaks a Donchian edge and hides its stop behind **the opposite** edge,
+    deliberately: "the structure being broken is the whole band". So
+
+        D = (close - far edge) + (stop_pad - entry_pullback) x ATR
+          > channel width + 0.50 x ATR
+
+    **The channel is 20 bars wide -- 100 minutes -- and the ATR is 60 minutes.**
+    A max-minus-min over the longer horizon runs several times the average true
+    range over the shorter one, so the first term dominates and §10's cap is
+    measured against the wrong quantity. Measured over June-August 2026, 17,638
+    bars:
+
+        width / ATR:  min 1.59   p1 2.45   median 4.48   max 23.44
+
+    **The narrowest channel in three months gives D = 2.09 x ATR against a cap
+    of 2.00.** Not the median bar -- the single best one, and it still misses.
+    At the median, D is about 5 x ATR, two and a half times the cap.
+
+    **This was equally impossible under the old dollar band**: at the median ATR
+    of $4.53 the median D is about $23 against a $5.00 cap. s4 has never been
+    able to fire, under either regime, which is why the ATR change moved every
+    other strategy and left this one at zero.
+
+    It is the same class of error TRACK_C_BUILD.md §3(2) already records for
+    s1's range_width -- a six-hour range compared against a one-hour ATR --
+    and it was invisible for the same reason: nobody had bars.
+
+    ⛔ **Not fixed here, because every repair is a strategy decision:** put the
+    stop behind the *broken* edge (D = 0.50 ATR + delta, always inside -- but
+    s4's own docstring rejects that as "a stop inside the noise that produced
+    the squeeze"); give s4 its own cap near 5 x ATR (then its risk is 2.5x the
+    other three); shorten the Donchian (but 20 is Bollinger's default and is
+    deliberately untuned); or kill s4 and print the reason, which is what
+    TRACK_C_BUILD.md §7 says to do with a strategy that fails.
+    """
+    pad = config.f(CFG, "s4.stop_pad_atr")
+    pull = config.f(CFG, "s4.entry_pullback_atr")
+    cap = config.f(CFG, "risk.d_max_atr")
+
+    # Measured, June-August 2026. A constant, because a test must not need the
+    # 173 MB cache -- provenance is in the docstring.
+    narrowest_channel_atr, median_channel_atr = 1.59, 4.48
+
+    best_case_d = narrowest_channel_atr + (pad - pull)
+    assert best_case_d > cap, (
+        f"best case D {best_case_d:.2f} ATR vs cap {cap:.2f} -- if this passes, s4 can "
+        "fire and this test has outlived the defect")
+    assert median_channel_atr + (pad - pull) > 2 * cap, "the median bar is off by more than 2x"
+
+
 def test_the_tail_conditions_are_the_same_for_every_strategy() -> None:
     """So four structurally different attrition tables are comparable at the
     bottom even though nothing above it is. Four since 2026-09-19: `no_atr`
