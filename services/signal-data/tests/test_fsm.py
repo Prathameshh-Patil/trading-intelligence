@@ -27,7 +27,11 @@ def row(**over: float) -> dict[str, float]:
         "s_vol": 1.0, "s_hurst": 1.0, "s_hmm": 1.0, "s_sweep": 1.0,
         "s_spread": 0.0, "s_news": 0.0,
         "r_hat_60_usd": 20.0, "h_agree_value": 0.62, "has_sweep": 1.0,
-        "d_usd": 3.0, "slippage_usd": 0.1, "news_lockout": 0.0, "p_e": 0.70,
+        # `atr_usd` is GC's measured median 60-minute ATR, so §10's multiples
+        # (0.8x, 2.0x) reproduce the $2.05-$5.12 band the dollar bounds used to
+        # state outright, and a d_usd of 3.0 still sits squarely inside it.
+        "d_usd": 3.0, "atr_usd": 2.56,
+        "slippage_usd": 0.1, "news_lockout": 0.0, "p_e": 0.70,
     }
     return base | over
 
@@ -225,7 +229,7 @@ def frow(**over: float) -> dict[str, float]:
 
 
 def built(**over: float) -> dict[str, float]:
-    return fsm.fsm_row(frow(**over), p_e=0.70, d_usd=3.0, slippage_usd=0.10)
+    return fsm.fsm_row(frow(**over), p_e=0.70, d_usd=3.0, atr_usd=2.56, slippage_usd=0.10)
 
 
 def test_the_adapter_produces_exactly_what_the_fsm_reads() -> None:
@@ -303,7 +307,7 @@ def test_the_volatility_component_is_zero_at_the_spec_s_own_floor() -> None:
 
 def test_a_zero_stop_raises_rather_than_reporting_no_slippage() -> None:
     with pytest.raises(ValueError, match="d_usd"):
-        fsm.fsm_row(frow(), p_e=0.70, d_usd=0.0, slippage_usd=0.10)
+        fsm.fsm_row(frow(), p_e=0.70, d_usd=0.0, atr_usd=2.56, slippage_usd=0.10)
 
 
 def test_the_three_inputs_the_frame_does_not_carry_are_required() -> None:
@@ -322,17 +326,46 @@ def test_both_of_section_10s_bounds_are_enforced_not_just_the_wide_one() -> None
     assert "stop_too_wide" in fsm.exclusions(row(d_usd=6.00), day())
 
 
-def test_the_bounds_are_section_10s_ticks_in_usd() -> None:
-    # 20 and 50 ticks at GC's $0.10, the same translation §10's 100 and 150
-    # already get in e3_cost. XAUUSD's 0.001 is Dukascopy's price quantum and
-    # is explicitly not a tradeable tick, so it is not this number.
-    assert fsm.D_MIN_USD == pytest.approx(20 * 0.10)
-    assert fsm.D_MAX_USD == pytest.approx(50 * 0.10)
+def test_the_bounds_are_section_10s_ticks_restated_as_atr_multiples() -> None:
+    """§10's 20-50 ticks, converted on the instrument it was written for.
+
+    The dollars ($2-$5, 20-50 ticks at GC's $0.10) were a fact about GC in
+    2025 rather than about a stop, and on spot XAUUSD at ~$4,175 the $5 cap
+    refused ~90% of everything that reached it while the $2 floor refused
+    nothing at all. Measured on six months of 2025 GC -- 34,956 5-minute bars,
+    the same `regime.atr_usd` Track C uses -- the median 60-minute ATR is
+    $2.56, so §10's own numbers are 0.78x and 1.95x ATR.
+
+    **These multiples must still reproduce §10 on GC**, or the conversion
+    changed the rule instead of restating it.
+    """
+    gc_atr = 2.56
+    assert fsm.D_MIN_ATR * gc_atr == pytest.approx(20 * 0.10, abs=0.10)
+    assert fsm.D_MAX_ATR * gc_atr == pytest.approx(50 * 0.10, abs=0.20)
 
 
 def test_the_floor_itself_is_allowed() -> None:
-    # "20 <= D", so 20 ticks is inside the spec and not the first value out.
-    assert "stop_too_tight" not in fsm.exclusions(row(d_usd=fsm.D_MIN_USD), day())
+    # "20 <= D", so the floor is inside the spec and not the first value out.
+    at_floor = fsm.D_MIN_ATR * 2.56
+    assert "stop_too_tight" not in fsm.exclusions(row(d_usd=at_floor, atr_usd=2.56), day())
+
+
+def test_a_stop_is_judged_against_this_bars_atr_not_against_a_dollar_amount() -> None:
+    """The point of the change: the same $6 stop is too wide on a calm bar and
+    fine on a volatile one. Under the old dollar cap it was refused on both,
+    which is why `stop_too_wide` took 16 of 17 s1 candidates on spot."""
+    assert "stop_too_wide" in fsm.exclusions(row(d_usd=6.00, atr_usd=2.56), day())
+    assert "stop_too_wide" not in fsm.exclusions(row(d_usd=6.00, atr_usd=4.53), day())
+
+
+def test_a_zero_atr_refuses_rather_than_passing_both_bounds() -> None:
+    """`NaN < x` and `NaN > x` are both False, so an absent ATR would clear the
+    floor AND the cap and admit a stop nothing had checked -- the same shape as
+    the NaN score that once passed `admit`'s gate."""
+    for bad in (0.0, float("nan")):
+        out = fsm.exclusions(row(d_usd=3.0, atr_usd=bad), day())
+        assert "no_atr" in out
+        assert "stop_too_tight" not in out and "stop_too_wide" not in out
 
 
 def test_a_tight_stop_no_longer_buys_a_twenty_to_one_target() -> None:

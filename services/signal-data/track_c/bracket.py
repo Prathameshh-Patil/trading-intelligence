@@ -29,10 +29,17 @@ import fsm
 from track_c import config, fills
 from track_c.suggestion import Refusal, Suggestion, refuse
 
-# Every strategy's ordered condition list ends with these three, in this order,
+# Every strategy's ordered condition list ends with these four, in this order,
 # so the attrition tables of four structurally different strategies are
 # comparable at the bottom even though nothing above it is.
-TAIL: tuple[str, ...] = ("stop_too_tight", "stop_too_wide", "slippage")
+#
+# `no_atr` leads because §10's bounds became ATR multiples on 2026-09-19 and a
+# bar with no ATR has no bounds to check against. Each strategy's `inputs`
+# stage already refuses a NaN `atr_usd`, so this catches the case that is
+# finite and still unusable -- a flat window measuring exactly zero -- rather
+# than duplicating that guard. **It should sit at zero in every attrition
+# table; a non-zero count here means `inputs` stopped covering what it claims.**
+TAIL: tuple[str, ...] = ("no_atr", "stop_too_tight", "stop_too_wide", "slippage")
 
 
 def limit(*, close: float, side: int, atr: float, pullback: float) -> float:
@@ -53,11 +60,16 @@ def build(*, strategy: str, conditions: tuple[str, ...], ts: pd.Timestamp, side:
     entry = limit(close=close, side=side, atr=atr,
                   pullback=config.f(cfg, f"{strategy}.entry_pullback_atr"))
     d = (entry - stop) * side
-    if d < config.f(cfg, "risk.d_min_usd"):
+    # §10's bounds are multiples of THIS bar's ATR, not dollars. `atr` is
+    # already the argument the entry pullback is measured in, so the stop and
+    # the entry are now scaled by the same quantity.
+    if not atr > 0:
+        return refuse(strategy, ts, "no_atr", conditions)
+    if d < config.f(cfg, "risk.d_min_atr") * atr:
         # Includes d <= 0: a stop the pullback has walked past is not a tight
         # stop, it is an inverted trade, and it must not reach `Suggestion`.
         return refuse(strategy, ts, "stop_too_tight", conditions)
-    if d > config.f(cfg, "risk.d_max_usd"):
+    if d > config.f(cfg, "risk.d_max_atr") * atr:
         return refuse(strategy, ts, "stop_too_wide", conditions)
     if fills.round_trip_usd(spread_usd, cfg, news=news) / d > config.f(cfg, "cost.max_slippage_share"):
         return refuse(strategy, ts, "slippage", conditions)

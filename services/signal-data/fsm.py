@@ -50,12 +50,27 @@ P_E_MIN = 0.62                # §8
 HURST_MIN = 0.58              # §9 condition 7, high-conviction
 R_HAT_MIN_USD = 15.00         # §Objective, restated per design §2
 # §10: "Require 20 <= D <= 50 ticks. If D > 50, reject the trade. Do not widen
-# the stop." Both bounds in USD per ounce at GC's $0.10 tick, the same
-# translation TARGET_FLOOR_USD and TARGET_CAP_USD already use for §10's 100 and
-# 150. XAUUSD's `tick` is Dukascopy's 0.001 price quantum and is explicitly not
-# a tradeable tick, so it is not the number these come from.
-D_MIN_USD = 2.00              # §10, 20 ticks
-D_MAX_USD = 5.00              # §10, 50 ticks
+# the stop." **Held as ATR multiples rather than as dollars, 2026-09-19, and
+# the conversion is measured rather than chosen.**
+#
+# WHY THE DOLLARS HAD TO GO. 20-50 ticks at GC's $0.10 tick is $2-$5, and that
+# is a number about GC in 2025, not about a stop. Run against spot XAUUSD at
+# ~$4,175 the band refused almost everything it saw: over June-August 2026,
+# `stop_too_wide` took 16 of 17 candidates on s1, 36 of 41 on s2 and 8 of 8 on
+# s4, while **`stop_too_tight` refused nothing, in any strategy**. A band whose
+# floor never binds and whose cap refuses ~90% is not filtering trade quality,
+# it is in the wrong units -- the median 60-minute ATR on that archive is $4.53,
+# 91% of the whole cap, with 40.2% of bars above $5.00 on ATR alone.
+#
+# THE CONVERSION, FROM THE INSTRUMENT THE SPEC WAS WRITTEN FOR. Measured on six
+# months of 2025 GC (34,956 5-minute bars, the same `regime.atr_usd` Track C
+# uses on spot): median 60-minute ATR **$2.56**. So §10's own numbers are
+# $2.00/2.56 = 0.78x ATR and $5.00/2.56 = 1.95x ATR. The multiples below are
+# those, rounded -- **§10's intent, restated in units that travel between
+# instruments**, not a new risk appetite. On GC they reproduce $2-$5 to within
+# a few cents; on spot they scale with the instrument instead of refusing it.
+D_MIN_ATR = 0.8               # §10's 20 ticks, as GC measured them
+D_MAX_ATR = 2.0               # §10's 50 ticks, as GC measured them
 MAX_SLIPPAGE_SHARE = 0.25     # §13
 MAX_TRADES_PER_DAY = 2        # §11
 MAX_LOSSES_PER_DAY = 2        # §11
@@ -86,7 +101,7 @@ class Order:
 
 
 ROW: tuple[str, ...] = (*WEIGHTS, "r_hat_60_usd", "h_agree_value", "has_sweep",
-                        "d_usd", "slippage_usd", "news_lockout", "p_e")
+                        "d_usd", "atr_usd", "slippage_usd", "news_lockout", "p_e")
 
 
 def _unit(x: float) -> float:
@@ -94,7 +109,7 @@ def _unit(x: float) -> float:
     return float(np.clip(x, 0.0, 1.0))
 
 
-def fsm_row(row: Mapping[str, float], *, p_e: float, d_usd: float,
+def fsm_row(row: Mapping[str, float], *, p_e: float, d_usd: float, atr_usd: float,
             slippage_usd: float) -> dict[str, float]:
     """One S13 frame row -> the row `score`, `exclusions` and `admit` consume.
 
@@ -105,10 +120,12 @@ def fsm_row(row: Mapping[str, float], *, p_e: float, d_usd: float,
     caller inventing that mapping privately is how two backtests come to
     disagree about what `Score >= 0.72` means.
 
-    `p_e`, `d_usd` and `slippage_usd` are NOT in the frame and are required
-    rather than defaulted: `p_e` is `classifier`'s calibrated output, `d_usd`
-    is §10's stop distance and `slippage_usd` is an execution estimate. A
-    defaulted `p_e` is a trade admitted on a probability nobody computed.
+    `p_e`, `d_usd`, `atr_usd` and `slippage_usd` are NOT in the frame and are
+    required rather than defaulted: `p_e` is `classifier`'s calibrated output,
+    `d_usd` is §10's stop distance, `atr_usd` is what §10's bounds are now
+    multiples OF, and `slippage_usd` is an execution estimate. A defaulted
+    `p_e` is a trade admitted on a probability nobody computed, and a defaulted
+    `atr_usd` is §10 enforced against a number nobody measured.
 
     NORMALISERS ARE A CHOICE, AND THIS IS WHERE THE CHOICE LIVES. §13 says
     "normalize each component to [0,1]" and gives no formula for any of the
@@ -155,6 +172,7 @@ def fsm_row(row: Mapping[str, float], *, p_e: float, d_usd: float,
         "h_agree_value": float(h),
         "has_sweep": float(swept),
         "d_usd": float(d_usd),
+        "atr_usd": float(atr_usd),
         "slippage_usd": float(slippage_usd),
         "news_lockout": news,
         "p_e": float(p_e),
@@ -189,7 +207,16 @@ def exclusions(row: dict[str, float], day: Day) -> tuple[str, ...]:
         out.append("hurst")
     if not row["has_sweep"]:
         out.append("no_sweep")
-    if row["d_usd"] < D_MIN_USD:
+    # §10's bounds are ATR multiples, so an absent ATR has no bounds to give.
+    # Refusing is the only safe answer: `NaN < x` is False, so a NaN ATR would
+    # otherwise pass BOTH bounds and admit a stop nothing had checked -- the
+    # same shape as the NaN score that once passed `admit`'s gate.
+    atr = row["atr_usd"]
+    if not atr > 0:
+        # Not an early return: the other exclusions still hold and a caller
+        # reading the reason list should see all of them, not just this one.
+        out.append("no_atr")
+    elif row["d_usd"] < D_MIN_ATR * atr:
         # §10's floor, and it is not symmetry with the cap. A stop under $2
         # still takes `clip(2.5D, $10, $15)`, so a $0.50 stop buys a $10 target
         # -- a 20:1 nominal R that is an artefact of the target floor rather
@@ -197,7 +224,7 @@ def exclusions(row: dict[str, float], day: Day) -> tuple[str, ...]:
         # distinguish target distance from risk-reward multiple; refusing the
         # stop is how that distinction gets enforced rather than reported.
         out.append("stop_too_tight")
-    if row["d_usd"] > D_MAX_USD:
+    if atr > 0 and row["d_usd"] > D_MAX_ATR * atr:
         out.append("stop_too_wide")
     if row["slippage_usd"] / row["d_usd"] > MAX_SLIPPAGE_SHARE:
         out.append("slippage")

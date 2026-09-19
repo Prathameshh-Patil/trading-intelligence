@@ -170,6 +170,21 @@ is not.** The next gate is **Friday 18 September, 16:00**, whatever it ends up b
 > ⚠️ `hurst_agree` also refuses ~3 bars in 4 across all four strategies, consistent with the 25.3%
 > agreement measured on GC — an estimator disagreement, not a market fact.
 >
+> ✅ **Done, Varad's call: §10 is now ATR multiples.** `fsm.D_MIN_ATR = 0.8` / `D_MAX_ATR = 2.0`,
+> converted on **GC** — six months of 2025, median 60-minute ATR **$2.56**, so §10's own $2/$5 are
+> 0.78× and 1.95× ATR. **On GC they reproduce $2.05–$5.12, so this restates §10 rather than
+> loosening it**, and a test pins that. `atr_usd` joins `d_usd`/`slippage_usd` as an explicit
+> argument, so **the S13 seam is untouched and no second lane was needed**. New `no_atr` refusal
+> guards the NaN case (`NaN < x` is False both ways); it reads 0 everywhere, as expected.
+> **Effect:** s1 `stop_too_wide` 16-of-17 → **0-of-17**; s2 36-of-41 → 12-of-37 (and 4 newly too
+> *tight*); **s4 unchanged at 8-of-8** — its stop is a Donchian edge the market set, so the bound
+> still fires where it should. Suggestions 4 → 42. §13's band reopened untouched: p75 spread went
+> from **empty** to 74% usable. ⚠️ **§10 can no longer bind s1 at all** — its geometry pins
+> `D ∈ [0.80, 1.50] × ATR` by construction; pinned as a test so nobody later diagnoses a dead gate.
+> 🔴 **Metrics deliberately not read** (E1–E4 unwritten), and **the threshold was changed after
+> seeing an attrition table** — the defence is that the conversion comes from GC and could have been
+> made before any spot bar existed. Recorded rather than assumed; one commit to revert.
+>
 > **Unchanged and still binding on any result:** E1–E4's four predictions are unwritten. Bars do
 > not license a claim.
 

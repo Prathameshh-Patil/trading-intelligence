@@ -38,7 +38,7 @@ STRATEGIES: tuple[str, ...] = ("s1", "s2", "s3", "s4")
 REQUIRED: tuple[str, ...] = (
     "data.bar", "data.audit_bar", "data.symbol",
     "risk.equity_usd", "risk.risk_fraction", "risk.value_per_lot",
-    "risk.d_min_usd", "risk.d_max_usd", "risk.r_multiple", "risk.be_at_r",
+    "risk.d_min_atr", "risk.d_max_atr", "risk.r_multiple", "risk.be_at_r",
     "risk.max_trades_per_day", "risk.max_losses_per_day",
     "risk.daily_loss_cap_usd", "risk.dll_firm_usd", "risk.limit_life_s",
     "cost.slippage_spread_frac", "cost.slippage_margin", "cost.news_spread_mult",
@@ -65,7 +65,7 @@ def load(path: Path = CONFIG) -> dict[str, Any]:
 
 
 def get(cfg: dict[str, Any], dotted: str) -> Any:
-    """`get(cfg, "risk.d_min_usd")`. Missing keys name themselves."""
+    """`get(cfg, "risk.d_min_atr")`. Missing keys name themselves."""
     node: Any = cfg
     for part in dotted.split("."):
         if not isinstance(node, dict) or part not in node:
@@ -112,8 +112,8 @@ def require(cfg: dict[str, Any]) -> None:
     for s in STRATEGIES:
         windows(cfg, s)          # parses, so a malformed clock fails here
         get(cfg, f"{s}.entry_pullback_atr")
-    _agree(cfg, "risk.d_min_usd", fsm.D_MIN_USD, "fsm.D_MIN_USD")
-    _agree(cfg, "risk.d_max_usd", fsm.D_MAX_USD, "fsm.D_MAX_USD")
+    _agree(cfg, "risk.d_min_atr", fsm.D_MIN_ATR, "fsm.D_MIN_ATR")
+    _agree(cfg, "risk.d_max_atr", fsm.D_MAX_ATR, "fsm.D_MAX_ATR")
     _agree(cfg, "risk.risk_fraction", fsm.DEFAULT_RISK_FRACTION, "fsm.DEFAULT_RISK_FRACTION")
     _agree(cfg, "cost.max_slippage_share", e3_cost.MAX_SLIPPAGE_SHARE, "e3_cost.MAX_SLIPPAGE_SHARE")
     if f(cfg, "risk.dll_firm_usd") > 0:
