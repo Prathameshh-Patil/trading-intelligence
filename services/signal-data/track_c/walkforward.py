@@ -103,3 +103,28 @@ def holdout_summary(trades: pd.DataFrame, sp: Split, strategies: tuple[str, ...]
     """§7's C8. Opened once, at the end, and never re-tuned against."""
     held = trades[trades["ts_signal"] >= sp.holdout_start]
     return {s: metrics.summarize(held[held["strategy"] == s], cfg) for s in strategies}
+
+
+def months_needed(cfg: dict[str, Any]) -> int:
+    """Months of archive §14's geometry needs before one window can exist.
+
+    Train and validate must both fit BEFORE the holdout starts, so the three
+    add rather than overlap.
+    """
+    return sum(config.i(cfg, f"walkforward.{k}")
+               for k in ("train_m", "val_m", "holdout_m"))
+
+
+def supports_gates(span: tuple[pd.Timestamp, pd.Timestamp], cfg: dict[str, Any]) -> bool:
+    """Whether this archive can measure C6 and C8 at all.
+
+    Below `months_needed`, `tuning.folds` returns nothing and `holdout_start`
+    lands before the first bar -- so C6 is NaN for every strategy and the
+    "holdout" is the whole in-sample run wearing an out-of-sample name. **Both
+    gates then read `False` by arithmetic rather than by evidence**, and §7
+    makes a KILL final, so `report` refuses a verdict instead of issuing one.
+
+    Same class of error as `TRACK_C_BUILD.md` §3(2) and §17: a quantity scored
+    against a horizon that cannot support it.
+    """
+    return span[0] + pd.DateOffset(months=months_needed(cfg)) <= span[1]

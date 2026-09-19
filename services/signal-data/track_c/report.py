@@ -60,7 +60,8 @@ def assumptions(cfg: dict[str, Any]) -> list[str]:
 def render(*, res: Any, cfg: dict[str, Any], per_strategy: dict[str, dict[str, float]],
            gates: pd.DataFrame, windows: dict[str, list[float]],
            holdout: dict[str, dict[str, float]], trials: tuning.Trials,
-           span: tuple[pd.Timestamp, pd.Timestamp], independent: int) -> str:
+           span: tuple[pd.Timestamp, pd.Timestamp], independent: int,
+           supported: bool, months_needed: int) -> str:
     """The whole report, as one markdown string."""
     lines = [
         "# Track C -- run report",
@@ -80,7 +81,7 @@ def render(*, res: Any, cfg: dict[str, Any], per_strategy: dict[str, dict[str, f
         "",
         "### Verdict",
         "",
-        *_verdicts(gates),
+        *_verdicts(gates, supported=supported, months_needed=months_needed),
         "",
         "## 2. Attrition -- which condition refused what",
         "",
@@ -109,6 +110,11 @@ def render(*, res: Any, cfg: dict[str, Any], per_strategy: dict[str, dict[str, f
         "",
         "## 6. Holdout -- opened once",
         "",
+        *([] if supported else [
+            ("\u26d4 **NOT OUT OF SAMPLE ON THIS RUN.** The holdout starts far enough back "
+             "from the last bar to land before the FIRST one, so every trade below is also in "
+             "\u00a74's table. C8 restates the in-sample result and is not evidence."),
+            ""]),
         _md(pd.DataFrame(holdout).T.reset_index(names="strategy")),
         "",
         "## 7. Trial count",
@@ -120,13 +126,26 @@ def render(*, res: Any, cfg: dict[str, Any], per_strategy: dict[str, dict[str, f
     return "\n".join(lines)
 
 
-def _verdicts(gates: pd.DataFrame) -> list[str]:
-    """KEEP or KILL per strategy, and the gates that decided it.
+def _verdicts(gates: pd.DataFrame, *, supported: bool, months_needed: int) -> list[str]:
+    """KEEP or KILL per strategy -- **or no verdict, when nothing measured the gates.**
 
     **A failing strategy is killed and the reason is printed. It is not quietly
     re-tuned** -- `TRACK_C_ENGINE.md` §10.4, and the whole point of committing
     the gate table before the run.
+
+    That finality is exactly why a verdict must not be issued from a gate the
+    archive could not measure. Below `walkforward.months_needed` months there
+    are no validation windows and no separable holdout, so C6 and C8 read
+    `False` for every strategy by arithmetic. Printing KILL there would retire
+    four strategies on the length of the archive and call it evidence.
     """
+    if not supported:
+        return [(f"\u26d4 **NO VERDICT.** The archive is shorter than the {months_needed} "
+                 "months \u00a714's geometry needs, so **C6 and C8 were not measured** -- every "
+                 "strategy reads `False` on both because there are no windows and no separable "
+                 "holdout, not because it failed them. \u00a77 makes a KILL final, so none is "
+                 "issued here. Extend the archive to the full span, or amend \u00a714's "
+                 "windows; both are the room's call, not this report's.")]
     out = []
     for name, g in gates.groupby("strategy"):
         failed = list(g[~g["pass"]]["gate"])
