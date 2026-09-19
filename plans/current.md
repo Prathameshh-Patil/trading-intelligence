@@ -207,6 +207,7 @@ is not.** The next gate is **Friday 18 September, 16:00**, whatever it ends up b
 > but s4's docstring rejects it) · s4-specific cap near 5 × ATR (risk 2.5× the others) · shorter
 > Donchian (but 20 is Bollinger's default, deliberately untuned) · **or kill s4 and print the
 > reason**, per `TRACK_C_BUILD.md` §7. Pinned as a test that fails the day a repair lands.
+> **Merged as PR #13 (`2552c3b`)** — the diagnosis is in `main`; the choice among the four is open.
 >
 > ✅ **Done, Varad's call: §10 is now ATR multiples.** `fsm.D_MIN_ATR = 0.8` / `D_MAX_ATR = 2.0`,
 > converted on **GC** — six months of 2025, median 60-minute ATR **$2.56**, so §10's own $2/$5 are
