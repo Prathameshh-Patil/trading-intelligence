@@ -146,12 +146,12 @@ function publish(next: LicenceState) {
 }
 
 /**
- * Check `key` against the server and settle the state. `firstCheck` decides
- * what an unreachable server means: on launch with a recently-valid key the
- * app opens in `offline`; on a fresh paste there is nothing to fall back to
- * and the screen says the server could not be reached.
+ * Check `key` against the server and settle the state. An unreachable server
+ * means `offline` only while the last successful validation is inside the
+ * grace window; otherwise -- a fresh paste, or a week without an answer --
+ * there is nothing to vouch for and the key reads as invalid.
  */
-async function check(key: string, firstCheck: boolean): Promise<LicenceState> {
+async function check(key: string): Promise<LicenceState> {
   if (!KEY_RE.test(key)) {
     return { kind: "invalid", key, reason: "malformed" };
   }
@@ -170,9 +170,12 @@ async function check(key: string, firstCheck: boolean): Promise<LicenceState> {
     if (last !== null && Date.now() - last < OFFLINE_GRACE_MS) {
       return { kind: "offline", key, lastValidAt: last, error };
     }
-    // Never validated, or not for a week: no grace to give. On a fresh paste
-    // this reads as "could not reach the server"; the view says exactly that.
-    return firstCheck ? { kind: "invalid", key, reason: "unknown" } : { kind: "offline", key, lastValidAt: last ?? 0, error };
+    // Never validated, or not for a week: no grace to give, on launch or on
+    // a re-check alike. The first version kept a running app in `offline`
+    // past the week and only locked on relaunch, against this file's own
+    // docstring. On a fresh paste this reads as "could not reach the
+    // server"; the view says exactly that.
+    return { kind: "invalid", key, reason: "unknown" };
   }
 }
 
@@ -181,7 +184,7 @@ function scheduleRecheck() {
   recheckTimer = window.setTimeout(() => {
     if (state.kind === "active" || state.kind === "offline") {
       const key = state.key;
-      void check(key, false).then((next) => {
+      void check(key).then((next) => {
         publish(next);
         scheduleRecheck();
       });
@@ -206,7 +209,7 @@ function start() {
       return;
     }
     publish({ kind: "checking", key });
-    publish(await check(key, true));
+    publish(await check(key));
     scheduleRecheck();
   })();
 }
@@ -222,7 +225,7 @@ export async function activate(raw: string): Promise<LicenceState> {
   }
   publish({ kind: "checking", key });
   await saveKey(key);
-  const next = await check(key, true);
+  const next = await check(key);
   publish(next);
   if (next.kind === "active") scheduleRecheck();
   return next;
@@ -240,7 +243,7 @@ export async function recheck(): Promise<LicenceState> {
   if (state.kind === "unactivated") return state;
   const key = state.key;
   publish({ kind: "checking", key });
-  const next = await check(key, true);
+  const next = await check(key);
   publish(next);
   return next;
 }
