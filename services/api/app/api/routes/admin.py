@@ -9,9 +9,10 @@ from __future__ import annotations
 
 import json
 from datetime import UTC, datetime, timedelta
+from typing import Annotated, Any
 
-from fastapi import APIRouter, HTTPException, Query, Request, Response, status
-from sqlalchemy import func, select
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
+from sqlalchemy import Select, func, select
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import DB, AdminUser
@@ -70,30 +71,86 @@ def key_summary(k: ApiKey, email: str) -> KeySummary:
     )
 
 
-def user_out(db: Session, u: User) -> UserOut:
-    key = keys.active_key(db, u.id)
-    approver = (
-        db.scalar(select(User.email).where(User.id == u.approved_by_id))
-        if u.approved_by_id
-        else None
-    )
-    payments_count = (
-        db.scalar(
-            select(func.count()).select_from(Payment).where(Payment.user_id == u.id)
-        )
-        or 0
-    )
-    open_tickets = (
-        db.scalar(
-            select(func.count())
-            .select_from(Ticket)
+class PageParams:
+    """`?limit=&offset=` on the list routes. The default is a page, not the
+    table: these lists grow without bound and the portal fetches them on
+    every open."""
+
+    def __init__(
+        self,
+        limit: int = Query(default=200, ge=1, le=1000),
+        offset: int = Query(default=0, ge=0),
+    ) -> None:
+        self.limit = limit
+        self.offset = offset
+
+
+Page = Annotated[PageParams | None, Depends(PageParams)]
+
+
+def _paged(stmt: Select[Any], page: PageParams | None) -> Select[Any]:
+    if page is None:
+        return stmt
+    return stmt.limit(page.limit).offset(page.offset)
+
+
+class UserFacts:
+    """Everything `user_out` needs beyond the row, for a whole page at once.
+
+    Four queries per page instead of four per user: `/admin/users` serves up
+    to 1,000 rows and was issuing 4,000 statements to do it.
+    """
+
+    def __init__(self, db: Session, users: list[User]) -> None:
+        ids = [u.id for u in users]
+        emails = [u.email for u in users]
+        self.keys: dict[int, ApiKey] = {}
+        # Newest active key per user wins; rows arrive oldest first.
+        for k in db.scalars(
+            select(ApiKey)
+            .where(ApiKey.user_id.in_(ids), ApiKey.status == "active")
+            .order_by(ApiKey.id)
+        ):
+            self.keys[k.user_id] = k
+        approver_ids = {u.approved_by_id for u in users if u.approved_by_id}
+        self.approvers: dict[int, str] = {}
+        if approver_ids:
+            for uid, email in db.execute(
+                select(User.id, User.email).where(User.id.in_(approver_ids))
+            ).tuples():
+                self.approvers[uid] = email
+        self.payments: dict[int, int] = {}
+        for uid, n in db.execute(
+            select(Payment.user_id, func.count())
+            .where(Payment.user_id.in_(ids))
+            .group_by(Payment.user_id)
+        ).tuples():
+            self.payments[uid] = n
+        open_by_user: dict[int, int] = {}
+        open_by_email: dict[str, int] = {}
+        for user_id, email, n in db.execute(
+            select(Ticket.user_id, Ticket.email, func.count())
             .where(
-                (Ticket.user_id == u.id) | (Ticket.email == u.email),
                 Ticket.status != "closed",
+                (Ticket.user_id.in_(ids)) | (Ticket.email.in_(emails)),
             )
-        )
-        or 0
-    )
+            .group_by(Ticket.user_id, Ticket.email)
+        ).tuples():
+            if user_id is not None:
+                open_by_user[user_id] = open_by_user.get(user_id, 0) + n
+            else:
+                open_by_email[email] = open_by_email.get(email, 0) + n
+        self.open_tickets = {
+            u.id: open_by_user.get(u.id, 0) + open_by_email.get(u.email, 0) for u in users
+        }
+
+
+def user_out(db: Session, u: User, facts: UserFacts | None = None) -> UserOut:
+    facts = facts if facts is not None else UserFacts(db, [u])
+    key = facts.keys.get(u.id)
+    approver = facts.approvers.get(u.approved_by_id) if u.approved_by_id else None
+    payments_count = facts.payments.get(u.id, 0)
+    open_tickets = facts.open_tickets.get(u.id, 0)
     return UserOut(
         id=u.id,
         email=u.email,
@@ -210,8 +267,11 @@ def users(
         stmt = stmt.where(User.status == status_)
     if q:
         stmt = stmt.where(User.email.ilike(f"%{q.strip()}%"))
-    rows = db.scalars(stmt.order_by(User.created_at.desc()).limit(limit).offset(offset))
-    return [user_out(db, u) for u in rows]
+    rows = list(
+        db.scalars(stmt.order_by(User.created_at.desc()).limit(limit).offset(offset))
+    )
+    facts = UserFacts(db, rows)
+    return [user_out(db, u, facts) for u in rows]
 
 
 @router.get("/users/{user_id}", response_model=UserDetail)
@@ -272,6 +332,8 @@ def reject(
         select(ApiKey).where(ApiKey.user_id == u.id, ApiKey.status == "active")
     ):
         keys.revoke(db, k)
+    # Same as suspend: a rejected account has no session to keep refreshing.
+    _end_all_sessions(db, u)
     _log(db, request, admin, "user.reject", u, {"reason": body.reason})
     db.commit()
     _notify(u, "user.rejected", {"reason": body.reason})
@@ -394,11 +456,14 @@ def promote(body: PromoteIn, request: Request, admin: AdminUser, db: DB) -> User
 
 
 @router.get("/keys", response_model=list[KeySummary])
-def all_keys(admin: AdminUser, db: DB) -> list[KeySummary]:
+def all_keys(admin: AdminUser, db: DB, page: Page = None) -> list[KeySummary]:
     rows = db.execute(
-        select(ApiKey, User.email)
-        .join(User, User.id == ApiKey.user_id)
-        .order_by(ApiKey.id.desc())
+        _paged(
+            select(ApiKey, User.email)
+            .join(User, User.id == ApiKey.user_id)
+            .order_by(ApiKey.id.desc()),
+            page,
+        )
     )
     return [key_summary(k, email) for k, email in rows]
 
@@ -419,8 +484,8 @@ def revoke_key(key_id: int, request: Request, admin: AdminUser, db: DB) -> KeySu
 
 
 @router.get("/payments", response_model=list[PaymentOut])
-def all_payments(admin: AdminUser, db: DB) -> list[PaymentOut]:
-    rows = db.scalars(select(Payment).order_by(Payment.id.desc()))
+def all_payments(admin: AdminUser, db: DB, page: Page = None) -> list[PaymentOut]:
+    rows = db.scalars(_paged(select(Payment).order_by(Payment.id.desc()), page))
     return [payment_out(p) for p in rows]
 
 
@@ -428,11 +493,11 @@ def all_payments(admin: AdminUser, db: DB) -> list[PaymentOut]:
 
 
 @router.get("/tickets", response_model=list[TicketOut])
-def all_tickets(admin: AdminUser, db: DB) -> list[TicketOut]:
+def all_tickets(admin: AdminUser, db: DB, page: Page = None) -> list[TicketOut]:
     staff = staff_ids(db)
     return [
         ticket_out(t, staff)
-        for t in db.scalars(select(Ticket).order_by(Ticket.id.desc()))
+        for t in db.scalars(_paged(select(Ticket).order_by(Ticket.id.desc()), page))
     ]
 
 
@@ -502,10 +567,12 @@ def close(ticket_id: int, request: Request, admin: AdminUser, db: DB) -> TicketO
 
 
 @router.get("/waitlist", response_model=list[WaitlistOut])
-def waitlist(admin: AdminUser, db: DB) -> list[WaitlistOut]:
+def waitlist(admin: AdminUser, db: DB, page: Page = None) -> list[WaitlistOut]:
     return [
         WaitlistOut.model_validate(w)
-        for w in db.scalars(select(WaitlistEntry).order_by(WaitlistEntry.id.desc()))
+        for w in db.scalars(
+            _paged(select(WaitlistEntry).order_by(WaitlistEntry.id.desc()), page)
+        )
     ]
 
 

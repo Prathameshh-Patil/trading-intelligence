@@ -71,7 +71,7 @@ from fastapi.testclient import TestClient
 
 from app.api import dependencies
 from app.api.dependencies import get_db
-from app.core.ratelimit import auth_bucket
+from app.core.ratelimit import reset_all
 from app.core.security import hash_password
 from app.db.session import engine
 from app.main import app
@@ -108,7 +108,7 @@ def client(db: Session) -> Iterator[TestClient]:
     dependencies.open_session = lambda: Session(
         bind=db.get_bind(), join_transaction_mode="create_savepoint", autoflush=False
     )
-    auth_bucket.reset()
+    reset_all()
     broadcaster.recent.clear()
     with TestClient(app, base_url="http://testserver") as c:
         yield c

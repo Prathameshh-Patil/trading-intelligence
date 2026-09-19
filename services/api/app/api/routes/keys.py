@@ -8,11 +8,11 @@ quietly), and a 401 conflates them. The 503 is the second case.
 
 from datetime import UTC, datetime
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.api.dependencies import DB, ApiKeyHeader, ApprovedUser, CurrentUser
-from app.core.ratelimit import client_ip
+from app.core.ratelimit import client_ip, limit
 from app.schemas import Activation, LicenceKey, ValidateResponse
 from app.services import audit, keys
 from app.services.events import ADMIN_CHANNEL, broadcaster, user_channel
@@ -76,7 +76,12 @@ NOT_VALID = {"tier": None, "expires_at": None}
 
 
 @router.post("/validate", response_model=ValidateResponse)
-def validate(x_api_key: ApiKeyHeader, db: DB) -> ValidateResponse:
+def validate(
+    x_api_key: ApiKeyHeader, db: DB, _: None = Depends(limit("validate"))
+) -> ValidateResponse:
+    # Its own budget (`rate_limit_validate_per_minute`): an unauthenticated
+    # route that must not be a free oracle for guessing keys, and an office of
+    # desktops behind one address that must not read as one.
     try:
         row = keys.lookup(db, x_api_key)
         if row is None:

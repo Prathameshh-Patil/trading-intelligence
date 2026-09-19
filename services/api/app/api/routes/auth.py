@@ -178,12 +178,20 @@ def login(
     return _issue(db, request, response, user, family_id=uuid.uuid4().hex, parent=None)
 
 
+def _session_key(request: Request) -> str | None:
+    # The refresh budget belongs to the session, not the address: one NAT
+    # holds many sessions and one stolen cookie is one session. Hashed so the
+    # bucket key is never the credential itself.
+    plain = request.cookies.get(settings.refresh_cookie_name)
+    return f"session:{sha256_hex(plain)[:16]}" if plain else None
+
+
 @router.post("/refresh", response_model=AuthResponse)
 def refresh(
     request: Request,
     response: Response,
     db: DB,
-    _: None = Depends(limit("refresh")),
+    _: None = Depends(limit("refresh", key=_session_key)),
 ) -> AuthResponse:
     if not origin_allowed(request.headers.get("origin")):
         raise HTTPException(status_code=403, detail={"error": "origin not allowed"})
@@ -192,8 +200,13 @@ def refresh(
     if not plain:
         raise HTTPException(status_code=401, detail={"error": "no session"})
 
+    # Locked for the transaction. Two refreshes racing on one token would
+    # both read `used_at IS NULL`, both succeed, and reuse detection would
+    # never fire; the second now waits and sees the first's `used_at`.
     row = db.scalar(
-        select(RefreshToken).where(RefreshToken.token_hash == sha256_hex(plain))
+        select(RefreshToken)
+        .where(RefreshToken.token_hash == sha256_hex(plain))
+        .with_for_update()
     )
     now = datetime.now(UTC)
 
@@ -216,7 +229,7 @@ def refresh(
         raise reject("session expired")
 
     user = db.get(User, row.user_id)
-    if user is None or user.status == "suspended":
+    if user is None or user.status in ("suspended", "rejected"):
         _revoke_family(db, row.family_id, now)
         db.commit()
         raise reject("session ended")

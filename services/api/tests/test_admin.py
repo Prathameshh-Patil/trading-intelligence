@@ -9,6 +9,8 @@ import pytest
 
 from tests.conftest import bearer
 
+PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 16
+
 
 def test_signup_appears_in_the_pending_queue_and_stats(client, admin):
     client.post(
@@ -172,13 +174,13 @@ def test_payment_proof_is_served_to_owner_and_admin_only(
             "currency": "inr",
             "reference": "UPI123",
         },
-        files={"proof": ("shot.png", b"\x89PNG fake", "image/png")},
+        files={"proof": ("shot.png", PNG, "image/png")},
         headers=token,
     )
     assert r.status_code == 201, r.text
     p = r.json()
     assert p["proof_url"] == f"/api/v1/payments/{p['id']}/proof"
-    assert client.get(p["proof_url"], headers=token).content == b"\x89PNG fake"
+    assert client.get(p["proof_url"], headers=token).content == PNG
     assert client.get(p["proof_url"], headers=admin).status_code == 200
     make_user("other@example.com")
     assert (

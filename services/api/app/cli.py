@@ -1,7 +1,9 @@
 """Operator commands. `uv run python -m app.cli <command>`.
 
 gen-jwt-key [kid]      print a fresh Ed25519 pair and a Fernet secret, as .env lines
-create-admin <email>   create (or promote) an admin; prompts for a password
+create-admin <email> [--reset]
+                       create an admin; prompts for a password. Refuses an
+                       existing account unless --reset is given
 promote <email>        make an existing account an admin
 """
 
@@ -23,7 +25,7 @@ def gen_jwt_key(kid: str | None) -> None:
     print(f"KEY_ENCRYPTION_SECRET={generate_encryption_secret()}")
 
 
-def create_admin(email: str) -> None:
+def create_admin(email: str, *, reset: bool = False) -> None:
     from sqlalchemy import select
 
     from app.core.security import hash_password
@@ -31,6 +33,17 @@ def create_admin(email: str) -> None:
     from app.models import User
 
     email = email.lower()
+    with SessionLocal() as db:
+        existing = db.scalar(select(User).where(User.email == email))
+        if existing is not None and not reset:
+            # An existing account's password is not overwritten by accident.
+            # `promote` makes them admin without touching it.
+            sys.exit(
+                f"{email} already exists (id {existing.id}). "
+                "Use `promote` to make them admin, or `create-admin --reset` "
+                "to set a new password."
+            )
+
     password = getpass.getpass("Password (min 10 chars): ")
     if len(password) < 10:
         sys.exit("password too short")
@@ -77,7 +90,7 @@ def main(argv: list[str]) -> None:
     if cmd == "gen-jwt-key":
         gen_jwt_key(rest[0] if rest else None)
     elif cmd == "create-admin" and rest:
-        create_admin(rest[0])
+        create_admin(rest[0], reset="--reset" in rest[1:])
     elif cmd == "promote" and rest:
         promote(rest[0])
     else:
