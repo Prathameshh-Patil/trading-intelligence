@@ -1,36 +1,29 @@
-import { defineConfig } from "vite";
+import { resolve } from "node:path";
+
 import react from "@vitejs/plugin-react";
-import { resolve } from "path";
+import { defineConfig } from "vite";
 
 /**
- * Two entries:
- *   sidepanel  -> index.html, the React UI Chrome loads as the side panel
- *   background -> background.js, the MV3 service worker
+ * The popup and the service worker, as ES modules.
  *
- * background must land at a fixed, unhashed path because manifest.json
- * references it by name.
- *
- * There is no content-script entry. capture.ts reads the page's selection
- * on demand via activeTab + chrome.scripting.executeScript when the user
- * clicks "Capture screen" — see 8cd4790, which made the same call for the
- * popup: no standing <all_urls> permission, nothing runs until asked.
+ * `background.js` lands at a fixed, unhashed path because manifest.json
+ * names it. The content script is NOT here: a content script is one classic
+ * script with no imports, so it is a second, IIFE build --
+ * `vite.content.config.ts` -- and `package.json`'s `build` runs both. Neither
+ * clears `dist/` (`emptyOutDir: false` below, and the content build writes
+ * into the same folder), so the order in `build` does not matter.
  */
 export default defineConfig({
   plugins: [react()],
-
   build: {
+    emptyOutDir: true,
     rollupOptions: {
       input: {
-        sidepanel: resolve(import.meta.dirname, "index.html"),
-        background: resolve(import.meta.dirname, "src/background.ts"),
+        popup: resolve(import.meta.dirname, "popup.html"),
+        background: resolve(import.meta.dirname, "src/background/index.ts"),
       },
-
       output: {
-        entryFileNames: (chunkInfo) => {
-          if (chunkInfo.name === "background") return "background.js";
-
-          return "assets/[name]-[hash].js";
-        },
+        entryFileNames: (chunk) => (chunk.name === "background" ? "background.js" : "assets/[name]-[hash].js"),
       },
     },
   },

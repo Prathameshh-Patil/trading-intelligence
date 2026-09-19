@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en" data-vh-host="www.tradingview.com">
+  <head>
+    <meta charset="UTF-8" />
+    <title>XAUUSD 4,069.5 ▲ +0.31% Unnamed — TradingView</title>
+    <style>
+      body { margin: 0; font-family: system-ui, sans-serif; background: #131722; color: #d1d4dc; }
+      #header-toolbar-intervals { display: flex; gap: 6px; padding: 10px 16px; border-bottom: 1px solid #2a2e39; }
+      #header-toolbar-intervals button { background: #1e222d; color: #d1d4dc; border: 0; padding: 4px 10px; border-radius: 4px; }
+      #header-toolbar-intervals button[aria-checked="true"] { background: #2962ff; color: #fff; }
+      .chart { height: 80vh; display: grid; place-items: center; font-size: 13px; color: #787b86; }
+      .harness { position: fixed; left: 16px; bottom: 16px; font-size: 12px; color: #787b86; }
+      .harness button { margin-right: 6px; }
+    </style>
+  </head>
+  <body>
+    <div id="header-toolbar-intervals">
+      <button aria-checked="false">1m</button>
+      <button aria-checked="false">5m</button>
+      <button aria-checked="true">15m</button>
+      <button aria-checked="false">1H</button>
+    </div>
+    <div class="chart">
+      <div>
+        <div data-name="legend-source-title">XAUUSD · 15 · OANDA</div>
+        <p>a fake chart page; the real one is a canvas</p>
+      </div>
+    </div>
+    <div class="harness">
+      <span id="harness-badge">badge —</span>
+      · <button id="break-title">break the title</button>
+      · <button id="reset">reset storage</button>
+    </div>
+    <script type="module" src="/dev/harness.tsx"></script>
+  </body>
+</html>

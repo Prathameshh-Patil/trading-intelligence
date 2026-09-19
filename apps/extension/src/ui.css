@@ -1,0 +1,328 @@
+/*
+ * One stylesheet for the popup and the in-page panel. The values are
+ * `packages/ui/tokens.css`'s (that file is Tailwind `@theme` and cannot be
+ * imported into a shadow root, so they are restated here -- change both).
+ * Everything is scoped under `.vh` so nothing leaks into a host page's
+ * document even before the shadow root isolates it.
+ */
+
+.vh {
+  --bg: #07080c;
+  --raise: #0c0e15;
+  --panel: #0f1119;
+  --ink: #f2f4f9;
+  --dim: #a2a9ba;
+  --faint: #6b7285;
+  --line: rgba(255, 255, 255, 0.08);
+  --line-hi: rgba(255, 255, 255, 0.14);
+  --violet: #8b5cf6;
+  --violet-lift: #a78bfa;
+  --green: #34d399;
+  --red: #f87171;
+  --amber: #fbbf24;
+  --r-sm: 8px;
+  --r-md: 12px;
+  --r-lg: 16px;
+
+  all: initial;
+  display: block;
+  box-sizing: border-box;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 13px;
+  line-height: 1.5;
+  letter-spacing: -0.005em;
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+}
+
+.vh *,
+.vh *::before,
+.vh *::after {
+  box-sizing: border-box;
+}
+
+.vh button,
+.vh input,
+.vh select {
+  font: inherit;
+  color: inherit;
+}
+
+/* ---- primitives -------------------------------------------------------- */
+
+.vh .eyebrow {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+
+.vh .card {
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--panel);
+}
+
+.vh .stack > * + * {
+  margin-top: 10px;
+}
+
+.vh .row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.vh .grow {
+  flex: 1;
+  min-width: 0;
+}
+
+.vh .dim {
+  color: var(--dim);
+}
+.vh .faint {
+  color: var(--faint);
+}
+.vh .mono {
+  font-family: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-variant-numeric: tabular-nums;
+}
+.vh .truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vh .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border: 1px solid var(--line-hi);
+  border-radius: var(--r-sm);
+  background: var(--raise);
+  color: var(--ink);
+  font-weight: 600;
+  cursor: pointer;
+}
+.vh .btn:hover {
+  border-color: var(--violet);
+}
+.vh .btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.vh .btn.primary {
+  background: var(--violet);
+  border-color: var(--violet);
+  color: #fff;
+}
+.vh .btn.ghost {
+  background: transparent;
+}
+.vh .btn.sm {
+  padding: 4px 8px;
+  font-size: 12px;
+}
+
+.vh .input {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--line-hi);
+  border-radius: var(--r-sm);
+  background: var(--bg);
+  color: var(--ink);
+  outline: none;
+}
+.vh .input:focus {
+  border-color: var(--violet);
+}
+
+.vh .select {
+  padding: 4px 6px;
+  border: 1px solid var(--line-hi);
+  border-radius: var(--r-sm);
+  background: var(--bg);
+  color: var(--ink);
+}
+
+.vh .field label {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 11px;
+  color: var(--dim);
+}
+
+/* ---- state pills ------------------------------------------------------- */
+
+.vh .pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  font-size: 11px;
+  font-weight: 600;
+}
+.vh .pill::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 99px;
+  background: currentColor;
+}
+.vh .pill.ok {
+  color: var(--green);
+  border-color: rgba(52, 211, 153, 0.3);
+}
+.vh .pill.warn {
+  color: var(--amber);
+  border-color: rgba(251, 191, 36, 0.3);
+}
+.vh .pill.bad {
+  color: var(--red);
+  border-color: rgba(248, 113, 113, 0.3);
+}
+.vh .pill.sync {
+  color: #a5b4fc;
+  border-color: rgba(165, 180, 252, 0.3);
+}
+.vh .pill.off {
+  color: var(--faint);
+}
+
+.vh .notice {
+  padding: 8px 10px;
+  border-radius: var(--r-sm);
+  font-size: 12px;
+  border: 1px solid var(--line);
+}
+.vh .notice.warn {
+  color: var(--amber);
+  background: rgba(251, 191, 36, 0.08);
+  border-color: rgba(251, 191, 36, 0.22);
+}
+.vh .notice.error {
+  color: var(--red);
+  background: rgba(248, 113, 113, 0.1);
+  border-color: rgba(248, 113, 113, 0.3);
+}
+
+/* ---- popup --------------------------------------------------------------- */
+
+.vh.popup {
+  width: 360px;
+  padding: 14px;
+  background: var(--bg);
+}
+
+/* ---- panel --------------------------------------------------------------- */
+
+.vh.panel {
+  position: fixed;
+  z-index: 2147483647;
+  width: 380px;
+  max-height: calc(100vh - 24px);
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--line-hi);
+  border-radius: var(--r-lg);
+  background: var(--bg);
+  box-shadow: 0 30px 80px -20px rgba(0, 0, 0, 0.8);
+  overflow: hidden;
+}
+.vh.panel.collapsed {
+  width: auto;
+}
+
+.vh .panel-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line);
+  background: var(--raise);
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+}
+.vh .panel-head:active {
+  cursor: grabbing;
+}
+.vh.panel.collapsed .panel-head {
+  border-bottom: none;
+}
+
+.vh .brand {
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.vh .badge {
+  min-width: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--violet);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  text-align: center;
+  line-height: 18px;
+}
+
+.vh .panel-body {
+  padding: 12px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.vh .panel-body > * {
+  flex-shrink: 0;
+}
+
+.vh .banner {
+  padding: 10px 12px;
+  border-radius: var(--r-md);
+  background: rgba(248, 113, 113, 0.12);
+  border: 1px solid rgba(248, 113, 113, 0.35);
+}
+.vh .banner .title {
+  font-weight: 700;
+  color: var(--red);
+}
+
+.vh .alert {
+  padding: 8px 10px;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--line);
+  background: var(--panel);
+}
+.vh .alert .title {
+  font-weight: 600;
+}
+.vh .alert .meta {
+  font-size: 11px;
+  color: var(--faint);
+}
+.vh .alert.signal {
+  border-color: rgba(139, 92, 246, 0.35);
+}
+
+.vh .chart-v {
+  font-size: 22px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.vh .empty {
+  padding: 8px 0;
+  color: var(--faint);
+  font-size: 12px;
+}
