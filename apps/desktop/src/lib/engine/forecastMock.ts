@@ -43,6 +43,7 @@ import {
   type VolState,
 } from "./forecast";
 import type { Engine } from "./types";
+import { API_BASE } from "../config";
 
 const BUCKETS: AtrBucket[] = ["(0.0, 7.0]", "(7.0, 10.0]", "(10.0, 14.0]", "(14.0, inf]"];
 const STATES: VolState[] = ["CONTRACTING", "STABLE", "EXPANDING"];
@@ -298,9 +299,7 @@ export const FIXTURE_URL = "/fixtures/reach_table.json";
  *
  *     VITE_API_BASE=http://localhost:8000 pnpm dev
  */
-export const TABLE_URL: string = import.meta.env.VITE_API_BASE
-  ? `${String(import.meta.env.VITE_API_BASE).replace(/\/+$/, "")}/api/v1/forecast/table`
-  : FIXTURE_URL;
+export const TABLE_URL: string = API_BASE ? `${API_BASE}/api/v1/forecast/table` : FIXTURE_URL;
 
 const fetchFixture: TableLoader = async () => {
   const r = await fetch(TABLE_URL);

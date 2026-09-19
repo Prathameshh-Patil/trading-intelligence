@@ -28,11 +28,10 @@ import {
   useLicence,
   type LicenceState,
 } from "../lib/licence";
+import { SITE_URL, overridden } from "../lib/config";
 import { riseIn, stagger } from "../ui/motion";
 
-const ACCOUNT_URL = import.meta.env.VITE_SITE_URL
-  ? `${String(import.meta.env.VITE_SITE_URL).replace(/\/+$/, "")}/account`
-  : null;
+const ACCOUNT_URL = SITE_URL ? `${SITE_URL}/account` : null;
 
 
 
@@ -164,7 +163,13 @@ export default function LicenceView() {
 
       {!API_BASE && (
         <motion.div variants={riseIn} className="notice error">
-          VITE_API_BASE is not set, so the key cannot be checked. This build cannot activate.
+          This build has no API address, so the key cannot be checked. It cannot activate.
+        </motion.div>
+      )}
+
+      {API_BASE && overridden() && (
+        <motion.div variants={riseIn} className="notice warn">
+          Checking against {API_BASE} -- a local override, not this build's server.
         </motion.div>
       )}
 

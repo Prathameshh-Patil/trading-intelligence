@@ -2556,6 +2556,44 @@ principle, on purpose and in writing.
       are best-effort until then); broker-hosted MT5 via `optional_host_permissions`; a `/alerts`
       publish screen in the admin portal (curl today); Chrome Web Store / AMO listing.
 
+### 2026-09-19 (later) — the desktop release pipeline: installers a trader can download · [`.github/workflows/release.yml`](../.github/workflows/release.yml) · [`daily_updates/2026-09-19.md`](../daily_updates/2026-09-19.md) §22
+
+**Thu 24 Sep's "first installers" is now a button press.** Until today the app ran only via
+`pnpm dev:desktop` on a machine with Rust; the URLs were baked to `localhost`; nothing was
+signed. The repo is public, so GitHub Releases serves the installers directly.
+
+- [x] **`release.yml`** — tag `desktop-v*` or Run workflow with `api_base`/`site_url` inputs;
+      Apple silicon, Intel and Windows (NSIS) in a matrix; `tauri-action` uploads to a **draft**
+      release with the install notes as its body. A build with no API address fails; one with a
+      localhost address warns and says *do not publish*. Linux absent on purpose (row B).
+- [x] **Signing, staged.** The updater keypair exists — public half in `tauri.conf.json`,
+      private half outside the repo at `~/.tauri/visionhub.key` on Prathamesh's machine, **to be
+      set as `TAURI_SIGNING_PRIVATE_KEY` before the first run** and backed up (lose it and no
+      installed app sees another update). Apple: six `APPLE_*` secrets switch on Developer ID +
+      notarization with no workflow change; without them the app is ad-hoc signed and Gatekeeper
+      wants a right-click → Open once. Windows: unsigned by decision until ~50 users, and the
+      "Windows protected your PC → More info → Run anyway" sentence is written, in the release
+      body and in `INSTALL.md`.
+- [x] **`tauri.conf.json`** — targets `app, dmg, nsis`; publisher/category/descriptions;
+      `bundle.macOS` with `entitlements.plist` and the hardened runtime; NSIS `currentUser` (no
+      UAC); `plugins.updater` endpoint at `releases/latest/download/latest.json`.
+      `createUpdaterArtifacts` is passed by the workflow as `--config`, so a local
+      `pnpm tauri build` needs no key. **Verified locally:** a 3.6 MB `aarch64` `.dmg` + `.app`
+      build clean (`codesign` says ad-hoc, as expected); with the key and the override, the
+      `.app.tar.gz` + `.sig` updater pair is produced.
+- [x] **One binary, more than one server.** `src/lib/config.ts` owns `API_BASE`/`SITE_URL`: the
+      build's `VITE_*` value unless a `localStorage` override (`vh.apiBase`, `vh.siteUrl`) says
+      otherwise, and the Licence screen says so when one is in effect. `licence.ts`,
+      `forecastMock.ts` and `LicenceView.tsx` read from it. Verified in the browser.
+- [x] **`apps/desktop/INSTALL.md`** (trader-facing) and **`README.md`** (the Tauri template,
+      replaced with the developer recipe). The site's `/account` "Next: install the app…" gains a
+      **Download the app →** link when `NEXT_PUBLIC_DOWNLOAD_URL` is set; unset, unchanged.
+- [ ] **Not done, by design:** the API is not deployed (row 4); no Apple account (Thu 24);
+      `tauri-plugin-updater` is not in the app (Week 5 — the artifacts exist, the plugin does
+      not); the icons are the Tauri template's; the shipped engine replays 2026-07-16 and the
+      install notes say so. **The first release should be a dispatch with a staging URL, kept
+      as a draft, and installed on a clean Mac** — that is the 24th.
+
 ## Next
 
 Ordered. **Rows #2, #6, #7 and #8 all closed between 25 Aug and 3 Sep** — the S1 fixture cut, the
@@ -2584,7 +2622,7 @@ both ran into**, neither of which is a row below because neither is anyone's tas
 | 1 | ~~Pick the analysis backend, then run the live analysis once~~ — **PARKED 25 Aug: we build our own model** | Varad | No hosted backend is bought, so no live analysis runs and the 5 `LIVE_API_TESTS=1` tests stay skipped. Claude stays in as the interim implementation; the four-key contract stays frozen, so the own model is a drop-in behind the same `analyze()` — the Day 3 lexicon→Claude swap already proved that seam holds. **Scoped 25 Aug — and it does not need a week.** The "own model" turned out not to be a replacement for `analyze()` at all: it is a **GC strategy selector**, and it is a *personal research tool*, not a product feature. Design in [`docs/superpowers/specs/2026-08-25-gc-strategy-selector-design.md`](../docs/superpowers/specs/2026-08-25-gc-strategy-selector-design.md). It takes no week from `plans/team/`, so the "unscheduled model eats Week 6" risk is closed by the thing not being scheduled rather than by scheduling it. **`analyze()` keeps Claude as its interim implementation and stays `503` indefinitely** — that is unchanged and still unverified end to end. **Stage 1's machinery landed the night of 25 Aug** — `s1.py`, `backtest.py`, 16 tests, and a 3.12-pinned environment for `services/signal-data`, which had none. **Still not started: any actual backtest.** `thresholds_selector.md` now exists with §6.1's Part A binding, but **Parts B and C are empty and only Varad can fill them** — the candidate strategies are his to author (§9 Q1), and a threshold picked by an assistant is not a commitment by the person with the bias. One session cannot support §6 regardless; the full month is still only on Prathamesh's disk. **Stage 1's candidates landed 26 Aug** — `strategies.py`, 191 lines, four features and four entry-only rules, 27 tests green. **No threshold in it has a default**, so §6.1 is enforced by the function signature: the file raises `TypeError` (and fails `mypy`) until Part B exists. The four rules are now shaped functions to be *corrected* rather than blank blocks to be *authored*, which is a smaller ask — but Part B is still the only thing between here and a first backtest. **Part B was FILLED and committed 2026-09-04, 00:38 IST** — three blocks (`absorption_fade` dropped from Week 1 by decision), every threshold, kill line and prediction chosen by Varad and transcribed. **A backtest is no longer blocked on this file.** Part C remains empty, so nothing may be clustered |
 | 2 | ~~Click the demo through in **Firefox**~~ — **reported done, ~28 Aug or before** | Either | Prathamesh reports capture verified end-to-end in both a real Chrome profile and a real Firefox profile with the rebuilt (`955b374`) extension. **Not contemporaneously logged** — no daily update, commit, or screenshot from the time records it, so this row is closed on his account rather than on independent evidence. If that evidence turns up (a screenshot, a `daily_updates` entry) it should still get linked here |
 | 3 | Review the **popup UI** | Prathamesh | Written from scratch to unbreak the build — a starting point, not a design |
-| 4 | Decide **where the API lives** | Both | Popup hardcodes `http://localhost:8000`, matching `host_permissions`; a deployed URL changes both, and the CORS entries start mattering once `host_permissions` no longer covers the host. **Now also a secrets question:** the API holds an Anthropic key, so it needs somewhere that can hold an env var — and the key must never move into the extension, which is public |
+| 4 | Decide **where the API lives** | Both | **Now blocks the first desktop release too:** `release.yml` bakes `VITE_API_BASE` into the installer and refuses to build without one; the `DESKTOP_API_BASE`/`DESKTOP_SITE_URL` repo variables are set the day this is decided. Popup hardcodes `http://localhost:8000`, matching `host_permissions`; a deployed URL changes both, and the CORS entries start mattering once `host_permissions` no longer covers the host. **Now also a secrets question:** the API holds an Anthropic key, so it needs somewhere that can hold an env var — and the key must never move into the extension, which is public |
 | 5 | **AMO / Web Store** submission prep | Undecided | See constraints below |
 | 6 | ~~Run the Databento pull for real~~ — **DONE 24 Aug, `8aece67`** | Prathamesh | 1,616,772 GC trades, $2.52, aggressor split 48.32/47.79 — inside the band. Exceeded the bar this row set. ~~**What's left: the S1 fixture cut — and it is blocked.**~~ **DONE 25 Aug, `14f5547`.** Blocked in the morning (the month lived only on Prathamesh's disk) and closed the same evening — he cut the session with `cut_s1_fixture.py` and pushed the fixture rather than the month, landing on the one path the `.gitignore` exception carved out hours earlier. **Verified independently after pulling:** 77,532 rows exactly, all six S1 columns with correct dtypes and no extras, `GCQ6` only, CME session window, and **session delta +1,842 — matching `DELTA_CVD_FINDINGS.md` §3 to the unit**, which is a number computed by a different script on a different machine. **Two things came out of it:** `aggressor_side` carries a real third value `'N'` (1,811 trades, 2.34%) that S1 does not admit — **a pending amendment, drafted in `contracts.md`, needs all three at Wednesday's standup** — and the fixture holds 421 genuine duplicate rows where `drop_duplicates()` would shift session delta by **8%**. Both recorded in S1. NQ dropped 25 Aug — the ~$11.42 stays unspent |
 | 7 | ~~Confirm `pnpm tauri dev` opens a real window~~ — **DONE 25 Aug, pixels confirmed 3 Sep** | Varad | Ran on-device. Warm `cargo` rebuild in **4.27s**, vite on `:1420`, `target/debug/desktop` running. **Evidence, not a screenshot of a bundle:** the accessibility API reports the process owning **one window, title `Trading Intelligence`, 460×820 at (610, 80)** — the geometry is `tauri.conf.json`'s `width`/`height` to the pixel, so the config is what produced the window; and Launch Services lists it `Foreground` with `desktop Networking` (`com.apple.WebKit.Networking`) and `desktop Graphics and Media` (`com.apple.WebKit.GPU`) as children, which exist only when a real `WKWebView` is instantiated. **The pixel gap closed 3 Sep** ([`daily_updates/2026-09-03.md`](../daily_updates/2026-09-03.md)): Screen Recording permission granted, `screencapture -x` on a real launch shows the summary view rendered correctly — header, strategy card, stats, five action tiles, nothing blank or broken. Window bounds back-calculate to ~460×820pt at 2x, matching the accessibility-API number independently. **Still not claimed:** the other five views (only the home view was checked) and console errors (no devtools was attached; the terminal log is clean but a WKWebView doesn't reliably forward `console.error` to it). Reviewing the UI is #3 and stays open |
