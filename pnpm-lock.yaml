@@ -53,6 +53,12 @@ importers:
       '@tauri-apps/plugin-opener':
         specifier: ^2
         version: 2.5.4
+      '@vision-hub/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
+      '@vision-hub/core':
+        specifier: workspace:*
+        version: link:../../packages/core
       framer-motion:
         specifier: ^13.1.1
         version: 13.1.1(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
@@ -164,6 +170,22 @@ importers:
 
   packages/contracts:
     dependencies:
+      react:
+        specifier: ^19
+        version: 19.2.8
+    devDependencies:
+      '@types/react':
+        specifier: 19.2.18
+        version: 19.2.18
+      typescript:
+        specifier: ~6.0.2
+        version: 6.0.3
+
+  packages/core:
+    dependencies:
+      '@vision-hub/contracts':
+        specifier: workspace:*
+        version: link:../contracts
       react:
         specifier: ^19
         version: 19.2.8
